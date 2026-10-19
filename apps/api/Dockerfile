@@ -16,9 +16,10 @@ ENV NODE_ENV=production
 COPY package*.json ./
 RUN npm install --omit=dev --legacy-peer-deps
 
-COPY --from=builder /app/dist/apps/api ./dist/apps/api
+# Copia os artefatos compilados de apps/api/dist
+COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/src ./apps/api/src
 
 EXPOSE 3000
 
-CMD ["node", "dist/apps/api/main.js"]
+CMD ["node", "apps/api/dist/main.js"]
