@@ -228,6 +228,9 @@ CREATE TABLE IF NOT EXISTS objetivos (
 -- ------------------------------------------------------------------------------
 -- 17. Índices de Otimização e Performance
 -- ------------------------------------------------------------------------------
+CREATE UNIQUE INDEX IF NOT EXISTS idx_usuarios_email_uniq ON usuarios(LOWER(email)) WHERE email IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_usuarios_nome_uniq ON usuarios(LOWER(nome));
+
 CREATE INDEX IF NOT EXISTS idx_transacoes_userid_data ON transacoes(userid, data);
 CREATE INDEX IF NOT EXISTS idx_transacoes_source ON transacoes(source_type, source_id);
 CREATE INDEX IF NOT EXISTS idx_transacoes_status ON transacoes(status);

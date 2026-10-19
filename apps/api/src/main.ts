@@ -32,22 +32,40 @@ if (!fs.existsSync(uploadsDir)) {
 }
 
 // Configuração CORS
-const allowedOrigins = [
+const configuredOrigins = ENV.CORS_ORIGINS
+  ? ENV.CORS_ORIGINS.split(',').map((o) => o.trim())
+  : [];
+
+const defaultAllowedOrigins = [
   'http://localhost:4200',
   'http://localhost:3000',
   'http://localhost:8100',
   'https://gerenciamento-one.vercel.app',
   'https://novasapi.vercel.app',
+  ...configuredOrigins,
 ];
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin) || origin.startsWith('http://localhost:')) {
-        callback(null, true);
-      } else {
-        callback(null, true); // Permite desenvolvimento flexível
+      // Permite requisições sem origin (ex: mobile apps nativos, curl, postman, same-origin)
+      if (!origin) {
+        return callback(null, true);
       }
+
+      // Permite localhost, 127.0.0.1, Capacitor/Ionic nativo e IPs da rede local
+      const isLocalOrLan =
+        origin.startsWith('http://localhost:') ||
+        origin.startsWith('http://127.0.0.1:') ||
+        origin.startsWith('capacitor://') ||
+        origin.startsWith('ionic://') ||
+        /^http:\/\/(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/.test(origin);
+
+      if (isLocalOrLan || defaultAllowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(null, true); // Permite desenvolvimento e integrações flexíveis
     },
     credentials: true,
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
@@ -76,6 +94,9 @@ app.get('/', (_req: Request, res: Response) => {
       '/api/docs',
       '/docs/json',
       '/auth',
+      '/auth/login',
+      '/auth/register',
+      '/api/auth/register',
       '/user',
       '/categorias',
       '/subcategorias',
@@ -139,10 +160,11 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
 });
 
 const port = ENV.PORT;
+const host = ENV.HOST;
 
-app.listen(port, () => {
-  console.log(`[ Contabilidade API ] Rodando em http://localhost:${port}`);
-  console.log(`[ Swagger Docs ] Disponível em http://localhost:${port}/docs`);
+app.listen(port, host, () => {
+  console.log(`[ Contabilidade API ] Rodando em http://${host}:${port}`);
+  console.log(`[ Swagger Docs ] Disponível em http://${host}:${port}/docs`);
 });
 
 export default app;

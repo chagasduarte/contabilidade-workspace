@@ -25,14 +25,14 @@ export class CardValidationError extends Error {
 }
 
 export class CardNotFoundError extends Error {
-  constructor(message: string = 'Cartão de crédito não encontrado.') {
+  constructor(message = 'Cartão de crédito não encontrado.') {
     super(message);
     this.name = 'CardNotFoundError';
   }
 }
 
 export class InvoiceNotFoundError extends Error {
-  constructor(message: string = 'Fatura não encontrada.') {
+  constructor(message = 'Fatura não encontrada.') {
     super(message);
     this.name = 'InvoiceNotFoundError';
   }

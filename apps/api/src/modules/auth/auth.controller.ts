@@ -20,4 +20,36 @@ export const AuthController = {
       res.status(401).json({ error: message, erro: message });
     }
   },
+
+  async register(req: Request, res: Response): Promise<void> {
+    try {
+      const { nome, name, email, senha, password } = req.body;
+      const finalNome = nome || name;
+      const finalSenha = senha || password;
+
+      if (!finalNome || !email || !finalSenha) {
+        res.status(400).json({
+          erro: 'Nome, e-mail e senha são obrigatórios',
+          error: 'Nome, e-mail e senha são obrigatórios',
+        });
+        return;
+      }
+
+      const resultado = await AuthBusiness.register({
+        nome: finalNome,
+        email,
+        senha: finalSenha,
+      });
+
+      res.status(201).json(resultado);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Erro ao cadastrar usuário';
+      const statusCode =
+        (error as { statusCode?: number })?.statusCode ||
+        (message.includes('já está') ? 409 : 400);
+
+      console.error('[AuthController.register]:', message);
+      res.status(statusCode).json({ error: message, erro: message });
+    }
+  },
 };

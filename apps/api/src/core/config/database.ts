@@ -1,12 +1,22 @@
 import { Pool, PoolConfig } from 'pg';
 import { ENV } from './env';
 
-const isNeon =
-  (ENV.DB_HOST && ENV.DB_HOST.includes('neon.tech')) ||
-  (ENV.DATABASE_URL && ENV.DATABASE_URL.includes('neon.tech'));
+const host = (ENV.DB_HOST || '').toLowerCase();
+const connStr = (ENV.DATABASE_URL || '').toLowerCase();
+
+const isNeon = host.includes('neon.tech') || connStr.includes('neon.tech');
+const isLocal =
+  host === 'localhost' ||
+  host === '127.0.0.1' ||
+  host === 'postgres' ||
+  host === '';
+
+// Neon e provedores de nuvem sempre exigem SSL incondicionalmente
 const useSsl =
+  isNeon ||
   process.env.DB_SSL === 'true' ||
-  (process.env.DB_SSL !== 'false' && Boolean(isNeon));
+  (!isLocal && process.env.DB_SSL !== 'false');
+
 const sslOption = useSsl ? { rejectUnauthorized: false } : false;
 
 const poolConfig: PoolConfig = ENV.DATABASE_URL

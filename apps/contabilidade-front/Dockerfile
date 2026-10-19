@@ -8,7 +8,7 @@ RUN npm install --legacy-peer-deps
 
 # Copia o código e compila o Angular
 COPY . .
-RUN npx nx build contabilidade-front --configuration=production
+RUN npm run build:front
 
 # Etapa 2: Servidor Nginx de Produção
 FROM nginx:alpine

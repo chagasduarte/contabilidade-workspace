@@ -15,7 +15,10 @@ export const UserController = {
       res.status(201).json(resultado);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Erro ao criar usuário';
-      res.status(400).json({ erro: message });
+      const statusCode =
+        (error as { statusCode?: number })?.statusCode ||
+        (message.includes('já está') ? 409 : 400);
+      res.status(statusCode).json({ erro: message, error: message });
     }
   },
 

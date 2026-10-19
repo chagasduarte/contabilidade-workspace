@@ -25,9 +25,10 @@ export const ENV = {
         ? process.env.PORT
         : 3000)
   ),
-  HOST: process.env.HOST || 'localhost',
+  HOST: process.env.HOST || '0.0.0.0',
   JWT_SECRET: process.env.JWT_SECRET || 'chave_secreta_super_segura',
   BASE_URL: process.env.BASE_URL || 'http://localhost:3000',
+  CORS_ORIGINS: process.env.CORS_ORIGINS || '',
   DB_HOST: process.env.DB_HOST,
   DB_PORT: Number(process.env.DB_PORT || 5432),
   DB_USER: process.env.DB_USER,

@@ -1,0 +1,246 @@
+<ion-content class="register-page">
+  <div class="register-page__ambient register-page__ambient--emerald" aria-hidden="true"></div>
+  <div class="register-page__ambient register-page__ambient--slate" aria-hidden="true"></div>
+
+  <div class="register-page__container">
+    <div class="register-layout">
+      <!-- Coluna Esquerda: Vitrine e Benefícios -->
+      <section class="register-showcase" aria-label="Benefícios da Plataforma">
+        <div class="register-showcase__brand">
+          <span class="register-showcase__badge">
+            <ion-icon name="sparkles-outline" aria-hidden="true"></ion-icon>
+            Primeiro Acesso & Cadastro
+          </span>
+        </div>
+
+        <h1 class="register-showcase__headline">
+          Comece agora a construir sua <span class="register-showcase__highlight">liberdade financeira</span>.
+        </h1>
+
+        <p class="register-showcase__lead">
+          Cadastre sua conta em segundos e tenha visão 360° de suas contas bancárias, cartões de crédito, dívidas e projeções futuras.
+        </p>
+
+        <!-- Pilares e Benefícios da Plataforma -->
+        <div class="showcase-features">
+          @for (benefit of benefits; track benefit.title) {
+            <div class="showcase-feature-card" [style.--feature-accent]="benefit.accentColor">
+              <div class="showcase-feature-card__icon-box">
+                <ion-icon [name]="benefit.icon" aria-hidden="true"></ion-icon>
+              </div>
+              <div class="showcase-feature-card__body">
+                <h3 class="showcase-feature-card__title">{{ benefit.title }}</h3>
+                <p class="showcase-feature-card__desc">{{ benefit.description }}</p>
+              </div>
+            </div>
+          }
+        </div>
+      </section>
+
+      <!-- Coluna Direita: Card de Cadastro -->
+      <section class="register-panel">
+        <ion-card class="register-card">
+          <ion-card-header class="register-card__header">
+            <div class="register-card__top-row">
+              <div class="register-card__logo-badge">
+                <ion-icon name="person-add-outline" class="register-card__logo-icon" aria-hidden="true"></ion-icon>
+              </div>
+              <span class="register-card__security-pill">
+                <ion-icon name="shield-checkmark-outline" aria-hidden="true"></ion-icon>
+                Conta Protegida
+              </span>
+            </div>
+
+            <ion-card-title class="register-card__title">Criar Nova Conta</ion-card-title>
+            <p class="register-card__subtitle">
+              Preencha os dados abaixo para criar sua conta de administrador
+            </p>
+          </ion-card-header>
+
+          <ion-card-content class="register-card__content">
+            @if (errorMessage()) {
+              <div class="register-card__alert register-card__alert--error" role="alert" data-testid="error-message">
+                <ion-text color="danger">{{ errorMessage() }}</ion-text>
+              </div>
+            }
+
+            @if (successMessage()) {
+              <div class="register-card__alert register-card__alert--success" role="status" data-testid="success-message">
+                <ion-text color="success">{{ successMessage() }}</ion-text>
+              </div>
+            }
+
+            <form [formGroup]="registerForm" (ngSubmit)="onSubmit()" novalidate class="register-form">
+              <!-- Campo: Nome Completo -->
+              <div class="register-form__field">
+                <ion-item lines="none" class="register-form__item">
+                  <ion-icon name="person-outline" slot="start" class="register-form__icon" aria-hidden="true"></ion-icon>
+                  <ion-input
+                    type="text"
+                    label="Nome Completo / Usuário"
+                    labelPlacement="floating"
+                    placeholder="Ex: Carlos Eduardo"
+                    formControlName="nome"
+                    data-testid="nome-input"
+                    autocomplete="name"
+                  ></ion-input>
+                </ion-item>
+                @if (registerForm.controls.nome.touched && registerForm.controls.nome.invalid) {
+                  <ion-note color="danger" class="register-form__error" data-testid="nome-error">
+                    @if (registerForm.controls.nome.errors?.['required']) {
+                      O nome é obrigatório.
+                    } @else if (registerForm.controls.nome.errors?.['minlength']) {
+                      O nome deve conter pelo menos 2 caracteres.
+                    }
+                  </ion-note>
+                }
+              </div>
+
+              <!-- Campo: E-mail -->
+              <div class="register-form__field">
+                <ion-item lines="none" class="register-form__item">
+                  <ion-icon name="mail-outline" slot="start" class="register-form__icon" aria-hidden="true"></ion-icon>
+                  <ion-input
+                    type="email"
+                    label="E-mail"
+                    labelPlacement="floating"
+                    placeholder="seuemail@exemplo.com"
+                    formControlName="email"
+                    data-testid="email-input"
+                    autocomplete="email"
+                  ></ion-input>
+                </ion-item>
+                @if (registerForm.controls.email.touched && registerForm.controls.email.invalid) {
+                  <ion-note color="danger" class="register-form__error" data-testid="email-error">
+                    @if (registerForm.controls.email.errors?.['required']) {
+                      O e-mail é obrigatório.
+                    } @else if (registerForm.controls.email.errors?.['email']) {
+                      Informe um endereço de e-mail válido.
+                    }
+                  </ion-note>
+                }
+              </div>
+
+              <!-- Campo: Senha -->
+              <div class="register-form__field">
+                <ion-item lines="none" class="register-form__item">
+                  <ion-icon name="lock-closed-outline" slot="start" class="register-form__icon" aria-hidden="true"></ion-icon>
+                  <ion-input
+                    [type]="showPassword() ? 'text' : 'password'"
+                    label="Senha"
+                    labelPlacement="floating"
+                    placeholder="••••••••"
+                    formControlName="senha"
+                    data-testid="senha-input"
+                    autocomplete="new-password"
+                  ></ion-input>
+                  <button
+                    type="button"
+                    slot="end"
+                    class="register-form__toggle-pwd"
+                    (click)="togglePasswordVisibility()"
+                    [attr.aria-label]="showPassword() ? 'Ocultar senha' : 'Mostrar senha'"
+                    data-testid="toggle-password-btn"
+                  >
+                    <ion-icon
+                      [name]="showPassword() ? 'eye-off-outline' : 'eye-outline'"
+                      aria-hidden="true"
+                    ></ion-icon>
+                  </button>
+                </ion-item>
+                @if (registerForm.controls.senha.touched && registerForm.controls.senha.invalid) {
+                  <ion-note color="danger" class="register-form__error" data-testid="senha-error">
+                    @if (registerForm.controls.senha.errors?.['required']) {
+                      A senha é obrigatória.
+                    } @else if (registerForm.controls.senha.errors?.['minlength']) {
+                      A senha deve ter no mínimo 4 caracteres.
+                    }
+                  </ion-note>
+                }
+              </div>
+
+              <!-- Campo: Confirmar Senha -->
+              <div class="register-form__field">
+                <ion-item lines="none" class="register-form__item">
+                  <ion-icon name="lock-closed-outline" slot="start" class="register-form__icon" aria-hidden="true"></ion-icon>
+                  <ion-input
+                    [type]="showConfirmPassword() ? 'text' : 'password'"
+                    label="Confirmar Senha"
+                    labelPlacement="floating"
+                    placeholder="••••••••"
+                    formControlName="confirmarSenha"
+                    data-testid="confirmar-senha-input"
+                    autocomplete="new-password"
+                  ></ion-input>
+                  <button
+                    type="button"
+                    slot="end"
+                    class="register-form__toggle-pwd"
+                    (click)="toggleConfirmPasswordVisibility()"
+                    [attr.aria-label]="showConfirmPassword() ? 'Ocultar senha' : 'Mostrar senha'"
+                    data-testid="toggle-confirm-password-btn"
+                  >
+                    <ion-icon
+                      [name]="showConfirmPassword() ? 'eye-off-outline' : 'eye-outline'"
+                      aria-hidden="true"
+                    ></ion-icon>
+                  </button>
+                </ion-item>
+                @if (registerForm.controls.confirmarSenha.touched && registerForm.controls.confirmarSenha.invalid) {
+                  <ion-note color="danger" class="register-form__error" data-testid="confirmar-senha-error">
+                    @if (registerForm.controls.confirmarSenha.errors?.['required']) {
+                      A confirmação de senha é obrigatória.
+                    } @else if (registerForm.controls.confirmarSenha.errors?.['passwordMismatch']) {
+                      As senhas não coincidem.
+                    }
+                  </ion-note>
+                }
+              </div>
+
+              <!-- Botão de Cadastro -->
+              <ion-button
+                type="submit"
+                expand="block"
+                class="register-form__submit-btn"
+                [disabled]="authService.loading()"
+                data-testid="submit-btn"
+              >
+                @if (authService.loading()) {
+                  <ion-spinner name="crescent" class="register-form__spinner"></ion-spinner>
+                  <span>Cadastrando...</span>
+                } @else {
+                  <span>Criar Minha Conta</span>
+                  <ion-icon name="arrow-forward-outline" slot="end" class="register-form__btn-arrow" aria-hidden="true"></ion-icon>
+                }
+              </ion-button>
+            </form>
+
+            <!-- Link de Retorno ao Login -->
+            <div class="register-card__login-row">
+              <span class="register-card__login-text">Já possui uma conta?</span>
+              <a routerLink="/login" class="register-card__login-link" data-testid="login-link">
+                Entrar
+              </a>
+            </div>
+
+            <div class="register-card__footer">
+              <div class="register-card__trust-item">
+                <ion-icon name="checkmark-circle-outline" aria-hidden="true"></ion-icon>
+                <span>Acesso Imediato</span>
+              </div>
+              <div class="register-card__trust-item">
+                <ion-icon name="checkmark-circle-outline" aria-hidden="true"></ion-icon>
+                <span>Criptografia Ponta a Ponta</span>
+              </div>
+              <div class="register-card__trust-item">
+                <ion-icon name="checkmark-circle-outline" aria-hidden="true"></ion-icon>
+                <span>Setup Automático</span>
+              </div>
+            </div>
+          </ion-card-content>
+        </ion-card>
+      </section>
+    </div>
+  </div>
+</ion-content>
+

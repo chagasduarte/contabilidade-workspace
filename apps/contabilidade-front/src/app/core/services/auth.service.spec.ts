@@ -6,7 +6,7 @@ import {
 import { provideHttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { AuthService, AUTH_API_URL } from './auth.service';
-import { AuthResponse, LoginCredentials, Usuario } from '@contabilidade/models';
+import { AuthResponse, LoginCredentials, RegisterData, Usuario } from '@contabilidade/models';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -154,6 +154,76 @@ describe('AuthService', () => {
 
       const req = httpTesting.expectOne('http://localhost:3000/auth/login');
       req.flush({ error: 'Credenciais inválidas' }, { status: 401, statusText: 'Unauthorized' });
+
+      expect(hasError).toBe(true);
+      expect(service.loading()).toBe(false);
+      expect(service.token()).toBeNull();
+      expect(service.currentUser()).toBeNull();
+      expect(service.isAuthenticated()).toBe(false);
+    });
+  });
+
+  describe('register()', () => {
+    it('deve cadastrar usuário com sucesso, atualizar estado e persistir token no localStorage', () => {
+      const registerData: RegisterData = {
+        nome: 'Maria Silva',
+        email: 'maria@exemplo.com',
+        senha: 'senha-segura-123',
+      };
+
+      const mockRegisterResponse: AuthResponse = {
+        token: 'jwt-registered-token',
+        usuario: {
+          id: 2,
+          nome: 'Maria Silva',
+          email: 'maria@exemplo.com',
+        },
+        message: 'Usuário cadastrado com sucesso',
+      };
+
+      let responseEmitted: AuthResponse | undefined;
+
+      service.register(registerData).subscribe((res) => {
+        responseEmitted = res;
+      });
+
+      expect(service.loading()).toBe(true);
+
+      const req = httpTesting.expectOne('http://localhost:3000/auth/register');
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({
+        nome: 'Maria Silva',
+        email: 'maria@exemplo.com',
+        senha: 'senha-segura-123',
+      });
+
+      req.flush(mockRegisterResponse);
+
+      expect(responseEmitted).toEqual(mockRegisterResponse);
+      expect(service.loading()).toBe(false);
+      expect(service.token()).toBe(mockRegisterResponse.token);
+      expect(service.currentUser()).toEqual(mockRegisterResponse.usuario);
+      expect(service.isAuthenticated()).toBe(true);
+      expect(service.getToken()).toBe(mockRegisterResponse.token);
+      expect(localStorage.getItem('token')).toBe(mockRegisterResponse.token);
+    });
+
+    it('deve desativar status de loading em caso de erro no cadastro (ex: e-mail duplicado)', () => {
+      const registerData: RegisterData = {
+        nome: 'Maria Silva',
+        email: 'jaexiste@exemplo.com',
+        senha: 'senha-segura-123',
+      };
+
+      let hasError = false;
+      service.register(registerData).subscribe({
+        error: () => {
+          hasError = true;
+        },
+      });
+
+      const req = httpTesting.expectOne('http://localhost:3000/auth/register');
+      req.flush({ error: 'Este e-mail já está cadastrado' }, { status: 409, statusText: 'Conflict' });
 
       expect(hasError).toBe(true);
       expect(service.loading()).toBe(false);

@@ -11,7 +11,7 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import {
   IonButton,
   IonCard,
@@ -71,6 +71,7 @@ export interface PreviewMetric {
   imports: [
     CommonModule,
     ReactiveFormsModule,
+    RouterLink,
     IonContent,
     IonCard,
     IonCardHeader,

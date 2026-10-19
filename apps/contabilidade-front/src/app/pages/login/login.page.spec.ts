@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Router } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { signal } from '@angular/core';
 import { LoginPage } from './login.page';
@@ -9,7 +9,7 @@ import { AuthResponse, Usuario } from '@contabilidade/models';
 describe('LoginPage', () => {
   let component: LoginPage;
   let fixture: ComponentFixture<LoginPage>;
-  let routerSpy: { navigate: ReturnType<typeof vi.fn> };
+  let router: Router;
   let authServiceSpy: {
     login: ReturnType<typeof vi.fn>;
     loading: ReturnType<typeof signal<boolean>>;
@@ -27,10 +27,6 @@ describe('LoginPage', () => {
   };
 
   beforeEach(async () => {
-    routerSpy = {
-      navigate: vi.fn(),
-    };
-
     authServiceSpy = {
       login: vi.fn(),
       loading: signal<boolean>(false),
@@ -39,10 +35,13 @@ describe('LoginPage', () => {
     await TestBed.configureTestingModule({
       imports: [LoginPage],
       providers: [
-        { provide: Router, useValue: routerSpy },
+        provideRouter([]),
         { provide: AuthService, useValue: authServiceSpy },
       ],
     }).compileComponents();
+
+    router = TestBed.inject(Router);
+    vi.spyOn(router, 'navigate').mockImplementation(() => Promise.resolve(true));
 
     fixture = TestBed.createComponent(LoginPage);
     component = fixture.componentInstance;
@@ -105,7 +104,7 @@ describe('LoginPage', () => {
       email: 'valido@dominio.com',
       senha: 'senha123',
     });
-    expect(routerSpy.navigate).toHaveBeenCalledWith(['/dashboard']);
+    expect(router.navigate).toHaveBeenCalledWith(['/dashboard']);
     expect(component.errorMessage()).toBeNull();
   });
 
@@ -121,7 +120,7 @@ describe('LoginPage', () => {
       nome: 'usuario_fidelis',
       senha: 'senha123',
     });
-    expect(routerSpy.navigate).toHaveBeenCalledWith(['/dashboard']);
+    expect(router.navigate).toHaveBeenCalledWith(['/dashboard']);
   });
 
   it('deve exibir mensagem de erro amigável caso o login falhe', () => {
@@ -137,7 +136,7 @@ describe('LoginPage', () => {
     component.onSubmit();
 
     expect(authServiceSpy.login).toHaveBeenCalled();
-    expect(routerSpy.navigate).not.toHaveBeenCalled();
+    expect(router.navigate).not.toHaveBeenCalled();
     expect(component.errorMessage()).toBe('Usuário ou senha incorretos');
   });
 });

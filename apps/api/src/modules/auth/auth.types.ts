@@ -14,5 +14,13 @@ export interface AuthUserResponse {
 export interface AuthResponseDto {
   token: string;
   usuario: AuthUserResponse;
+  message?: string;
 }
+
+export interface RegisterDto {
+  nome: string;
+  email: string;
+  senha: string;
+}
+
 

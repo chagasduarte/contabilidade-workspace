@@ -2,7 +2,7 @@ import { inject, Injectable, InjectionToken, signal, computed } from '@angular/c
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { Observable, tap } from 'rxjs';
-import { AuthResponse, LoginCredentials, Usuario } from '@contabilidade/models';
+import { AuthResponse, LoginCredentials, RegisterData, Usuario } from '@contabilidade/models';
 import { environment } from '../../../environments/environment';
 
 export interface JwtPayload {
@@ -181,6 +181,36 @@ export class AuthService {
             this.token.set(response.token);
             this.currentUser.set(response.usuario);
             this.scheduleExpirationTimer(response.token);
+            this.loading.set(false);
+          },
+          error: () => {
+            this.loading.set(false);
+          },
+        })
+      );
+  }
+
+  register(data: RegisterData): Observable<AuthResponse> {
+    this.loading.set(true);
+
+    const payload = {
+      nome: data.nome.trim(),
+      email: data.email.trim().toLowerCase(),
+      senha: data.senha,
+    };
+
+    return this.http
+      .post<AuthResponse>(`${this.baseUrl}/auth/register`, payload)
+      .pipe(
+        tap({
+          next: (response) => {
+            if (response.token && typeof window !== 'undefined' && window.localStorage) {
+              localStorage.setItem(this.TOKEN_KEY, response.token);
+              localStorage.setItem(this.USER_KEY, JSON.stringify(response.usuario));
+              this.token.set(response.token);
+              this.currentUser.set(response.usuario);
+              this.scheduleExpirationTimer(response.token);
+            }
             this.loading.set(false);
           },
           error: () => {

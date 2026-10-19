@@ -9,12 +9,35 @@ export const UserBusiness = {
     usuario: CreateUserDto,
     file?: Express.Multer.File
   ): Promise<UserResponse> {
+    const nome = usuario.nome?.trim();
+    const email = usuario.email?.trim().toLowerCase();
+    const senha = usuario.senha;
+
+    if (!nome) throw new Error('Nome é obrigatório');
+    if (!senha) throw new Error('Senha é obrigatória');
+
+    if (email) {
+      const existeEmail = await UserRepository.buscaPorEmail(email);
+      if (existeEmail) {
+        const err = new Error('Este e-mail já está cadastrado');
+        (err as unknown as { statusCode: number }).statusCode = 409;
+        throw err;
+      }
+    }
+
+    const existeNome = await UserRepository.buscaPorNome(nome);
+    if (existeNome) {
+      const err = new Error('Este nome de usuário já está em uso');
+      (err as unknown as { statusCode: number }).statusCode = 409;
+      throw err;
+    }
+
     const salt = await bcrypt.genSalt(10);
-    const hash = await bcrypt.hash(usuario.senha, salt);
+    const hash = await bcrypt.hash(senha, salt);
 
     const user = await UserRepository.criar({
-      nome: usuario.nome,
-      email: usuario.email,
+      nome,
+      email: email || null,
       senha_hash: hash,
     });
 
