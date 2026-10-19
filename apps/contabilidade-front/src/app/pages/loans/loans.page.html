@@ -1,0 +1,112 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/mais"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Empréstimos & Financiamentos</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="abrirModal()" aria-label="Novo Empréstimo">
+        <ion-icon slot="icon-only" name="add-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="loans-content ion-padding">
+  <ion-refresher slot="fixed" (ionRefresh)="handleRefresh($event)">
+    <ion-refresher-content pullingText="Puxe para atualizar" refreshingSpinner="crescent"></ion-refresher-content>
+  </ion-refresher>
+
+  @if (loading() && emprestimos().length === 0) {
+    <div class="loans__loading">
+      <ion-spinner name="crescent" color="primary"></ion-spinner>
+      <p>Carregando empréstimos...</p>
+    </div>
+  }
+
+  @if (error() && emprestimos().length === 0) {
+    <ion-card class="loans__error-card">
+      <ion-card-content>
+        <ion-icon name="alert-circle-outline" color="danger"></ion-icon>
+        <h2>Erro ao carregar</h2>
+        <p>{{ error() }}</p>
+        <ion-button fill="outline" color="primary" (click)="carregar()">
+          Tentar Novamente
+        </ion-button>
+      </ion-card-content>
+    </ion-card>
+  }
+
+  <!-- Lista de Empréstimos -->
+  @if (emprestimos().length > 0) {
+    <div class="loans-list">
+      @for (loan of emprestimos(); track loan.id) {
+        <ion-card class="loan-item-card" (click)="abrirDetalhes(loan)">
+          <ion-card-content>
+            <div class="loan-item-card__inner">
+              <div class="loan-item-card__icon-wrap">
+                <ion-icon name="business-outline"></ion-icon>
+              </div>
+
+              <div class="loan-item-card__details">
+                <div class="loan-item-card__title-row">
+                  <h3 class="institution-name">{{ loan.institution_name }}</h3>
+                  <ion-badge
+                    [color]="loan.status === 'PAID_OFF' ? 'success' : 'primary'"
+                    class="loan-badge"
+                  >
+                    {{ loan.status === 'PAID_OFF' ? 'Quitado' : 'Ativo' }}
+                  </ion-badge>
+                </div>
+
+                <div class="loan-item-card__sub-row">
+                  <span class="loan-principal">
+                    {{ loan.principal_amount | currency:'BRL':'symbol':'1.2-2' }}
+                  </span>
+                  <span class="loan-meta">
+                    Taxa: {{ loan.monthly_interest_rate }}% a.m.
+                  </span>
+                  <span class="loan-date">
+                    {{ loan.contracted_at | date:'dd/MM/yyyy' }}
+                  </span>
+                </div>
+              </div>
+
+              <ion-icon name="chevron-forward-outline" class="chevron-icon"></ion-icon>
+            </div>
+          </ion-card-content>
+        </ion-card>
+      }
+    </div>
+  } @else if (!loading()) {
+    <!-- Empty State -->
+    <div class="loans-empty">
+      <div class="empty-icon-wrap">
+        <ion-icon name="cash-outline"></ion-icon>
+      </div>
+      <h2>Nenhum empréstimo cadastrado</h2>
+      <p>
+        Cadastre seus contratos para acompanhar o cronograma de parcelas e abater juros em antecipações.
+      </p>
+      <ion-button color="success" fill="solid" (click)="abrirModal()">
+        <ion-icon slot="start" name="add-outline"></ion-icon>
+        Novo Empréstimo
+      </ion-button>
+    </div>
+  }
+
+  <!-- FAB para Adição Rápida -->
+  <ion-fab slot="fixed" vertical="bottom" horizontal="end">
+    <ion-fab-button color="success" (click)="abrirModal()" aria-label="Novo Empréstimo">
+      <ion-icon name="add-outline"></ion-icon>
+    </ion-fab-button>
+  </ion-fab>
+
+  <!-- Modal de Criação de Empréstimo -->
+  <app-loan-modal
+    [isOpen]="modalNovoEmprestimoAberto()"
+    (closeModal)="fecharModal()"
+    (loanCreated)="onEmprestimoCriado($event)"
+  ></app-loan-modal>
+</ion-content>
+

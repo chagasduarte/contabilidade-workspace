@@ -1,0 +1,86 @@
+{
+  "name": "contabilidade-front",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "prefix": "app",
+  "sourceRoot": "apps/contabilidade-front/src",
+  "tags": ["scope:shop"],
+  "targets": {
+    "build": {
+      "executor": "@nx/angular:application",
+      "outputs": ["{options.outputPath}"],
+      "defaultConfiguration": "production",
+      "options": {
+        "outputPath": "dist/apps/contabilidade-front",
+        "index": "apps/contabilidade-front/src/index.html",
+        "browser": "apps/contabilidade-front/src/main.ts",
+        "polyfills": ["zone.js"],
+        "tsConfig": "apps/contabilidade-front/tsconfig.app.json",
+        "assets": [
+          {
+            "glob": "**/*",
+            "input": "apps/contabilidade-front/public"
+          }
+        ],
+        "styles": ["apps/contabilidade-front/src/styles.css"],
+        "progress": false
+      },
+      "configurations": {
+        "production": {
+          "budgets": [
+            {
+              "type": "initial",
+              "maximumWarning": "1.5mb",
+              "maximumError": "2.5mb"
+            },
+            {
+              "type": "anyComponentStyle",
+              "maximumWarning": "10kb",
+              "maximumError": "16kb"
+            }
+          ],
+          "outputHashing": "all"
+        },
+        "development": {
+          "optimization": false,
+          "extractLicenses": false,
+          "sourceMap": true
+        }
+      }
+    },
+    "serve": {
+      "dependsOn": ["api:serve"],
+      "continuous": true,
+      "executor": "@angular/build:dev-server",
+      "defaultConfiguration": "development",
+      "options": {
+        "port": 4200,
+        "proxyConfig": "apps/contabilidade-front/proxy.conf.json"
+      },
+      "configurations": {
+        "production": {
+          "buildTarget": "contabilidade-front:build:production"
+        },
+        "development": {
+          "buildTarget": "contabilidade-front:build:development"
+        }
+      }
+    },
+    "extract-i18n": {
+      "executor": "@angular/build:extract-i18n",
+      "options": {
+        "buildTarget": "contabilidade-front:build"
+      }
+    },
+    "serve-static": {
+      "continuous": true,
+      "executor": "@nx/web:file-server",
+      "options": {
+        "buildTarget": "contabilidade-front:build",
+        "port": 4200,
+        "staticFilePath": "dist/apps/contabilidade-front/browser",
+        "spa": true
+      }
+    }
+  }
+}

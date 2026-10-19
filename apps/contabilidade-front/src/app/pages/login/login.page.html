@@ -1,0 +1,194 @@
+<ion-content class="login-page">
+  <div class="login-page__ambient login-page__ambient--emerald" aria-hidden="true"></div>
+  <div class="login-page__ambient login-page__ambient--slate" aria-hidden="true"></div>
+
+  <div class="login-page__container">
+    <div class="login-layout">
+      <!-- Coluna Esquerda: Vitrine da Plataforma Financeira -->
+      <section class="login-showcase" aria-label="Recursos da Plataforma Financeira">
+        <div class="login-showcase__brand">
+          <span class="login-showcase__badge">
+            <ion-icon name="analytics-outline" aria-hidden="true"></ion-icon>
+            Plataforma Financeira 360°
+          </span>
+        </div>
+
+        <h1 class="login-showcase__headline">
+          Tudo o que você precisa para <span class="login-showcase__highlight">dominar suas finanças</span> em um único lugar.
+        </h1>
+
+        <p class="login-showcase__lead">
+          Centralize contas, cartões de crédito, projeções de fluxo de caixa, metas patrimoniais e lançamentos inteligentes com IA.
+        </p>
+
+        <!-- Mini Preview Executivo do Dashboard -->
+        <div class="showcase-preview" aria-hidden="true">
+          <div class="showcase-preview__top">
+            <div class="showcase-preview__balance-group">
+              <span class="showcase-preview__caption">SALDO DISPONÍVEL EM CONTAS</span>
+              <div class="showcase-preview__balance-row">
+                <strong class="showcase-preview__balance">R$ 32.390,00</strong>
+                <span class="showcase-preview__trend">+18,4% no mês</span>
+              </div>
+            </div>
+            <div class="showcase-preview__bars">
+              <span class="showcase-preview__bar" style="height: 38%"></span>
+              <span class="showcase-preview__bar" style="height: 52%"></span>
+              <span class="showcase-preview__bar" style="height: 46%"></span>
+              <span class="showcase-preview__bar" style="height: 70%"></span>
+              <span class="showcase-preview__bar" style="height: 84%"></span>
+              <span class="showcase-preview__bar showcase-preview__bar--active" style="height: 100%"></span>
+            </div>
+          </div>
+
+          <div class="showcase-preview__metrics">
+            @for (metric of previewMetrics; track metric.label) {
+              <div class="showcase-preview__metric" [style.--metric-accent]="metric.color">
+                <span class="showcase-preview__metric-label">{{ metric.label }}</span>
+                <strong class="showcase-preview__metric-value">{{ metric.value }}</strong>
+                <span class="showcase-preview__metric-detail">{{ metric.detail }}</span>
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- Pilares do Sistema Financeiro -->
+        <div class="showcase-features">
+          @for (feature of features; track feature.title) {
+            <div class="showcase-feature-card" [style.--feature-accent]="feature.accentColor">
+              <div class="showcase-feature-card__icon-box">
+                <ion-icon [name]="feature.icon" aria-hidden="true"></ion-icon>
+              </div>
+              <div class="showcase-feature-card__body">
+                <h3 class="showcase-feature-card__title">{{ feature.title }}</h3>
+                <p class="showcase-feature-card__desc">{{ feature.description }}</p>
+              </div>
+            </div>
+          }
+        </div>
+      </section>
+
+      <!-- Coluna Direita: Card de Autenticação -->
+      <section class="login-panel">
+        <ion-card class="login-card">
+          <ion-card-header class="login-card__header">
+            <div class="login-card__top-row">
+              <div class="login-card__logo-badge">
+                <ion-icon name="wallet-outline" class="login-card__logo-icon" aria-hidden="true"></ion-icon>
+              </div>
+              <span class="login-card__security-pill">
+                <ion-icon name="shield-checkmark-outline" aria-hidden="true"></ion-icon>
+                Acesso Seguro
+              </span>
+            </div>
+
+            <ion-card-title class="login-card__title">Gestão Financeira</ion-card-title>
+            <p class="login-card__subtitle">
+              Entre com suas credenciais para acessar seu painel financeiro completo
+            </p>
+          </ion-card-header>
+
+          <ion-card-content class="login-card__content">
+            @if (errorMessage()) {
+              <div class="login-card__alert" role="alert" data-testid="error-message">
+                <ion-text color="danger">{{ errorMessage() }}</ion-text>
+              </div>
+            }
+
+            <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" novalidate class="login-form">
+              <div class="login-form__field">
+                <ion-item lines="none" class="login-form__item">
+                  <ion-icon name="person-outline" slot="start" class="login-form__icon" aria-hidden="true"></ion-icon>
+                  <ion-input
+                    type="text"
+                    label="Usuário ou E-mail"
+                    labelPlacement="floating"
+                    placeholder="Seu usuário ou e-mail"
+                    formControlName="username"
+                    data-testid="username-input"
+                    autocomplete="username"
+                  ></ion-input>
+                </ion-item>
+                @if (loginForm.controls.username.touched && loginForm.controls.username.invalid) {
+                  <ion-note color="danger" class="login-form__error" data-testid="username-error">
+                    @if (loginForm.controls.username.errors?.['required']) {
+                      O usuário ou e-mail é obrigatório.
+                    }
+                  </ion-note>
+                }
+              </div>
+
+              <div class="login-form__field">
+                <ion-item lines="none" class="login-form__item">
+                  <ion-icon name="lock-closed-outline" slot="start" class="login-form__icon" aria-hidden="true"></ion-icon>
+                  <ion-input
+                    [type]="showPassword() ? 'text' : 'password'"
+                    label="Senha"
+                    labelPlacement="floating"
+                    placeholder="••••••••"
+                    formControlName="senha"
+                    data-testid="senha-input"
+                    autocomplete="current-password"
+                  ></ion-input>
+                  <button
+                    type="button"
+                    slot="end"
+                    class="login-form__toggle-pwd"
+                    (click)="togglePasswordVisibility()"
+                    [attr.aria-label]="showPassword() ? 'Ocultar senha' : 'Mostrar senha'"
+                    data-testid="toggle-password-btn"
+                  >
+                    <ion-icon
+                      [name]="showPassword() ? 'eye-off-outline' : 'eye-outline'"
+                      aria-hidden="true"
+                    ></ion-icon>
+                  </button>
+                </ion-item>
+                @if (loginForm.controls.senha.touched && loginForm.controls.senha.invalid) {
+                  <ion-note color="danger" class="login-form__error" data-testid="senha-error">
+                    @if (loginForm.controls.senha.errors?.['required']) {
+                      A senha é obrigatória.
+                    } @else if (loginForm.controls.senha.errors?.['minlength']) {
+                      A senha deve ter no mínimo 4 caracteres.
+                    }
+                  </ion-note>
+                }
+              </div>
+
+              <ion-button
+                type="submit"
+                expand="block"
+                class="login-form__submit-btn"
+                [disabled]="authService.loading()"
+                data-testid="submit-btn"
+              >
+                @if (authService.loading()) {
+                  <ion-spinner name="crescent" class="login-form__spinner"></ion-spinner>
+                  <span>Autenticando...</span>
+                } @else {
+                  <span>Acessar Plataforma</span>
+                  <ion-icon name="arrow-forward-outline" slot="end" class="login-form__btn-arrow" aria-hidden="true"></ion-icon>
+                }
+              </ion-button>
+            </form>
+
+            <div class="login-card__footer">
+              <div class="login-card__trust-item">
+                <ion-icon name="checkmark-circle-outline" aria-hidden="true"></ion-icon>
+                <span>Controle Multi-Cartão</span>
+              </div>
+              <div class="login-card__trust-item">
+                <ion-icon name="checkmark-circle-outline" aria-hidden="true"></ion-icon>
+                <span>Projeção Anual</span>
+              </div>
+              <div class="login-card__trust-item">
+                <ion-icon name="checkmark-circle-outline" aria-hidden="true"></ion-icon>
+                <span>IA Integrada</span>
+              </div>
+            </div>
+          </ion-card-content>
+        </ion-card>
+      </section>
+    </div>
+  </div>
+</ion-content>

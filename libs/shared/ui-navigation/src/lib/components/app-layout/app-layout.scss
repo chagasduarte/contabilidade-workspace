@@ -1,0 +1,97 @@
+:host {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+}
+
+.layout-shell {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  background-color: #171d23;
+  overflow: hidden;
+
+  &__main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    height: 100%;
+    position: relative;
+  }
+
+  &__content {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    box-sizing: border-box;
+  }
+
+  &__mobile-menu {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 10px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    background: #1d242c;
+  }
+
+  &__mobile-menu-item {
+    padding: 10px 12px;
+    border-radius: 10px;
+    color: #aeb8c3;
+    font-size: 0.88rem;
+    text-decoration: none;
+
+    &:hover,
+    &--active {
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+    }
+  }
+
+  // --- Regras Padrão (Mobile First: < 992px) ---
+  &__desktop-sidebar {
+    display: none;
+  }
+
+  &__desktop-header {
+    display: none;
+  }
+
+  &__mobile-header {
+    display: block;
+  }
+
+  &__mobile-tabbar {
+    display: block;
+  }
+
+  // --- Regras para Desktop (>= 992px) ---
+  @media (min-width: 992px) {
+    &__desktop-sidebar {
+      display: block;
+    }
+
+    &__desktop-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 28px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      background-color: #171d23;
+    }
+
+    &__mobile-header {
+      display: none;
+    }
+
+    &__mobile-tabbar {
+      display: none;
+    }
+
+    &__mobile-menu {
+      display: none;
+    }
+  }
+}

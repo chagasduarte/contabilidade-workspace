@@ -1,0 +1,20 @@
+<aside class="desktop-sidebar">
+  <div class="desktop-sidebar__brand">
+    <ion-icon name="checkmark-done-circle" class="desktop-sidebar__brand-icon" aria-hidden="true"></ion-icon>
+    <span class="desktop-sidebar__brand-title">Conta<strong>Perfeita</strong></span>
+  </div>
+
+  <nav class="desktop-sidebar__nav">
+    @for (item of items; track item.route) {
+      <a
+        [routerLink]="item.route"
+        routerLinkActive="desktop-sidebar__item--active"
+        ariaCurrentWhenActive="page"
+        class="desktop-sidebar__item"
+      >
+        <ion-icon [name]="item.icon" class="desktop-sidebar__item-icon"></ion-icon>
+        <span class="desktop-sidebar__item-label">{{ item.label }}</span>
+      </a>
+    }
+  </nav>
+</aside>

@@ -1,0 +1,70 @@
+<section class="mais-page" aria-labelledby="mais-page-title">
+  <header class="mais-page__header">
+    <p class="mais-page__eyebrow">ContaPerfeita</p>
+    <h1 id="mais-page-title">Mais Opções</h1>
+    <p class="mais-page__intro">
+      Acesse ações rápidas, configurações e módulos complementares.
+    </p>
+  </header>
+
+  <!-- Card Destaque: Adicionar Transação -->
+  <article class="mais-page__hero-cta">
+    <div class="mais-page__hero-badge">
+      <ion-icon name="flash-outline"></ion-icon>
+      <span>Ação Rápida</span>
+    </div>
+    <div class="mais-page__hero-content">
+      <h2>Registrar Transação</h2>
+      <p>
+        Lance receitas, despesas à vista ou compras parceladas no cartão de crédito
+        com cálculo automático de parcelas.
+      </p>
+    </div>
+    <button
+      type="button"
+      class="mais-page__hero-btn"
+      (click)="abrirModalNovaTransacao()"
+      aria-label="Registrar Nova Transação"
+    >
+      <ion-icon name="add-outline"></ion-icon>
+      <span>Nova Transação</span>
+    </button>
+  </article>
+
+  <!-- Seção de Atalhos do Sistema -->
+  <section class="mais-page__menu-section" aria-labelledby="mais-menu-title">
+    <h2 id="mais-menu-title" class="mais-page__section-title">
+      Módulos e Recursos
+    </h2>
+
+    <div class="mais-page__grid">
+      @for (item of menuItems; track item.route) {
+        <a [routerLink]="item.route" class="mais-page__card">
+          <div
+            class="mais-page__card-icon"
+            [style.background-color]="item.color + '1a'"
+            [style.color]="item.color"
+          >
+            <ion-icon [name]="item.icon"></ion-icon>
+          </div>
+          <div class="mais-page__card-info">
+            <h3>{{ item.title }}</h3>
+            <p>{{ item.subtitle }}</p>
+          </div>
+          <ion-icon
+            name="chevron-forward-outline"
+            class="mais-page__card-arrow"
+          ></ion-icon>
+        </a>
+      }
+    </div>
+  </section>
+
+  <!-- Modal de Transação -->
+  <app-transaction-modal
+    [isOpen]="modalNovaTransacaoAberto()"
+    (closeModal)="fecharModalNovaTransacao()"
+    (transactionCreated)="onTransacaoCriada()"
+  ></app-transaction-modal>
+</section>
+

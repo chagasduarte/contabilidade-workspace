@@ -23,7 +23,9 @@
       "@org/shop/feature-products": [
         "./packages/shop/feature-products/src/index.ts"
       ],
-      "@org/shop/shared-ui": ["./packages/shop/shared-ui/src/index.ts"]
+      "@org/shop/shared-ui": ["./packages/shop/shared-ui/src/index.ts"],
+      "@org/shared-ui-navigation": ["./libs/shared/ui-navigation/src/index.ts"],
+      "@contabilidade/models": ["./libs/shared/models/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]

@@ -1,0 +1,127 @@
+:host {
+  display: block;
+}
+
+.mobile-header {
+  --background: #171d23;
+  background-color: #171d23;
+  padding-top: env(safe-area-inset-top);
+
+  &__top-bar,
+  &__toolbar {
+    --background: transparent;
+    --min-height: 54px;
+    min-height: 54px;
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  &__brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  &__logo-icon {
+    font-size: 24px;
+    color: #4ade80;
+    flex-shrink: 0;
+  }
+
+  &__logo-text {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #ffffff;
+
+    strong {
+      color: #60a5fa;
+    }
+  }
+
+  &__menu-btn {
+    position: relative;
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    cursor: pointer;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  &__menu-icon {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+
+    span {
+      display: block;
+      width: 18px;
+      height: 2.2px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.96);
+    }
+  }
+
+  &__notification-dot {
+    position: absolute;
+    top: -2px;
+    right: -1px;
+    width: 8px;
+    height: 8px;
+    background-color: #ef4444;
+    border-radius: 50%;
+    border: 2px solid #171d23;
+  }
+
+  &__months {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 14px 14px 14px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  &__month-pill {
+    background: transparent;
+    border: none;
+    color: #8da1b5;
+    font-size: 0.95rem;
+    font-weight: 500;
+    padding: 6px 14px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    white-space: nowrap;
+
+    &--active {
+      background-color: #688e63;
+      color: #ffffff;
+      font-weight: 700;
+    }
+  }
+
+  &__check-icon {
+    font-size: 14px;
+    stroke-width: 32px;
+  }
+}

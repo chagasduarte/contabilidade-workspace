@@ -1,0 +1,20 @@
+<div class="header-year-selector">
+  <div class="header-year-selector__control">
+    <ion-icon name="calendar-outline" class="header-year-selector__icon" aria-hidden="true"></ion-icon>
+    <select
+      class="header-year-selector__select"
+      [value]="selectedYear()"
+      (change)="onYearSelect($event)"
+      aria-label="Selecionar Ano"
+      data-testid="header-year-select"
+    >
+      @for (year of yearsList(); track year) {
+        <option [value]="year" [selected]="year === selectedYear()">
+          Ano {{ year }}
+        </option>
+      }
+    </select>
+    <ion-icon name="chevron-down-outline" class="header-year-selector__chevron" aria-hidden="true"></ion-icon>
+  </div>
+</div>
+

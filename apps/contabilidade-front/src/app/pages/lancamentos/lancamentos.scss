@@ -1,0 +1,321 @@
+.transactions-page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 28px;
+  color: #f5f6f8;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  &__eyebrow {
+    margin: 0 0 4px;
+    color: #8fa0b1;
+    font-size: 0.85rem;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(1.6rem, 4vw, 2rem);
+  }
+
+  &__intro {
+    margin: 6px 0 0;
+    color: #aeb8c3;
+  }
+
+  &__controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #1b2028;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    padding: 4px 8px;
+
+    ion-button {
+      --color: #cfd6e4;
+      margin: 0;
+    }
+  }
+
+  &__add-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    background: #00ff88;
+    color: #0c1218;
+    border: none;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(0, 255, 136, 0.25);
+    white-space: nowrap;
+
+    &:hover {
+      background: #00e67a;
+      box-shadow: 0 6px 16px rgba(0, 255, 136, 0.35);
+      transform: translateY(-1px);
+    }
+
+    ion-icon {
+      font-size: 1.1rem;
+    }
+
+    @media (max-width: 576px) {
+      display: none; // No mobile, o botão flutuante (FAB) entra em ação
+    }
+  }
+
+  &__fab {
+    display: none;
+
+    @media (max-width: 768px) {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: fixed;
+      bottom: 5.25rem; /* Acima da tabbar mobile */
+      right: 1.25rem;
+      width: 3.5rem;
+      height: 3.5rem;
+      border-radius: 50%;
+      background: #00ff88;
+      color: #0c1218;
+      border: none;
+      box-shadow: 0 8px 24px rgba(0, 255, 136, 0.45);
+      cursor: pointer;
+      z-index: 99;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+
+      ion-icon {
+        font-size: 1.8rem;
+      }
+
+      &:active {
+        transform: scale(0.92);
+      }
+    }
+  }
+
+  &__demo-label {
+    padding: 6px 10px;
+    color: #f5f6f8;
+    font-size: 0.82rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+}
+
+.transactions-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+
+  &__card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 16px;
+    background: #222933;
+    color: #b6c0cb;
+    font-size: 0.9rem;
+
+    strong {
+      color: #f5f6f8;
+      font-size: clamp(1.15rem, 3vw, 1.6rem);
+      font-weight: 700;
+    }
+
+    &--income strong {
+      color: #73c99f;
+    }
+
+    &--expense strong {
+      color: #f08072;
+    }
+
+    &--pending strong {
+      color: #f0c477;
+    }
+  }
+}
+
+.transactions-list {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 18px;
+  background: #222933;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 18px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+
+    h2 {
+      margin: 0;
+      font-size: 1.05rem;
+    }
+
+    span {
+      color: #8fa0b1;
+      font-size: 0.82rem;
+    }
+  }
+
+  &__state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 36px 20px;
+    color: #8fa0b1;
+    font-size: 0.92rem;
+  }
+}
+
+.transaction {
+  display: grid;
+  grid-template-columns: 48px minmax(130px, 1fr) 90px minmax(120px, auto) 86px;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+
+  &:last-child {
+    border-bottom: 0;
+  }
+
+  &__date,
+  &__details {
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__date {
+    align-items: center;
+
+    strong {
+      font-size: 1.15rem;
+    }
+
+    span {
+      color: #8fa0b1;
+      font-size: 0.78rem;
+      text-transform: capitalize;
+    }
+  }
+
+  &__details {
+    gap: 3px;
+
+    strong {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    span {
+      color: #8fa0b1;
+      font-size: 0.8rem;
+    }
+  }
+
+  &__type,
+  &__status {
+    width: fit-content;
+    padding: 5px 9px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.07);
+    color: #bdc7d1;
+    font-size: 0.75rem;
+  }
+
+  &__type--income,
+  &__amount--income {
+    color: #73c99f;
+  }
+
+  &__type--expense,
+  &__amount--expense {
+    color: #f08072;
+  }
+
+  &__amount {
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  &__status--pending {
+    background: rgba(240, 196, 119, 0.12);
+    color: #f0c477;
+  }
+}
+
+@media (max-width: 700px) {
+  .transactions-page {
+    padding: 20px 14px 28px;
+
+    &__header {
+      align-items: flex-start;
+      flex-direction: column;
+      margin-bottom: 18px;
+    }
+  }
+
+  .transactions-summary {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-bottom: 16px;
+
+    &__card {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px;
+    }
+  }
+
+  .transactions-list {
+    &__header {
+      padding: 16px 14px;
+    }
+  }
+
+  .transaction {
+    grid-template-columns: 36px minmax(0, 1fr) auto;
+    gap: 8px 12px;
+    padding: 14px;
+
+    &__type {
+      grid-column: 2;
+      grid-row: 2;
+    }
+
+    &__amount {
+      grid-column: 3;
+      grid-row: 1;
+      font-size: 0.9rem;
+    }
+
+    &__status {
+      grid-column: 3;
+      grid-row: 2;
+      justify-self: end;
+    }
+  }
+}

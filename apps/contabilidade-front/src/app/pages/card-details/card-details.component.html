@@ -1,0 +1,331 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/cartoes"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Gestão do Cartão</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="abrirModalNovaCompra()" aria-label="Nova Compra">
+        <ion-icon slot="icon-only" name="add-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="card-details-content ion-padding">
+  <ion-refresher slot="fixed" (ionRefresh)="handleRefresh($event)">
+    <ion-refresher-content pullingText="Puxe para atualizar" refreshingSpinner="crescent"></ion-refresher-content>
+  </ion-refresher>
+
+  <!-- Estado de Carregamento -->
+  @if (loading() && !cartaoDetalhes()) {
+    <div class="card-details__loading">
+      <ion-spinner name="crescent" color="primary"></ion-spinner>
+      <p>Carregando dados do cartão e faturas...</p>
+    </div>
+  }
+
+  <!-- Mensagem de Erro -->
+  @if (error() && !cartaoDetalhes()) {
+    <ion-card class="card-details__error-card">
+      <ion-card-content>
+        <ion-icon name="alert-circle-outline" color="danger"></ion-icon>
+        <h2>Não foi possível carregar o cartão</h2>
+        <p>{{ error() }}</p>
+        <ion-button fill="outline" color="primary" (click)="carregarDados()">
+          Tentar Novamente
+        </ion-button>
+      </ion-card-content>
+    </ion-card>
+  }
+
+  @if (cartaoDetalhes(); as dados) {
+    <!-- 1. CABEÇALHO COM VISUAL DE CARTÃO DE CRÉDITO -->
+    <div
+      class="credit-card-surface"
+      [style.background]="'linear-gradient(135deg, ' + (dados.cartao.cor_identificacao || '#1e293b') + ' 0%, #0f172a 100%)'"
+    >
+      <div class="credit-card-surface__top">
+        <div class="card-brand-group">
+          <ion-icon name="card-outline" class="card-chip-icon"></ion-icon>
+          <span class="card-brand-name">{{ dados.cartao.bandeira || 'Crédito' }}</span>
+        </div>
+        <div class="card-status-pill">
+          <span>Ativo</span>
+        </div>
+      </div>
+
+      <div class="credit-card-surface__middle">
+        <h2 class="card-name-title">{{ dados.cartao.nome }}</h2>
+        <div class="card-dates-row">
+          <div class="date-chip">
+            <span class="label">Fechamento</span>
+            <span class="val">Dia {{ dados.cartao.dia_fechamento }}</span>
+          </div>
+          <div class="date-chip">
+            <span class="label">Vencimento</span>
+            <span class="val">Dia {{ dados.cartao.dia_vencimento }}</span>
+          </div>
+          <div class="date-chip best-day">
+            <span class="label">Melhor Compra</span>
+            <span class="val">Dia {{ melhorDiaCompra() }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="credit-card-surface__bottom">
+        <div class="limits-header">
+          <span class="limits-title">Consumo do Limite</span>
+          <span class="limits-ratio">
+            {{ dados.limite_comprometido | currency:'BRL':'symbol':'1.2-2' }} / {{ dados.limite_total | currency:'BRL':'symbol':'1.2-2' }}
+          </span>
+        </div>
+
+        <ion-progress-bar
+          [value]="percentualLimite()"
+          [color]="percentualLimite() > 0.85 ? 'danger' : (percentualLimite() > 0.65 ? 'warning' : 'success')"
+          class="card-progress-bar"
+        ></ion-progress-bar>
+
+        <div class="limits-footer">
+          <span class="available-tag">
+            Disponível: <strong>{{ dados.limite_disponivel | currency:'BRL':'symbol':'1.2-2' }}</strong>
+          </span>
+          <span class="used-percent">{{ (percentualLimite() * 100).toFixed(0) }}% usado</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. SELETOR DE FATURAS -->
+    <ion-card class="invoice-selector-card">
+      <ion-card-content>
+        <div class="invoice-nav-row">
+          <button
+            type="button"
+            class="nav-arrow-btn"
+            (click)="navegarFatura(-1)"
+            [disabled]="indiceFaturaAtual() <= 0"
+            aria-label="Fatura anterior"
+          >
+            <ion-icon name="chevron-back-outline"></ion-icon>
+          </button>
+
+          <div class="invoice-current-header">
+            <span class="invoice-month-title">{{ tituloFaturaAtiva() }}</span>
+            @if (faturaAtiva(); as fat) {
+              <ion-badge [color]="obterCorStatus(fat.status)" class="invoice-status-badge">
+                {{ obterLabelStatus(fat.status) }}
+              </ion-badge>
+            }
+          </div>
+
+          <button
+            type="button"
+            class="nav-arrow-btn"
+            (click)="navegarFatura(1)"
+            [disabled]="indiceFaturaAtual() >= faturas().length - 1"
+            aria-label="Próxima fatura"
+          >
+            <ion-icon name="chevron-forward-outline"></ion-icon>
+          </button>
+        </div>
+
+        @if (faturaAtiva(); as fat) {
+          <div class="invoice-summary-box">
+            <div class="invoice-amount-block">
+              <span class="amount-label">Total da Fatura</span>
+              <span class="amount-value">
+                {{ (faturaDetalhes()?.valor_total || fat.total_fatura || 0) | currency:'BRL':'symbol':'1.2-2' }}
+              </span>
+            </div>
+
+            <div class="invoice-due-meta">
+              <div class="due-item">
+                <ion-icon name="time-outline"></ion-icon>
+                <span>Fecha em: <strong>{{ fat.data_fechamento | date:'dd/MM/yyyy' }}</strong></span>
+              </div>
+              <div class="due-item">
+                <ion-icon name="calendar-outline"></ion-icon>
+                <span>Vence em: <strong>{{ fat.data_vencimento | date:'dd/MM/yyyy' }}</strong></span>
+              </div>
+            </div>
+
+            @if (fat.status !== 'PAID') {
+              <div class="invoice-actions-row">
+                <ion-button
+                  color="success"
+                  fill="solid"
+                  expand="block"
+                  class="btn-pay-invoice"
+                  (click)="abrirConfirmacaoPagamento(fat)"
+                >
+                  <ion-icon slot="start" name="checkmark-circle-outline"></ion-icon>
+                  Pagar Fatura
+                </ion-button>
+              </div>
+            } @else {
+              <div class="invoice-paid-stamp">
+                <ion-icon name="shield-checkmark-outline"></ion-icon>
+                <span>Fatura Liquidada em {{ fat.data_pagamento | date:'dd/MM/yyyy' }}</span>
+              </div>
+            }
+          </div>
+        }
+      </ion-card-content>
+    </ion-card>
+
+    <!-- 3. LISTA DE LANÇAMENTOS DA FATURA -->
+    <div class="invoice-items-section">
+      <div class="items-section-header">
+        <div>
+          <h3>Lançamentos da Fatura</h3>
+          <p>Compras à vista e cotas parceladas vinculadas a este período</p>
+        </div>
+        <ion-chip color="medium" class="items-count-chip">
+          <ion-icon name="receipt-outline"></ion-icon>
+          <ion-label>{{ faturaDetalhes()?.itens?.length || 0 }} itens</ion-label>
+        </ion-chip>
+      </div>
+
+      @if (faturaDetalhes(); as det) {
+        @if (det.itens.length > 0) {
+          <ion-list class="items-list" lines="none">
+            @for (item of det.itens; track item.id) {
+              <ion-card class="invoice-item-card">
+                <div class="invoice-item-card__inner">
+                  <div class="item-icon-wrap" [style.color]="item.categoria_cor || '#3b82f6'">
+                    <ion-icon [name]="item.categoria_icone || 'pricetag-outline'"></ion-icon>
+                  </div>
+
+                  <div class="item-main-info">
+                    <span class="item-title">{{ item.descricao }}</span>
+                    <div class="item-sub-meta">
+                      <span class="item-date">
+                        {{ item.data_compra | date:'dd/MM/yyyy' }}
+                      </span>
+                      @if (item.quantidade_parcelas && item.quantidade_parcelas > 1) {
+                        <span class="item-installment-tag">
+                          Parcela {{ item.numero_parcela }} de {{ item.quantidade_parcelas }}
+                        </span>
+                      } @else {
+                        <span class="item-single-tag">À vista</span>
+                      }
+                      @if (item.categoria_nome) {
+                        <span class="item-category-name">• {{ item.categoria_nome }}</span>
+                      }
+                    </div>
+                  </div>
+
+                  <div class="item-amount">
+                    <span>{{ item.valor_parcela | currency:'BRL':'symbol':'1.2-2' }}</span>
+                  </div>
+                </div>
+              </ion-card>
+            }
+          </ion-list>
+        } @else {
+          <div class="invoice-empty-items">
+            <ion-icon name="receipt-outline"></ion-icon>
+            <p>Nenhum lançamento registrado nesta fatura até o momento.</p>
+          </div>
+        }
+      }
+    </div>
+
+    <!-- FAB Rápido para Nova Compra -->
+    <ion-fab slot="fixed" vertical="bottom" horizontal="end">
+      <ion-fab-button color="success" (click)="abrirModalNovaCompra()" aria-label="Nova Compra">
+        <ion-icon name="add-outline"></ion-icon>
+      </ion-fab-button>
+    </ion-fab>
+  }
+</ion-content>
+
+<!-- MODAL DE NOVA COMPRA -->
+@if (modalNovaCompraAberto()) {
+  <div class="modal-backdrop" (click)="fecharModalNovaCompra()"></div>
+  <div class="purchase-modal" role="dialog" aria-labelledby="modal-compra-title">
+    <header class="modal-header">
+      <div class="title-group">
+        <ion-icon name="card-outline"></ion-icon>
+        <h2 id="modal-compra-title">Lançar Compra no Cartão</h2>
+      </div>
+      <button type="button" class="close-btn" (click)="fecharModalNovaCompra()">
+        <ion-icon name="close-outline"></ion-icon>
+      </button>
+    </header>
+
+    <form [formGroup]="compraForm" (ngSubmit)="salvarNovaCompra()" class="modal-form">
+      <div class="form-field">
+        <label for="compra-desc">Descrição da Compra</label>
+        <input
+          id="compra-desc"
+          type="text"
+          formControlName="descricao"
+          placeholder="Ex: Supermercado, Eletrônico, Passagem"
+          required
+        />
+      </div>
+
+      <div class="form-row">
+        <div class="form-field">
+          <label for="compra-valor">Valor Total (R$)</label>
+          <input
+            id="compra-valor"
+            type="number"
+            step="0.01"
+            min="0.01"
+            formControlName="valor_total"
+            placeholder="0,00"
+            required
+          />
+        </div>
+
+        <div class="form-field">
+          <label for="compra-parcelas">Qtd. Parcelas</label>
+          <input
+            id="compra-parcelas"
+            type="number"
+            min="1"
+            max="36"
+            formControlName="quantidade_parcelas"
+            placeholder="1"
+            required
+          />
+        </div>
+      </div>
+
+      <div class="form-field">
+        <label for="compra-data">Data da Compra</label>
+        <input
+          id="compra-data"
+          type="date"
+          formControlName="data_compra"
+          required
+        />
+      </div>
+
+      <p class="modal-hint">
+        As cotas serão alocadas automaticamente nas faturas seguintes respeitando o dia de fechamento do cartão.
+      </p>
+
+      <footer class="modal-footer">
+        <button
+          type="button"
+          class="btn-secondary"
+          (click)="fecharModalNovaCompra()"
+        >
+          Cancelar
+        </button>
+        <button
+          type="submit"
+          class="btn-primary"
+          [disabled]="compraForm.invalid"
+        >
+          Confirmar Compra
+        </button>
+      </footer>
+    </form>
+  </div>
+}
+

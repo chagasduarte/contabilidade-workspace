@@ -1,0 +1,564 @@
+:host {
+  display: block;
+  width: 100%;
+  min-height: 100vh;
+  background-color: #12161c;
+}
+
+.login-page {
+  --background: #12161c;
+  --color: #ffffff;
+  display: block;
+  width: 100%;
+  min-height: 100vh;
+  height: 100%;
+  position: relative;
+  overflow-x: hidden;
+
+  &__ambient {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(130px);
+    pointer-events: none;
+    z-index: 0;
+
+    &--emerald {
+      width: 440px;
+      height: 440px;
+      top: -120px;
+      left: -80px;
+      background: radial-gradient(circle, rgba(74, 222, 128, 0.16) 0%, rgba(112, 147, 102, 0.04) 70%);
+    }
+
+    &--slate {
+      width: 500px;
+      height: 500px;
+      bottom: -150px;
+      right: -100px;
+      background: radial-gradient(circle, rgba(80, 100, 119, 0.22) 0%, rgba(198, 155, 92, 0.06) 70%);
+    }
+  }
+
+  &__container {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 36px 24px;
+    box-sizing: border-box;
+  }
+}
+
+.login-layout {
+  width: 100%;
+  max-width: 1180px;
+  display: grid;
+  grid-template-columns: 1.2fr 0.85fr;
+  gap: 48px;
+  align-items: center;
+}
+
+/* ==========================================
+   Coluna Esquerda: Vitrine Financeira 360°
+   ========================================== */
+.login-showcase {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+
+  &__brand {
+    display: flex;
+    align-items: center;
+  }
+
+  &__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: rgba(74, 222, 128, 0.1);
+    border: 1px solid rgba(74, 222, 128, 0.25);
+    color: #4ade80;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+
+    ion-icon {
+      font-size: 1rem;
+    }
+  }
+
+  &__headline {
+    margin: 0;
+    font-size: clamp(1.9rem, 3.2vw, 2.75rem);
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.03em;
+    color: #f8fafc;
+  }
+
+  &__highlight {
+    background: linear-gradient(135deg, #4ade80 0%, #86efac 50%, #c69b5c 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  &__lead {
+    margin: 0;
+    font-size: 1.02rem;
+    line-height: 1.6;
+    color: #94a3b8;
+    max-width: 580px;
+  }
+}
+
+/* Preview de Dashboard Financeiro */
+.showcase-preview {
+  background: linear-gradient(160deg, rgba(27, 32, 40, 0.92) 0%, rgba(20, 24, 31, 0.96) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 22px;
+  padding: 20px 22px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+
+  &__top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  &__balance-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  &__caption {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #64748b;
+  }
+
+  &__balance-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  &__balance {
+    font-size: 1.65rem;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: -0.02em;
+  }
+
+  &__trend {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(112, 147, 102, 0.22);
+    color: #86efac;
+    border: 1px solid rgba(112, 147, 102, 0.4);
+  }
+
+  &__bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    height: 44px;
+    padding-bottom: 2px;
+  }
+
+  &__bar {
+    width: 8px;
+    border-radius: 4px;
+    background: rgba(148, 163, 184, 0.22);
+    transition: height 0.3s ease;
+
+    &--active {
+      background: linear-gradient(180deg, #4ade80 0%, #709366 100%);
+      box-shadow: 0 0 12px rgba(74, 222, 128, 0.4);
+    }
+  }
+
+  &__metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+
+  &__metric {
+    background: rgba(18, 22, 28, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-left: 3px solid var(--metric-accent, #709366);
+    border-radius: 14px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__metric-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: #94a3b8;
+  }
+
+  &__metric-value {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #f8fafc;
+  }
+
+  &__metric-detail {
+    font-size: 0.7rem;
+    color: #64748b;
+  }
+}
+
+/* Grid de Recursos */
+.showcase-features {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.showcase-feature-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(27, 32, 40, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: transform 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    background: rgba(27, 32, 40, 0.9);
+    border-color: rgba(255, 255, 255, 0.14);
+  }
+
+  &__icon-box {
+    flex-shrink: 0;
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: var(--feature-accent, #4ade80);
+
+    ion-icon {
+      font-size: 1.2rem;
+    }
+  }
+
+  &__body {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #f1f5f9;
+  }
+
+  &__desc {
+    margin: 0;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    color: #94a3b8;
+  }
+}
+
+/* ==========================================
+   Coluna Direita: Painel de Login
+   ========================================== */
+.login-panel {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 440px;
+  background-color: #1b2028;
+  --background: #1b2028;
+  --color: #ffffff;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 24px 54px rgba(0, 0, 0, 0.5);
+  margin: 0;
+  padding: 14px;
+
+  &__header {
+    text-align: left;
+    padding: 24px 22px 14px;
+  }
+
+  &__top-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+  }
+
+  &__logo-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 54px;
+    height: 54px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(74, 222, 128, 0.18), rgba(112, 147, 102, 0.15));
+    border: 1px solid rgba(74, 222, 128, 0.35);
+    box-shadow: 0 8px 20px rgba(74, 222, 128, 0.12);
+  }
+
+  &__logo-icon {
+    font-size: 28px;
+    color: #4ade80;
+  }
+
+  &__security-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: #94a3b8;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 5px 11px;
+    border-radius: 999px;
+
+    ion-icon {
+      color: #4ade80;
+      font-size: 0.9rem;
+    }
+  }
+
+  &__title {
+    font-size: 1.6rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #ffffff;
+    margin-bottom: 6px;
+  }
+
+  &__subtitle {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.45;
+    color: #94a3b8;
+  }
+
+  &__content {
+    padding: 10px 22px 24px;
+  }
+
+  &__alert {
+    background-color: rgba(203, 90, 78, 0.14);
+    border: 1px solid rgba(203, 90, 78, 0.4);
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin-bottom: 18px;
+    font-size: 0.86rem;
+    text-align: center;
+  }
+
+  &__footer {
+    margin-top: 24px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  &__trust-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.74rem;
+    color: #94a3b8;
+
+    ion-icon {
+      color: #709366;
+      font-size: 0.92rem;
+    }
+  }
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__item {
+    --background: #12161c;
+    --color: #ffffff;
+    --highlight-color-focused: #4ade80;
+    --border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding-left: 6px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+    &:focus-within {
+      border-color: #4ade80;
+      box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.12);
+    }
+  }
+
+  &__icon {
+    font-size: 1.2rem;
+    color: #94a3b8;
+    margin-right: 8px;
+  }
+
+  &__toggle-pwd {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    border-radius: 10px;
+    transition: color 0.2s ease, background-color 0.2s ease;
+
+    &:hover {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    ion-icon {
+      font-size: 1.2rem;
+    }
+  }
+
+  &__error {
+    font-size: 0.78rem;
+    padding-left: 6px;
+  }
+
+  &__submit-btn {
+    --background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+    --background-activated: #16a34a;
+    --background-hover: #38c86f;
+    --color: #09150d;
+    --border-radius: 14px;
+    --box-shadow: 0 10px 24px rgba(74, 222, 128, 0.22);
+    font-weight: 700;
+    font-size: 0.98rem;
+    height: 50px;
+    margin-top: 8px;
+    letter-spacing: 0.01em;
+  }
+
+  &__btn-arrow {
+    font-size: 1.1rem;
+    margin-left: 6px;
+  }
+
+  &__spinner {
+    width: 20px;
+    height: 20px;
+    margin-right: 8px;
+    --color: #09150d;
+  }
+}
+
+/* ==========================================
+   Responsividade (Tablet & Mobile)
+   ========================================== */
+@media (max-width: 992px) {
+  .login-layout {
+    grid-template-columns: 1fr;
+    gap: 32px;
+    max-width: 540px;
+  }
+
+  .login-showcase {
+    order: 2;
+    text-align: center;
+    align-items: center;
+
+    &__lead {
+      max-width: 100%;
+    }
+  }
+
+  .showcase-preview {
+    width: 100%;
+    text-align: left;
+  }
+
+  .showcase-features {
+    width: 100%;
+    text-align: left;
+  }
+
+  .login-panel {
+    order: 1;
+  }
+
+  .login-card {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  .login-page__container {
+    padding: 20px 14px;
+  }
+
+  .showcase-preview__metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .showcase-features {
+    grid-template-columns: 1fr;
+  }
+
+  .login-card {
+    padding: 8px;
+
+    &__header {
+      padding: 20px 16px 12px;
+    }
+
+    &__content {
+      padding: 8px 16px 20px;
+    }
+  }
+}

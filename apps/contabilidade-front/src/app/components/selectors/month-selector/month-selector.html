@@ -1,0 +1,45 @@
+<div class="month-selector" role="group" aria-label="Navegação por mês">
+  <ion-button
+    fill="clear"
+    size="small"
+    (click)="onPrev()"
+    aria-label="Mês anterior"
+    data-testid="prev-month-btn"
+    class="month-selector__nav-btn"
+  >
+    <ion-icon slot="icon-only" name="chevron-back-outline"></ion-icon>
+  </ion-button>
+
+  <div class="month-selector__label" data-testid="period-label">
+    <ion-icon name="calendar-outline" class="month-selector__calendar-icon" aria-hidden="true"></ion-icon>
+    <div class="month-selector__select-wrapper">
+      <select
+        class="month-selector__select"
+        [value]="mes()"
+        (change)="onSelect($event)"
+        aria-label="Selecionar mês"
+        data-testid="month-select"
+      >
+        @for (m of meses; track m.valor) {
+          <option [value]="m.valor" [selected]="m.valor === mes()">
+            {{ m.nome }}
+          </option>
+        }
+      </select>
+      <ion-icon name="chevron-down-outline" class="month-selector__chevron-icon" aria-hidden="true"></ion-icon>
+    </div>
+    <span class="month-selector__year" data-testid="month-year-label">{{ ano() }}</span>
+  </div>
+
+  <ion-button
+    fill="clear"
+    size="small"
+    (click)="onNext()"
+    aria-label="Próximo mês"
+    data-testid="next-month-btn"
+    class="month-selector__nav-btn"
+  >
+    <ion-icon slot="icon-only" name="chevron-forward-outline"></ion-icon>
+  </ion-button>
+</div>
+

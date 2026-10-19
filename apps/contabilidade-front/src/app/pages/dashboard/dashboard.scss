@@ -1,0 +1,628 @@
+.dashboard-toolbar {
+  margin-bottom: 0.25rem;
+  padding: 0 0.25rem;
+}
+
+.dashboard-period {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #1b2028;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 0.2rem 0.4rem;
+
+  ion-button {
+    --color: #cfd6e4;
+    margin: 0;
+  }
+
+  &__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #f4f6fa;
+    min-width: 140px;
+    justify-content: center;
+
+    ion-icon {
+      color: #709366;
+      font-size: 1.05rem;
+    }
+  }
+}
+
+.dashboard-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #9aa3b2;
+  font-size: 0.85rem;
+
+  ion-spinner {
+    width: 18px;
+    height: 18px;
+    color: #709366;
+  }
+}
+
+.dashboard-refresh-btn {
+  --color: #9aa3b2;
+  font-size: 0.82rem;
+  text-transform: none;
+}
+
+.dashboard-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  background: rgba(203, 90, 78, 0.14);
+  border: 1px solid rgba(203, 90, 78, 0.35);
+  color: #f5b5ab;
+  font-size: 0.9rem;
+}
+
+.dashboard-charts-row {
+  align-items: stretch;
+}
+
+.dashboard-chart-col {
+  display: flex;
+  flex-direction: column;
+
+  app-receitas-despesas-chart,
+  app-fluxo-caixa-chart {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    width: 100%;
+  }
+}
+
+.dashboard-expenses-section {
+  display: flex;
+  margin-top: 0.5rem;
+}
+
+.dashboard-expenses-card {
+  width: 100%;
+  margin: 8px 0;
+  padding: 20px 24px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20px;
+  background: linear-gradient(145deg, #292e3a, #222731);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  color: #f5f6f8;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  &__title-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    h2 {
+      margin: 0;
+      font-size: 1.15rem;
+      font-weight: 650;
+      color: #f5f6f8;
+    }
+
+    p {
+      margin: 2px 0 0;
+      color: #9aa3b2;
+      font-size: 0.85rem;
+    }
+  }
+
+  &__icon-wrapper {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: rgba(203, 90, 78, 0.18);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    ion-icon {
+      font-size: 1.3rem;
+      color: #f06a5b;
+    }
+  }
+
+  &__add-btn {
+    --background: #cb5a4e;
+    --background-hover: #b94b40;
+    --background-activated: #a33f34;
+    --color: #ffffff;
+    --border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: none;
+  }
+}
+
+.dashboard-expenses-form-container {
+  margin: 16px 0;
+  padding: 16px 20px;
+  background: rgba(18, 22, 28, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+}
+
+.dashboard-expenses-form {
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px 12px;
+    align-items: flex-start;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #aeb4c0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-control {
+      background: #1b2028;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      color: #f5f6f8;
+      padding: 8px 12px;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+
+      &:focus {
+        border-color: #56b68b;
+      }
+    }
+
+    select.form-control option {
+      background: #1b2028;
+      color: #f5f6f8;
+    }
+
+    .custom-checkbox-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      color: #cfd6e4;
+      cursor: pointer;
+      user-select: none;
+      margin-top: 18px;
+
+      input[type='checkbox'] {
+        accent-color: #56b68b;
+        width: 1.15rem;
+        height: 1.15rem;
+        cursor: pointer;
+      }
+
+      span {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-weight: 500;
+        text-transform: none;
+
+        ion-icon {
+          font-size: 1.15rem;
+          color: #56b68b;
+        }
+      }
+    }
+
+    .form-error {
+      color: #f06a5b;
+      font-size: 0.75rem;
+      margin-top: 2px;
+    }
+  }
+
+  .form-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 14px;
+
+    .submit-expense-btn {
+      --background: #56b68b;
+      --background-hover: #459a74;
+      --color: #ffffff;
+      --border-radius: 8px;
+      font-weight: 600;
+      text-transform: none;
+    }
+  }
+}
+
+.dashboard-expenses-table-wrapper {
+  margin-top: 12px;
+  overflow-x: auto;
+}
+
+.dashboard-expenses-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+
+  thead {
+    tr {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+
+      th {
+        padding: 10px 14px;
+        color: #8c95a5;
+        font-weight: 600;
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        text-align: left;
+      }
+    }
+  }
+
+  tbody {
+    tr {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      transition: background-color 0.15s;
+
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.02);
+      }
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      td {
+        padding: 12px 14px;
+        vertical-align: middle;
+      }
+    }
+  }
+
+  .date-cell {
+    color: #9aa3b2;
+    font-size: 0.85rem;
+    white-space: nowrap;
+  }
+
+  .desc-cell {
+    strong {
+      color: #f5f6f8;
+      font-weight: 500;
+    }
+  }
+
+  .origin-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+
+    &--account {
+      background: rgba(80, 100, 119, 0.22);
+      color: #9aa3b2;
+      border: 1px solid rgba(80, 100, 119, 0.35);
+    }
+
+    &--planned {
+      background: rgba(38, 166, 154, 0.18);
+      color: #26a69a;
+      border: 1px solid rgba(38, 166, 154, 0.35);
+    }
+
+    &--loan {
+      background: rgba(156, 110, 240, 0.18);
+      color: #b39ddb;
+      border: 1px solid rgba(156, 110, 240, 0.35);
+    }
+
+    &--card {
+      background: rgba(255, 179, 0, 0.16);
+      color: #ffb74d;
+      border: 1px solid rgba(255, 179, 0, 0.35);
+    }
+  }
+
+  .category-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.06);
+    color: #cfd6e4;
+    font-size: 0.78rem;
+    font-weight: 500;
+  }
+
+  .status-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+
+    &--paid {
+      background: rgba(86, 182, 139, 0.16);
+      color: #56b68b;
+      border: 1px solid rgba(86, 182, 139, 0.3);
+    }
+
+    &--pending {
+      background: rgba(203, 90, 78, 0.16);
+      color: #f06a5b;
+      border: 1px solid rgba(203, 90, 78, 0.3);
+    }
+  }
+
+  .amount-cell {
+    color: #f06a5b;
+    font-weight: 600;
+    font-size: 0.95rem;
+    white-space: nowrap;
+  }
+
+  .actions-cell {
+    white-space: nowrap;
+
+    .action-btn {
+      background: transparent;
+      border: none;
+      border-radius: 6px;
+      padding: 6px;
+      margin: 0 3px;
+      cursor: pointer;
+      color: #9aa3b2;
+      transition: all 0.2s;
+
+      ion-icon {
+        font-size: 1.15rem;
+        display: block;
+      }
+
+      &--pay:hover {
+        background: rgba(86, 182, 139, 0.18);
+        color: #56b68b;
+      }
+
+      &--edit:hover {
+        background: rgba(80, 100, 119, 0.25);
+        color: #cfd6e4;
+      }
+
+      &--delete:hover {
+        background: rgba(240, 106, 91, 0.18);
+        color: #f06a5b;
+      }
+    }
+  }
+
+  .desc-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+
+    .recurring-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      background: rgba(112, 147, 102, 0.16);
+      color: #8bc34a;
+      border: 1px solid rgba(112, 147, 102, 0.35);
+
+      ion-icon {
+        font-size: 0.85rem;
+      }
+    }
+  }
+}
+
+.form-feedback-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgba(112, 147, 102, 0.12);
+  border: 1px solid rgba(112, 147, 102, 0.3);
+  color: #a8d59d;
+  font-size: 0.82rem;
+  grid-column: 1 / -1;
+
+  ion-icon {
+    font-size: 1.1rem;
+    color: #709366;
+    flex-shrink: 0;
+  }
+}
+
+.dashboard-expenses-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 36px 16px;
+  color: #8c95a5;
+  font-size: 0.9rem;
+
+  ion-icon {
+    font-size: 2rem;
+    color: #506477;
+  }
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 14, 20, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.modal-dialog {
+  background: #232833;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  animation: modalFadeIn 0.2s ease-out;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+
+    .modal-dialog__title-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+
+      ion-icon {
+        color: #709366;
+        font-size: 1.25rem;
+      }
+
+      h3 {
+        margin: 0;
+        font-size: 1.05rem;
+        font-weight: 600;
+        color: #f4f6fa;
+      }
+    }
+
+    .close-modal-btn {
+      background: transparent;
+      border: none;
+      color: #9aa3b2;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 6px;
+      transition: all 0.2s;
+
+      ion-icon {
+        font-size: 1.3rem;
+        display: block;
+      }
+
+      &:hover {
+        color: #f4f6fa;
+        background: rgba(255, 255, 255, 0.06);
+      }
+    }
+  }
+
+  &__body {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+
+      label {
+        font-size: 0.82rem;
+        font-weight: 500;
+        color: #a6b0c2;
+      }
+    }
+
+    .recurrence-choice-group {
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 10px;
+      padding: 12px 14px;
+
+      .recurrence-choice-title {
+        font-weight: 600;
+        color: #cfd6e4;
+        margin-bottom: 8px;
+        display: block;
+      }
+
+      .radio-options {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+
+        .radio-label {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          cursor: pointer;
+          font-size: 0.85rem;
+          color: #e2e8f0;
+
+          input[type='radio'] {
+            accent-color: #709366;
+            width: 16px;
+            height: 16px;
+          }
+        }
+      }
+    }
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 8px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  }
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+

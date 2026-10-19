@@ -1,147 +1,148 @@
-import express from 'express';
-import { ProductsService } from '@org/api/products';
-import {
-  ApiResponse,
-  Product,
-  ProductFilter,
-  PaginatedResponse,
-} from '@org/models';
+import express, { Request, Response, NextFunction } from 'express';
+import cors from 'cors';
+import path from 'path';
+import fs from 'fs';
+import { ENV } from './core/config/env';
 
-const host = process.env.HOST ?? 'localhost';
-const port = process.env.PORT ? Number(process.env.PORT) : 3333;
+import authRoutes from './modules/auth/auth.routes';
+import userRoutes from './modules/user/user.routes';
+import categoriaRoutes from './modules/categoria/categoria.routes';
+import subcategoriaRoutes from './modules/subcategoria/subcategoria.routes';
+import cartaoRoutes from './modules/cartao/cartao.routes';
+import planejamentoRoutes from './modules/planejamento/planejamento.routes';
+import objetivosRoutes from './modules/objetivos/objetivos.routes';
+import transacaoRoutes from './modules/transacao/transacao.routes';
+import dashboardRoutes from './modules/dashboard/dashboard.routes';
+import aiRoutes from './modules/ai/ai.routes';
+import loanRoutes from './modules/loan/loan.routes';
+import cardRoutes from './modules/card/card.routes';
+import plannedTransactionRoutes from './modules/planned-transaction/planned-transaction.routes';
+import forecastRoutes from './modules/forecast/forecast.routes';
+import { setupSwagger } from './core/swagger/swagger.setup';
 
 const app = express();
-const productsService = new ProductsService();
 
-// Middleware
-app.use(express.json());
+// Configura documentação interativa Swagger/OpenAPI
+setupSwagger(app);
 
-// CORS configuration for Angular app
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header(
-    'Access-Control-Allow-Headers',
-    'Origin, X-Requested-With, Content-Type, Accept',
-  );
-  if (req.method === 'OPTIONS') {
-    res.sendStatus(200);
-  } else {
-    next();
-  }
+// Garante pasta pública de uploads
+const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Configuração CORS
+const allowedOrigins = [
+  'http://localhost:4200',
+  'http://localhost:3000',
+  'http://localhost:8100',
+  'https://gerenciamento-one.vercel.app',
+  'https://novasapi.vercel.app',
+];
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin) || origin.startsWith('http://localhost:')) {
+        callback(null, true);
+      } else {
+        callback(null, true); // Permite desenvolvimento flexível
+      }
+    },
+    credentials: true,
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization'],
+  })
+);
+
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Arquivos estáticos de uploads
+app.use('/uploads', express.static(uploadsDir));
+
+// Healthcheck e rota raiz
+app.get('/', (_req: Request, res: Response) => {
+  res.json({
+    name: 'Contabilidade API',
+    version: '2.0.0',
+    status: 'online',
+    docs: '/docs',
+    swagger: '/docs',
+    specJson: '/docs/json',
+    timestamp: new Date().toISOString(),
+    endpoints: [
+      '/docs',
+      '/api/docs',
+      '/docs/json',
+      '/auth',
+      '/user',
+      '/categorias',
+      '/subcategorias',
+      '/cartao',
+      '/planejamento',
+      '/objetivos',
+      '/transacoes',
+      '/dashboard',
+      '/ai',
+      '/loans',
+      '/cards',
+      '/planned-transactions',
+      '/api/planned-transactions',
+      '/forecast',
+      '/api/forecast',
+    ],
+  });
 });
 
-app.get('/', (req, res) => {
-  res.send({ message: 'Hello API' });
+// Registra rotas na raiz (compatibilidade legado)
+app.use('/auth', authRoutes);
+app.use('/user', userRoutes);
+app.use('/categorias', categoriaRoutes);
+app.use('/subcategorias', subcategoriaRoutes);
+app.use('/cartao', cartaoRoutes);
+app.use('/planejamento', planejamentoRoutes);
+app.use('/objetivos', objetivosRoutes);
+app.use('/transacoes', transacaoRoutes);
+app.use('/dashboard', dashboardRoutes);
+app.use('/ai', aiRoutes);
+app.use('/loans', loanRoutes);
+app.use('/cards', cardRoutes);
+app.use('/planned-transactions', plannedTransactionRoutes);
+app.use('/forecast', forecastRoutes);
+
+// Registra rotas também sob prefixo /api (moderno)
+app.use('/api/auth', authRoutes);
+app.use('/api/user', userRoutes);
+app.use('/api/categorias', categoriaRoutes);
+app.use('/api/subcategorias', subcategoriaRoutes);
+app.use('/api/cartao', cartaoRoutes);
+app.use('/api/planejamento', planejamentoRoutes);
+app.use('/api/objetivos', objetivosRoutes);
+app.use('/api/transacoes', transacaoRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/ai', aiRoutes);
+app.use('/api/loans', loanRoutes);
+app.use('/api/cards', cardRoutes);
+app.use('/api/planned-transactions', plannedTransactionRoutes);
+app.use('/api/forecast', forecastRoutes);
+
+// Middleware de tratamento global de erros
+app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  console.error('[API Error]:', err);
+  const message = err instanceof Error ? err.message : 'Erro interno do servidor';
+  res.status(500).json({
+    success: false,
+    error: message,
+    erro: message,
+  });
 });
 
-// Products endpoints
-app.get('/api/products', (req, res) => {
-  try {
-    const filter: ProductFilter = {};
+const port = ENV.PORT;
 
-    if (req.query.category) {
-      filter.category = req.query.category as string;
-    }
-    if (req.query.minPrice) {
-      filter.minPrice = Number(req.query.minPrice);
-    }
-    if (req.query.maxPrice) {
-      filter.maxPrice = Number(req.query.maxPrice);
-    }
-    if (req.query.inStock !== undefined) {
-      filter.inStock = req.query.inStock === 'true';
-    }
-    if (req.query.searchTerm) {
-      filter.searchTerm = req.query.searchTerm as string;
-    }
-
-    const page = req.query.page ? Number(req.query.page) : 1;
-    const pageSize = req.query.pageSize ? Number(req.query.pageSize) : 12;
-
-    const result = productsService.getAllProducts(filter, page, pageSize);
-
-    const response: ApiResponse<PaginatedResponse<Product>> = {
-      data: result,
-      success: true,
-    };
-
-    res.json(response);
-  } catch (error) {
-    const response: ApiResponse<null> = {
-      data: null,
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-    res.status(500).json(response);
-  }
+app.listen(port, () => {
+  console.log(`[ Contabilidade API ] Rodando em http://localhost:${port}`);
+  console.log(`[ Swagger Docs ] Disponível em http://localhost:${port}/docs`);
 });
 
-app.get('/api/products/:id', (req, res) => {
-  try {
-    const product = productsService.getProductById(req.params.id);
-
-    if (!product) {
-      const response: ApiResponse<null> = {
-        data: null,
-        success: false,
-        error: 'Product not found',
-      };
-      return res.status(404).json(response);
-    }
-
-    const response: ApiResponse<Product> = {
-      data: product,
-      success: true,
-    };
-
-    res.json(response);
-  } catch (error) {
-    const response: ApiResponse<null> = {
-      data: null,
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-    res.status(500).json(response);
-  }
-});
-
-app.get('/api/products-metadata/categories', (req, res) => {
-  try {
-    const categories = productsService.getCategories();
-    const response: ApiResponse<string[]> = {
-      data: categories,
-      success: true,
-    };
-    res.json(response);
-  } catch (error) {
-    const response: ApiResponse<null> = {
-      data: null,
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-    res.status(500).json(response);
-  }
-});
-
-app.get('/api/products-metadata/price-range', (req, res) => {
-  try {
-    const priceRange = productsService.getPriceRange();
-    const response: ApiResponse<{ min: number; max: number }> = {
-      data: priceRange,
-      success: true,
-    };
-    res.json(response);
-  } catch (error) {
-    const response: ApiResponse<null> = {
-      data: null,
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-    res.status(500).json(response);
-  }
-});
-
-app.listen(port, host, () => {
-  console.log(`[ ready ] http://${host}:${port}`);
-});
+export default app;

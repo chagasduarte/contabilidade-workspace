@@ -1,0 +1,89 @@
+:host {
+  display: inline-block;
+}
+
+.month-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: #1b2028;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 0.2rem 0.35rem;
+
+  &__nav-btn {
+    --color: #cfd6e4;
+    margin: 0;
+
+    &:hover {
+      --color: #ffffff;
+    }
+  }
+
+  &__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #f4f6fa;
+    justify-content: center;
+    padding: 0 4px;
+  }
+
+  &__calendar-icon {
+    color: #709366;
+    font-size: 1.05rem;
+    flex-shrink: 0;
+  }
+
+  &__select-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    border-radius: 6px;
+    padding: 2px 4px;
+    transition: background-color 0.15s ease;
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.06);
+    }
+  }
+
+  &__select {
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    border: none;
+    color: #ffffff;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    outline: none;
+    padding-right: 18px;
+    line-height: 1.2;
+
+    option {
+      background-color: #1a202c;
+      color: #ffffff;
+      padding: 6px 12px;
+    }
+  }
+
+  &__chevron-icon {
+    position: absolute;
+    right: 2px;
+    font-size: 13px;
+    color: #8fa0b1;
+    pointer-events: none;
+  }
+
+  &__year {
+    color: #8fa0b1;
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin-left: 2px;
+  }
+}
+

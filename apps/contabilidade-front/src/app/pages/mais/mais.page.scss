@@ -1,0 +1,218 @@
+.mais-page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 20px 48px;
+  color: #f1f5f9;
+
+  &__header {
+    margin-bottom: 24px;
+  }
+
+  &__eyebrow {
+    margin: 0 0 4px;
+    color: #38bdf8;
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(1.6rem, 4vw, 2rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+
+  &__intro {
+    margin: 6px 0 0;
+    color: #94a3b8;
+    font-size: 0.92rem;
+  }
+
+  &__hero-cta {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 24px;
+    background: linear-gradient(
+      135deg,
+      rgba(0, 255, 136, 0.1) 0%,
+      rgba(56, 189, 248, 0.06) 100%
+    );
+    border: 1px solid rgba(0, 255, 136, 0.25);
+    border-radius: 20px;
+    margin-bottom: 32px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+
+    @media (min-width: 640px) {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+    }
+  }
+
+  &__hero-badge {
+    position: absolute;
+    top: 14px;
+    right: 16px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    background: rgba(0, 255, 136, 0.16);
+    border: 1px solid rgba(0, 255, 136, 0.3);
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #00ff88;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+
+    ion-icon {
+      font-size: 0.85rem;
+    }
+  }
+
+  &__hero-content {
+    flex: 1;
+
+    h2 {
+      margin: 0 0 6px;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #f1f5f9;
+    }
+
+    p {
+      margin: 0;
+      font-size: 0.88rem;
+      color: #cbd5e1;
+      max-width: 520px;
+      line-height: 1.45;
+    }
+  }
+
+  &__hero-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 24px;
+    background: #00ff88;
+    color: #0a1017;
+    border: none;
+    border-radius: 14px;
+    font-size: 0.92rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 6px 18px rgba(0, 255, 136, 0.35);
+    white-space: nowrap;
+
+    &:hover {
+      background: #00e67a;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 255, 136, 0.45);
+    }
+
+    &:active {
+      transform: translateY(0);
+    }
+
+    ion-icon {
+      font-size: 1.3rem;
+    }
+  }
+
+  &__section-title {
+    margin: 0 0 16px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #cbd5e1;
+    letter-spacing: -0.01em;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px;
+  }
+
+  &__card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 18px;
+    background: #181e27;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 16px;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: #202733;
+      border-color: rgba(255, 255, 255, 0.15);
+      transform: translateY(-2px);
+
+      .mais-page__card-arrow {
+        transform: translateX(4px);
+        color: #f1f5f9;
+      }
+    }
+
+    &:active {
+      transform: translateY(0);
+    }
+  }
+
+  &__card-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    flex-shrink: 0;
+
+    ion-icon {
+      font-size: 1.35rem;
+    }
+  }
+
+  &__card-info {
+    flex: 1;
+    min-width: 0;
+
+    h3 {
+      margin: 0 0 3px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #f1f5f9;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    p {
+      margin: 0;
+      font-size: 0.78rem;
+      color: #94a3b8;
+      line-height: 1.35;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+  }
+
+  &__card-arrow {
+    font-size: 1.1rem;
+    color: #64748b;
+    flex-shrink: 0;
+    transition: transform 0.2s ease, color 0.2s ease;
+  }
+}
+

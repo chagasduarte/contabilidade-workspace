@@ -1,0 +1,246 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/emprestimos"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Gestão do Empréstimo</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="carregarResumo()" aria-label="Recarregar">
+        <ion-icon slot="icon-only" name="refresh-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="loan-details-content ion-padding">
+  <ion-refresher slot="fixed" (ionRefresh)="handleRefresh($event)">
+    <ion-refresher-content pullingText="Puxe para atualizar" refreshingSpinner="crescent"></ion-refresher-content>
+  </ion-refresher>
+
+  <!-- Estado de Carregamento Inicial -->
+  @if (loading() && !resumo()) {
+    <div class="loan-details__loading">
+      <ion-spinner name="crescent" color="primary"></ion-spinner>
+      <p>Carregando dados do empréstimo...</p>
+    </div>
+  }
+
+  <!-- Mensagem de Erro -->
+  @if (error() && !resumo()) {
+    <ion-card class="loan-details__error-card">
+      <ion-card-content>
+        <ion-icon name="alert-circle-outline" color="danger"></ion-icon>
+        <h2>Não foi possível carregar o empréstimo</h2>
+        <p>{{ error() }}</p>
+        <ion-button fill="outline" color="primary" (click)="carregarResumo()">
+          Tentar Novamente
+        </ion-button>
+      </ion-card-content>
+    </ion-card>
+  }
+
+  <!-- Conteúdo Principal -->
+  @if (resumo(); as dados) {
+    <!-- Card Principal: Contrato e Instituição -->
+    <ion-card class="loan-card loan-card--main">
+      <ion-card-header>
+        <div class="loan-card__header-row">
+          <div class="loan-card__institution">
+            <ion-icon name="business-outline" class="institution-icon"></ion-icon>
+            <div>
+              <ion-card-subtitle>Instituição Financeira</ion-card-subtitle>
+              <ion-card-title>{{ dados.loan.institution_name }}</ion-card-title>
+            </div>
+          </div>
+          <ion-badge
+            [color]="dados.loan.status === 'PAID_OFF' ? 'success' : 'primary'"
+            class="loan-card__status-badge"
+          >
+            {{ dados.loan.status === 'PAID_OFF' ? 'Quitado' : 'Em Andamento' }}
+          </ion-badge>
+        </div>
+      </ion-card-header>
+
+      <ion-card-content>
+        <div class="loan-contract-meta">
+          <div class="contract-meta-item">
+            <span class="meta-label">Valor Principal</span>
+            <span class="meta-value principal-value">
+              {{ dados.loan.principal_amount | currency:'BRL':'symbol':'1.2-2' }}
+            </span>
+          </div>
+          <div class="contract-meta-item">
+            <span class="meta-label">Taxa Mensal</span>
+            <span class="meta-value">{{ dados.loan.monthly_interest_rate }}% a.m.</span>
+          </div>
+          <div class="contract-meta-item">
+            <span class="meta-label">Data Contratação</span>
+            <span class="meta-value">
+              {{ dados.loan.contracted_at | date:'dd/MM/yyyy' }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Progresso de Quitação -->
+        <div class="loan-progress-section">
+          <div class="loan-progress-header">
+            <span>Progresso da Quitação</span>
+            <span class="progress-ratio">
+              {{ progresso().pagas }} de {{ progresso().total }} parcelas ({{ progresso().formatado }})
+            </span>
+          </div>
+          <ion-progress-bar
+            [value]="progresso().percentual"
+            color="success"
+            class="loan-progress-bar"
+          ></ion-progress-bar>
+        </div>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- Grid de Métricas Financeiras -->
+    <div class="loan-metrics-grid">
+      <!-- Total Desembolsado -->
+      <ion-card class="metric-card metric-card--paid">
+        <ion-card-content>
+          <div class="metric-card__icon-wrap">
+            <ion-icon name="wallet-outline"></ion-icon>
+          </div>
+          <div class="metric-card__info">
+            <span class="metric-label">Total Pago</span>
+            <span class="metric-amount">
+              {{ dados.total_paid | currency:'BRL':'symbol':'1.2-2' }}
+            </span>
+            <span class="metric-hint">Desembolso acumulado</span>
+          </div>
+        </ion-card-content>
+      </ion-card>
+
+      <!-- Saldo Restante -->
+      <ion-card class="metric-card metric-card--remaining">
+        <ion-card-content>
+          <div class="metric-card__icon-wrap">
+            <ion-icon name="time-outline"></ion-icon>
+          </div>
+          <div class="metric-card__info">
+            <span class="metric-label">Saldo Restante</span>
+            <span class="metric-amount">
+              {{ dados.remaining_balance | currency:'BRL':'symbol':'1.2-2' }}
+            </span>
+            <span class="metric-hint">A amortizar</span>
+          </div>
+        </ion-card-content>
+      </ion-card>
+
+      <!-- DESTAQUE VISUAL: Total Economizado em Descontos -->
+      <ion-card class="metric-card metric-card--economy">
+        <ion-card-content>
+          <div class="economy-badge-tag">
+            <ion-icon name="sparkles-outline"></ion-icon>
+            <span>Economia Real</span>
+          </div>
+          <div class="metric-card__info">
+            <span class="metric-label">Descontos Obtidos</span>
+            <span class="metric-amount economy-amount">
+              {{ dados.total_discounts | currency:'BRL':'symbol':'1.2-2' }}
+            </span>
+            <span class="metric-hint">Economia com antecipação de parcelas</span>
+          </div>
+        </ion-card-content>
+      </ion-card>
+    </div>
+
+    <!-- Lista do Cronograma de Parcelas -->
+    <div class="installments-section">
+      <div class="installments-header">
+        <div>
+          <h2>Cronograma de Parcelas</h2>
+          <p>Acompanhe o detalhamento entre amortização e juros de cada cota</p>
+        </div>
+        <ion-chip color="medium" class="installments-count-chip">
+          <ion-icon name="receipt-outline"></ion-icon>
+          <ion-label>{{ dados.installments.length }} parcelas</ion-label>
+        </ion-chip>
+      </div>
+
+      <ion-list class="installments-list" lines="none">
+        @for (parcela of dados.installments; track parcela.id) {
+          <ion-card
+            class="installment-card"
+            [class.installment-card--paid]="parcela.status === 'PAID'"
+          >
+            <div class="installment-card__inner">
+              <!-- Coluna Esquerda: Número e Vencimento -->
+              <div class="installment-card__main">
+                <div class="installment-card__badge-row">
+                  <span class="installment-number">Parcela #{{ parcela.installment_number }}</span>
+                  @if (parcela.status === 'PAID') {
+                    <ion-badge color="success" class="status-badge">
+                      <ion-icon name="checkmark-circle"></ion-icon>
+                      Quitada
+                    </ion-badge>
+                  } @else {
+                    <ion-badge color="warning" class="status-badge">
+                      <ion-icon name="time-outline"></ion-icon>
+                      Pendente
+                    </ion-badge>
+                  }
+                </div>
+
+                <div class="installment-due-date">
+                  <ion-icon name="calendar-outline"></ion-icon>
+                  <span>Vencimento: <strong>{{ parcela.due_date | date:'dd/MM/yyyy' }}</strong></span>
+                </div>
+
+                <!-- Segregação: Amortização vs Juros -->
+                <div class="installment-breakdown">
+                  <div class="breakdown-item">
+                    <span class="breakdown-label">Amortização:</span>
+                    <span class="breakdown-value">
+                      {{ parcela.principal_component | currency:'BRL':'symbol':'1.2-2' }}
+                    </span>
+                  </div>
+                  <div class="breakdown-item">
+                    <span class="breakdown-label">Juros Previstos:</span>
+                    <span class="breakdown-value juros-value">
+                      {{ parcela.interest_component | currency:'BRL':'symbol':'1.2-2' }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Coluna Direita: Valor e Ação -->
+              <div class="installment-card__action">
+                <div class="installment-total-amount">
+                  <span class="amount-label">Valor da Parcela</span>
+                  <span class="amount-value">
+                    {{ parcela.original_amount | currency:'BRL':'symbol':'1.2-2' }}
+                  </span>
+                </div>
+
+                @if (parcela.status !== 'PAID') {
+                  <ion-button
+                    size="small"
+                    color="success"
+                    fill="solid"
+                    class="btn-anticipate"
+                    (click)="abrirModalAntecipacao(parcela)"
+                  >
+                    <ion-icon slot="start" name="flash-outline"></ion-icon>
+                    Antecipar / Pagar
+                  </ion-button>
+                } @else {
+                  <div class="paid-indicator">
+                    <ion-icon name="shield-checkmark-outline" color="success"></ion-icon>
+                    <span>Liquidada</span>
+                  </div>
+                }
+              </div>
+            </div>
+          </ion-card>
+        }
+      </ion-list>
+    </div>
+  }
+</ion-content>
+

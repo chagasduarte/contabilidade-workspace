@@ -1,0 +1,13 @@
+<a
+  class="sidebar-option"
+  [class.sidebar-option--collapsed]="collapsed"
+  [routerLink]="route"
+  routerLinkActive="active"
+  [routerLinkActiveOptions]="{ exact: route === '/' }"
+  ariaCurrentWhenActive="page"
+  [attr.aria-label]="name"
+  [attr.title]="name"
+>
+  <ion-icon [name]="iconName" aria-hidden="true"></ion-icon>
+  <span class="sidebar-label">{{ name }}</span>
+</a>

@@ -1,0 +1,13 @@
+<nav class="mobile-tabbar" role="navigation" aria-label="Navegação Principal Mobile">
+  @for (tab of mainTabs; track tab.route) {
+    <a
+      [routerLink]="tab.route"
+      routerLinkActive="mobile-tabbar__item--active"
+      ariaCurrentWhenActive="page"
+      class="mobile-tabbar__item"
+    >
+      <ion-icon [name]="tab.icon" class="mobile-tabbar__icon"></ion-icon>
+      <span class="mobile-tabbar__label">{{ tab.label }}</span>
+    </a>
+  }
+</nav>

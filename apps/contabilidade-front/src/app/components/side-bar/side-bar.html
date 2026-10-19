@@ -1,0 +1,48 @@
+<aside
+  class="sidebar"
+  [class.sidebar--collapsed]="isCollapsed"
+  aria-label="Navegação principal"
+>
+  <div class="sidebar-header">
+    <a class="sidebar-brand" routerLink="/">Contabilidade</a>
+    <button
+      class="sidebar-toggle"
+      type="button"
+      (click)="toggleCollapsed()"
+      [attr.aria-label]="isCollapsed ? 'Expandir navegação' : 'Recolher navegação'"
+      [attr.title]="isCollapsed ? 'Expandir navegação' : 'Recolher navegação'"
+      [attr.aria-expanded]="!isCollapsed"
+    >
+      <ion-icon
+        [name]="isCollapsed ? 'chevron-forward-outline' : 'chevron-back-outline'"
+        aria-hidden="true"
+      ></ion-icon>
+    </button>
+  </div>
+  <nav aria-label="Páginas">
+    <app-side-bar-options
+      name="Dashboard"
+      route="/"
+      iconName="home-outline"
+      [collapsed]="isCollapsed"
+    ></app-side-bar-options>
+    <app-side-bar-options
+      name="Lançamentos"
+      route="/lancamentos"
+      iconName="document-text-outline"
+      [collapsed]="isCollapsed"
+    ></app-side-bar-options>
+    <app-side-bar-options
+      name="Empréstimos"
+      route="/emprestimos"
+      iconName="cash-outline"
+      [collapsed]="isCollapsed"
+    ></app-side-bar-options>
+    <app-side-bar-options
+      name="Categorias"
+      route="/categorias"
+      iconName="pricetag-outline"
+      [collapsed]="isCollapsed"
+    ></app-side-bar-options>
+  </nav>
+</aside>

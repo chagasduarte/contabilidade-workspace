@@ -1,0 +1,24 @@
+<div class="header-search" role="search">
+  <ion-icon name="search-outline" class="header-search__icon" aria-hidden="true"></ion-icon>
+  <input
+    type="text"
+    class="header-search__input"
+    [placeholder]="placeholder()"
+    [value]="searchTerm()"
+    (input)="onInput($event)"
+    aria-label="Buscar"
+    data-testid="header-search-input"
+  />
+  @if (searchTerm()) {
+    <button
+      type="button"
+      class="header-search__clear-btn"
+      (click)="onClear()"
+      aria-label="Limpar busca"
+      data-testid="header-search-clear-btn"
+    >
+      <ion-icon name="close-circle-outline" aria-hidden="true"></ion-icon>
+    </button>
+  }
+</div>
+

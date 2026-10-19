@@ -1,0 +1,98 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+.cash-flow {
+  margin: 8px 0;
+  padding: 16px;
+  height: calc(100% - 16px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20px;
+  background: linear-gradient(145deg, #292e3a, #222731);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+
+  &__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 12px;
+  }
+
+  h2 {
+    margin: 0;
+    color: #f5f6f8;
+    font-size: 1.1rem;
+    font-weight: 650;
+    line-height: 1.35;
+  }
+
+  &__legend {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 12px;
+    color: #c0c4ce;
+    font-size: 0.78rem;
+
+    span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+  }
+
+  &__legend-marker {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 2px;
+
+    &--income {
+      background: #56b68b;
+    }
+
+    &--expense {
+      background: #f06a5b;
+    }
+
+    &--progress {
+      width: 16px;
+      height: 2px;
+      border-radius: 0;
+      background: #9fd2ff;
+    }
+  }
+
+  &__chart {
+    position: relative;
+    width: 100%;
+    flex: 1;
+    min-height: 280px;
+  }
+}
+
+@media (max-width: 600px) {
+  .cash-flow {
+    padding: 14px 12px;
+
+    &__header {
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    &__legend {
+      justify-content: flex-start;
+      gap: 10px;
+    }
+
+    &__chart {
+      height: 260px;
+    }
+  }
+}

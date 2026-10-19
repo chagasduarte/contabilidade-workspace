@@ -1,0 +1,42 @@
+.navigation-info {
+  max-width: 760px;
+  margin: 28px auto;
+  padding: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 18px;
+  background: #222933;
+  color: #f5f6f8;
+
+  &__eyebrow {
+    margin: 0 0 8px;
+    color: #73c99f;
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 1.7rem;
+  }
+
+  p:not(.navigation-info__eyebrow) {
+    margin: 10px 0 18px;
+    color: #aeb8c3;
+  }
+
+  &__status {
+    display: inline-block;
+    padding: 7px 10px;
+    border-radius: 999px;
+    background: rgba(240, 196, 119, 0.12);
+    color: #f0c477;
+    font-size: 0.78rem;
+  }
+}
+
+@media (max-width: 700px) {
+  .navigation-info {
+    margin: 20px 14px;
+    padding: 20px;
+  }
+}

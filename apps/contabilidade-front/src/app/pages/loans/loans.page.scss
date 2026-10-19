@@ -1,0 +1,164 @@
+.loans-content {
+  --background: var(--ion-background-color, #f4f5f8);
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.loans__loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: var(--ion-color-medium, #92949c);
+
+  ion-spinner {
+    width: 44px;
+    height: 44px;
+    margin-bottom: 12px;
+  }
+}
+
+.loans__error-card {
+  text-align: center;
+  padding: 24px;
+  border-radius: 16px;
+
+  ion-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+  }
+}
+
+.loans-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.loan-item-card {
+  margin: 0;
+  border-radius: 16px;
+  background: var(--ion-card-background, #ffffff);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.09);
+  }
+
+  ion-card-content {
+    padding: 18px;
+  }
+
+  &__inner {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  &__icon-wrap {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    background: rgba(var(--ion-color-primary-rgb, 56, 128, 255), 0.1);
+    color: var(--ion-color-primary, #3880ff);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+
+  &__details {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  &__title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+
+    .institution-name {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--ion-text-color, #1e2023);
+      margin: 0;
+    }
+
+    .loan-badge {
+      font-size: 0.75rem;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+  }
+
+  &__sub-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 0.85rem;
+    color: var(--ion-color-medium, #92949c);
+
+    .loan-principal {
+      font-weight: 700;
+      color: var(--ion-color-primary, #3880ff);
+      font-size: 0.95rem;
+    }
+  }
+
+  .chevron-icon {
+    font-size: 20px;
+    color: var(--ion-color-medium, #92949c);
+    flex-shrink: 0;
+  }
+}
+
+.loans-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 60px 24px;
+
+  .empty-icon-wrap {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: rgba(var(--ion-color-success-rgb, 45, 211, 111), 0.12);
+    color: var(--ion-color-success, #2dd36f);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    margin-bottom: 20px;
+  }
+
+  h2 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--ion-text-color, #1e2023);
+    margin-bottom: 8px;
+  }
+
+  p {
+    font-size: 0.9rem;
+    color: var(--ion-color-medium, #92949c);
+    max-width: 420px;
+    line-height: 1.5;
+    margin-bottom: 24px;
+  }
+
+  ion-button {
+    font-weight: 600;
+  }
+}
+

@@ -1,0 +1,133 @@
+:host {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.metric-card {
+  // Cores dinâmicas definidas através de propriedades ou inline CSS do host
+  --background: #709366;
+  --color: #ffffff;
+  background-color: var(--background);
+  color: var(--color);
+  border-radius: 18px;
+  box-shadow: none;
+  margin: 8px;
+  padding: 8px 12px;
+  height: 100%;
+
+  &__header {
+    padding-bottom: 25px;
+  }
+
+  &__title-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__icon {
+    font-size: 1.25rem;
+    color: currentColor;
+    stroke-width: 32px;
+  }
+
+  &__title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: currentColor;
+  }
+
+  &__content {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding-top: 0;
+  }
+
+  &__values {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+  }
+
+  &__amount {
+    margin: 0;
+    font-size: 2.35rem;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: currentColor;
+  }
+
+  &__target {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 400;
+    opacity: 0.9;
+    color: currentColor;
+  }
+
+  &__progress {
+    display: block;
+    width: 100%;
+    height: 10px;
+    border-radius: 999px;
+    --background: rgba(0, 0, 0, 0.2);
+    --progress-background: #d1e2cb;
+  }
+}
+
+@media (max-width: 640px) {
+  .metric-card {
+    border-radius: 18px;
+    margin: 4px;
+    padding: 4px 6px;
+
+    &__header {
+      padding: 12px 10px 8px;
+    }
+
+    &__title-wrapper {
+      align-items: flex-start;
+      gap: 6px;
+    }
+
+    &__icon {
+      margin-top: 1px;
+      font-size: 1rem;
+    }
+
+    &__title {
+      font-size: 0.7rem;
+      line-height: 1.25;
+      letter-spacing: 0.02em;
+    }
+
+    &__content {
+      gap: 10px;
+      padding: 0 10px 12px;
+    }
+
+    &__values {
+      gap: 12px;
+    }
+
+    &__amount {
+      font-size: clamp(1.2rem, 5vw, 1.55rem);
+      overflow-wrap: anywhere;
+    }
+
+    &__target {
+      font-size: 0.72rem;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+
+    &__progress {
+      height: 8px;
+    }
+  }
+}

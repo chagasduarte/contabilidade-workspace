@@ -1,0 +1,59 @@
+:host {
+  display: block;
+}
+
+.header-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: #1f262e;
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  color: #7b8e9f;
+  width: 280px;
+  transition: all 0.2s ease-in-out;
+
+  &:focus-within {
+    border-color: rgba(94, 162, 239, 0.4);
+    box-shadow: 0 0 0 2px rgba(94, 162, 239, 0.15);
+  }
+
+  &__icon {
+    font-size: 18px;
+    color: #7b8e9f;
+    flex-shrink: 0;
+  }
+
+  &__input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #ffffff;
+    font-size: 0.9rem;
+    width: 100%;
+
+    &::placeholder {
+      color: #7b8e9f;
+    }
+  }
+
+  &__clear-btn {
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 16px;
+    transition: color 0.15s ease;
+
+    &:hover {
+      color: #ffffff;
+    }
+  }
+}
+

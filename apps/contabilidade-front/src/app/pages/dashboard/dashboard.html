@@ -1,0 +1,579 @@
+<ion-grid class="dashboard-grid">
+  <ion-row class="ion-align-items-center ion-justify-content-between dashboard-toolbar">
+    <ion-col size="12" size-md="auto">
+      <app-month-selector
+        [mes]="dashboardService.mes()"
+        [ano]="dashboardService.ano()"
+        (mesChange)="selecionarMes($event)"
+        (mesAnterior)="mesAnterior()"
+        (proximoMes)="proximoMes()"
+      ></app-month-selector>
+    </ion-col>
+
+    <ion-col size="12" size-md="auto" class="ion-text-right">
+      @if (dashboardService.loading()) {
+        <div class="dashboard-status">
+          <ion-spinner name="crescent"></ion-spinner>
+          <span>Sincronizando dados...</span>
+        </div>
+      } @else {
+        <ion-button
+          fill="clear"
+          size="small"
+          class="dashboard-refresh-btn"
+          (click)="carregarDados()"
+          aria-label="Atualizar dados do dashboard"
+        >
+          <ion-icon slot="start" name="refresh-outline"></ion-icon>
+          Atualizar
+        </ion-button>
+      }
+    </ion-col>
+  </ion-row>
+
+  @if (dashboardService.error(); as errorMsg) {
+    <ion-row>
+      <ion-col size="12">
+        <div class="dashboard-error" role="alert">
+          <span>{{ errorMsg }}</span>
+          <ion-button fill="clear" size="small" (click)="carregarDados()">
+            Tentar novamente
+          </ion-button>
+        </div>
+      </ion-col>
+    </ion-row>
+  }
+
+  <ion-row>
+    <ion-col size="6" size-lg="3">
+      <app-metric-card
+        title="RECEBIMENTOS"
+        [currentAmount]="receitaRecebida()"
+        [targetAmount]="receitaTotal()"
+        descriptionLabel="recebidos de"
+        iconName="arrow-up-outline"
+        backgroundColor="#709366"
+        progressFillColor="#d1e2cb"
+      ></app-metric-card>
+    </ion-col>
+    <ion-col size="6" size-lg="3">
+      <app-metric-card
+        title="DESPESAS"
+        [currentAmount]="despesaTotal()"
+        [targetAmount]="receitaTotal()"
+        descriptionLabel="gastos de"
+        iconName="wallet-outline"
+        backgroundColor="#cb5a4e"
+        progressFillColor="#f5b5ab"
+      ></app-metric-card>
+    </ion-col>
+    <ion-col size="6" size-lg="3">
+      <app-metric-card
+        title="TOTAL A PAGAR"
+        [currentAmount]="totalPendente()"
+        [targetAmount]="despesaTotal()"
+        descriptionLabel="pendente de"
+        iconName="wallet-outline"
+        backgroundColor="#506477"
+        progressFillColor="#f5b5ab"
+      ></app-metric-card>
+    </ion-col>
+    <ion-col size="6" size-lg="3">
+      <app-metric-card
+        title="SALDO PROJETADO"
+        [currentAmount]="saldoProjetado()"
+        [targetAmount]="receitaTotal()"
+        descriptionLabel="projetado de"
+        iconName="wallet-outline"
+        backgroundColor="#C69B5C"
+        progressFillColor="#1A1A1A"
+      ></app-metric-card>
+    </ion-col>
+  </ion-row>
+  <ion-row class="dashboard-charts-row">
+    <ion-col size="12" size-lg="6" class="dashboard-chart-col">
+      <app-receitas-despesas-chart
+        [revenues]="receitaTotal()"
+        [expenses]="despesaTotal()"
+        [accumulatedBalance]="saldoAcumulado()"
+      ></app-receitas-despesas-chart>
+    </ion-col>
+    <ion-col size="12" size-lg="6" class="dashboard-chart-col">
+      <app-fluxo-caixa-chart
+        [projecao]="dashboardService.projecao()"
+      ></app-fluxo-caixa-chart>
+    </ion-col>
+  </ion-row>
+
+  <ion-row class="dashboard-expenses-section">
+    <ion-col size="12">
+      <section class="dashboard-expenses-card" aria-labelledby="expenses-card-title">
+        <header class="dashboard-expenses-card__header">
+          <div class="dashboard-expenses-card__title-group">
+            <div class="dashboard-expenses-card__icon-wrapper">
+              <ion-icon name="wallet-outline" aria-hidden="true"></ion-icon>
+            </div>
+            <div>
+              <h2 id="expenses-card-title">Despesas e Obrigações do Mês</h2>
+              <p>10 lançamentos mais recentes de saídas e obrigações para {{ periodoLabel() }}</p>
+            </div>
+          </div>
+
+          <ion-button
+            fill="solid"
+            size="small"
+            class="dashboard-expenses-card__add-btn"
+            (click)="alternarFormularioDespesa()"
+            data-testid="toggle-add-expense-btn"
+          >
+            <ion-icon slot="start" [name]="showAddExpense() ? 'close-outline' : 'add-outline'"></ion-icon>
+            {{ showAddExpense() ? 'Fechar' : 'Nova Despesa' }}
+          </ion-button>
+        </header>
+
+        @if (showAddExpense()) {
+          <div class="dashboard-expenses-form-container" data-testid="add-expense-form-container">
+            <form [formGroup]="expenseForm" (ngSubmit)="salvarNovaDespesa()" class="dashboard-expenses-form">
+              <div class="form-grid">
+                <div class="form-group form-group--desc">
+                  <label for="exp-desc">Descrição *</label>
+                  <input
+                    id="exp-desc"
+                    type="text"
+                    formControlName="descricao"
+                    placeholder="Ex: Aluguel, Supermercado, Luz..."
+                    class="form-control"
+                    data-testid="expense-desc-input"
+                  />
+                  @if (expenseForm.controls.descricao.touched && expenseForm.controls.descricao.invalid) {
+                    <span class="form-error">Descrição é obrigatória.</span>
+                  }
+                </div>
+
+                <div class="form-group form-group--val">
+                  <label for="exp-val">Valor (R$) *</label>
+                  <input
+                    id="exp-val"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    formControlName="valor"
+                    placeholder="0,00"
+                    class="form-control"
+                    data-testid="expense-val-input"
+                  />
+                  @if (expenseForm.controls.valor.touched && expenseForm.controls.valor.invalid) {
+                    <span class="form-error">Informe um valor válido (> 0).</span>
+                  }
+                </div>
+
+                <div class="form-group form-group--date">
+                  <label for="exp-date">Data *</label>
+                  <input
+                    id="exp-date"
+                    type="date"
+                    formControlName="data"
+                    class="form-control"
+                    data-testid="expense-date-input"
+                  />
+                </div>
+
+                <div class="form-group form-group--cat">
+                  <label for="exp-cat">Categoria *</label>
+                  <select id="exp-cat" formControlName="idcategoria" class="form-control" data-testid="expense-cat-select">
+                    <option [ngValue]="null" disabled>Selecione a categoria</option>
+                    @for (cat of categoriaService.categorias(); track cat.id) {
+                      <option [ngValue]="cat.id">{{ cat.nome }}</option>
+                    }
+                  </select>
+                  @if (expenseForm.controls.idcategoria.touched && expenseForm.controls.idcategoria.invalid) {
+                    <span class="form-error">Categoria é obrigatória.</span>
+                  }
+                </div>
+
+                <div class="form-group form-group--subcat">
+                  <label for="exp-subcat">Subcategoria</label>
+                  <select id="exp-subcat" formControlName="categoria" class="form-control" data-testid="expense-subcat-select">
+                    @for (sub of subcategoriasDisponiveis(); track sub.id) {
+                      <option [ngValue]="sub.id">{{ sub.nome }}</option>
+                    }
+                    @if (subcategoriasDisponiveis().length === 0) {
+                      <option [ngValue]="expenseForm.get('idcategoria')?.value">Padrão da Categoria</option>
+                    }
+                  </select>
+                </div>
+
+                <div class="form-group form-group--status">
+                  <label for="exp-status">Status</label>
+                  <select id="exp-status" formControlName="status" class="form-control" data-testid="expense-status-select">
+                    <option value="pago">Pago</option>
+                    <option value="pendente">Pendente</option>
+                  </select>
+                </div>
+
+                <div class="form-group form-group--recorrencia">
+                  <label for="exp-recorrencia">Repetição / Recorrência</label>
+                  <select
+                    id="exp-recorrencia"
+                    formControlName="recorrencia"
+                    class="form-control"
+                    data-testid="expense-recorrencia-select"
+                  >
+                    <option value="NONE">Apenas uma vez</option>
+                    <option value="MENSAL">Mensal (fixo/estimado)</option>
+                  </select>
+                </div>
+
+                @if (expenseForm.get('recorrencia')?.value === 'MENSAL') {
+                  <div class="form-group form-group--full form-feedback-info">
+                    <ion-icon name="repeat-outline"></ion-icon>
+                    <span>Gerará previsões para os próximos meses automaticamente</span>
+                  </div>
+
+                  <div class="form-group form-group--limite-rec">
+                    <label for="exp-limite-rec">Término da Recorrência (Opcional)</label>
+                    <input
+                      id="exp-limite-rec"
+                      type="date"
+                      formControlName="dataLimiteRecorrencia"
+                      class="form-control"
+                      data-testid="expense-limite-rec-input"
+                    />
+                  </div>
+                }
+
+                <div class="form-group form-group--checkbox">
+                  <label class="custom-checkbox-label">
+                    <input
+                      type="checkbox"
+                      formControlName="isCartao"
+                      data-testid="expense-cartao-check"
+                    />
+                    <span>
+                      <ion-icon name="card-outline"></ion-icon>
+                      Pago com cartão
+                    </span>
+                  </label>
+                </div>
+
+                @if (expenseForm.get('isCartao')?.value) {
+                  <div class="form-group form-group--card-select">
+                    <label for="exp-card">Cartão de Crédito</label>
+                    <select
+                      id="exp-card"
+                      formControlName="cartaoid"
+                      class="form-control"
+                      data-testid="expense-card-select"
+                    >
+                      @for (card of cartaoService.cartoes(); track card.id) {
+                        <option [ngValue]="card.id">
+                          {{ card.nome }} (Fecha dia {{ card.dia_fatura }})
+                        </option>
+                      }
+                      @if (cartaoService.cartoes().length === 0) {
+                        <option [ngValue]="null">Nenhum cartão cadastrado</option>
+                      }
+                    </select>
+                  </div>
+                }
+
+                <div class="form-group form-group--checkbox">
+                  <label class="custom-checkbox-label">
+                    <input
+                      type="checkbox"
+                      formControlName="isParcelado"
+                      data-testid="expense-parcelado-check"
+                    />
+                    <span>
+                      <ion-icon name="layers-outline"></ion-icon>
+                      Compra parcelada
+                    </span>
+                  </label>
+                </div>
+
+                @if (expenseForm.get('isParcelado')?.value) {
+                  <div class="form-group form-group--parcelas-qtd">
+                    <label for="exp-qtd-parcelas">Nº Parcelas</label>
+                    <input
+                      id="exp-qtd-parcelas"
+                      type="number"
+                      min="1"
+                      max="72"
+                      formControlName="qtdParcelas"
+                      class="form-control"
+                      placeholder="Ex: 3"
+                      data-testid="expense-qtd-parcelas-input"
+                    />
+                  </div>
+
+                  <div class="form-group form-group--parcelas-val">
+                    <label for="exp-val-parcela">Valor por Parcela (R$)</label>
+                    <input
+                      id="exp-val-parcela"
+                      type="number"
+                      step="0.01"
+                      formControlName="valorParcela"
+                      class="form-control"
+                      placeholder="0,00"
+                      data-testid="expense-val-parcela-input"
+                    />
+                  </div>
+                }
+              </div>
+
+              <div class="form-actions">
+                <ion-button
+                  type="button"
+                  fill="outline"
+                  size="small"
+                  color="medium"
+                  (click)="alternarFormularioDespesa()"
+                >
+                  Cancelar
+                </ion-button>
+                <ion-button
+                  type="submit"
+                  size="small"
+                  class="submit-expense-btn"
+                  [disabled]="transacaoService.loading()"
+                  data-testid="submit-expense-btn"
+                >
+                  @if (transacaoService.loading()) {
+                    <ion-spinner name="crescent" slot="start"></ion-spinner>
+                    Salvando...
+                  } @else {
+                    <ion-icon slot="start" name="checkmark-circle-outline"></ion-icon>
+                    Salvar Despesa
+                  }
+                </ion-button>
+              </div>
+            </form>
+          </div>
+        }
+
+        <div class="dashboard-expenses-table-wrapper">
+          @if (transacaoService.loading() && ultimasDespesas().length === 0) {
+            <div class="dashboard-expenses-empty">
+              <ion-spinner name="crescent"></ion-spinner>
+              <span>Carregando despesas...</span>
+            </div>
+          } @else if (ultimasDespesas().length === 0) {
+            <div class="dashboard-expenses-empty">
+              <ion-icon name="wallet-outline" aria-hidden="true"></ion-icon>
+              <span>Nenhuma despesa registrada para este período.</span>
+            </div>
+          } @else {
+            <table class="dashboard-expenses-table">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Descrição</th>
+                  <th>Origem</th>
+                  <th>Categoria</th>
+                  <th>Status</th>
+                  <th class="ion-text-right">Valor</th>
+                  <th class="ion-text-center">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of ultimasDespesas(); track item.id) {
+                  <tr>
+                    <td class="date-cell">
+                      {{ item.data | date: 'dd/MM/yyyy' : 'UTC' : 'pt-BR' }}
+                    </td>
+                    <td class="desc-cell">
+                      <div class="desc-content">
+                        <strong>{{ item.descricao }}</strong>
+                        @if (item.is_recorrente || item.recorrencia === 'MENSAL') {
+                          <span class="recurring-pill" title="Despesa recorrente mensal">
+                            <ion-icon name="repeat-outline"></ion-icon>
+                            Recorrente
+                          </span>
+                        }
+                      </div>
+                    </td>
+                    <td class="origin-cell">
+                      <span
+                        class="origin-badge"
+                        [class.origin-badge--account]="!item.origem || item.origem === 'CONTA'"
+                        [class.origin-badge--planned]="item.origem === 'AVULSO'"
+                        [class.origin-badge--loan]="item.origem === 'EMPRESTIMO'"
+                        [class.origin-badge--card]="item.origem === 'CARTAO'"
+                      >
+                        {{ item.origem_rotulo || 'Conta' }}
+                      </span>
+                    </td>
+                    <td class="cat-cell">
+                      <span class="category-badge">{{ item.categoria || 'Geral' }}</span>
+                    </td>
+                    <td class="status-cell">
+                      <span
+                        class="status-badge"
+                        [class.status-badge--paid]="item.status === 'pago'"
+                        [class.status-badge--pending]="item.status === 'pendente'"
+                      >
+                        {{ item.status === 'pago' ? 'Pago' : 'Pendente' }}
+                      </span>
+                    </td>
+                    <td class="amount-cell ion-text-right">
+                      − {{ item.valor | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}
+                    </td>
+                    <td class="actions-cell ion-text-center">
+                      @if (item.status === 'pendente') {
+                        <button
+                          type="button"
+                          class="action-btn action-btn--pay"
+                          (click)="efetivarItem(item)"
+                          title="Pagar / Efetivar"
+                          aria-label="Pagar / Efetivar"
+                        >
+                          <ion-icon name="checkmark-circle-outline"></ion-icon>
+                        </button>
+                      }
+                      @if (item.origem === 'AVULSO') {
+                        <button
+                          type="button"
+                          class="action-btn action-btn--edit"
+                          (click)="abrirEdicao(item)"
+                          title="Editar lançamento previsto"
+                          aria-label="Editar lançamento previsto"
+                        >
+                          <ion-icon name="pencil-outline"></ion-icon>
+                        </button>
+                        <button
+                          type="button"
+                          class="action-btn action-btn--delete"
+                          (click)="excluirItemPlanejado(item.target_id || item.id)"
+                          title="Excluir lançamento"
+                          aria-label="Excluir lançamento"
+                        >
+                          <ion-icon name="trash-outline"></ion-icon>
+                        </button>
+                      }
+                      @if (!item.origem || item.origem === 'CONTA') {
+                        <button
+                          type="button"
+                          class="action-btn action-btn--delete"
+                          (click)="excluirDespesa(item.id)"
+                          title="Excluir lançamento"
+                          aria-label="Excluir lançamento"
+                        >
+                          <ion-icon name="trash-outline"></ion-icon>
+                        </button>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        </div>
+      </section>
+    </ion-col>
+  </ion-row>
+
+  @if (showEditModal()) {
+    <div class="modal-overlay" (click)="fecharEdicao()">
+      <div class="modal-dialog" (click)="$event.stopPropagation()">
+        <header class="modal-dialog__header">
+          <div class="modal-dialog__title-group">
+            <ion-icon name="pencil-outline"></ion-icon>
+            <h3>Editar Lançamento Previsto</h3>
+          </div>
+          <button type="button" class="close-modal-btn" (click)="fecharEdicao()" aria-label="Fechar">
+            <ion-icon name="close-outline"></ion-icon>
+          </button>
+        </header>
+
+        <form [formGroup]="editForm" (ngSubmit)="salvarEdicao()" class="modal-dialog__body">
+          <div class="form-group">
+            <label for="edit-desc">Descrição *</label>
+            <input
+              id="edit-desc"
+              type="text"
+              formControlName="descricao"
+              class="form-control"
+            />
+            @if (editForm.controls.descricao.touched && editForm.controls.descricao.invalid) {
+              <span class="form-error">Descrição é obrigatória.</span>
+            }
+          </div>
+
+          <div class="form-group">
+            <label for="edit-val">Valor (R$) *</label>
+            <input
+              id="edit-val"
+              type="number"
+              step="0.01"
+              min="0.01"
+              formControlName="valor"
+              class="form-control"
+            />
+            @if (editForm.controls.valor.touched && editForm.controls.valor.invalid) {
+              <span class="form-error">Informe um valor válido (> 0).</span>
+            }
+          </div>
+
+          <div class="form-group">
+            <label for="edit-date">Data Prevista *</label>
+            <input
+              id="edit-date"
+              type="date"
+              formControlName="data"
+              class="form-control"
+            />
+          </div>
+
+          @if (itemParaEdicao()?.is_recorrente || itemParaEdicao()?.recorrencia === 'MENSAL') {
+            <div class="form-group recurrence-choice-group">
+              <label class="recurrence-choice-title">Aplicar alteração em:</label>
+              <div class="radio-options">
+                <label class="radio-label">
+                  <input
+                    type="radio"
+                    value="SINGLE"
+                    formControlName="updateMode"
+                  />
+                  <span>Alterar somente este mês</span>
+                </label>
+                <label class="radio-label">
+                  <input
+                    type="radio"
+                    value="ALL_FUTURE"
+                    formControlName="updateMode"
+                  />
+                  <span>Alterar este e todos os próximos meses</span>
+                </label>
+              </div>
+            </div>
+          }
+
+          <div class="modal-dialog__actions">
+            <ion-button
+              type="button"
+              fill="outline"
+              size="small"
+              color="medium"
+              (click)="fecharEdicao()"
+            >
+              Cancelar
+            </ion-button>
+            <ion-button
+              type="submit"
+              size="small"
+              class="submit-expense-btn"
+              [disabled]="plannedTransactionService.loading()"
+            >
+              @if (plannedTransactionService.loading()) {
+                <ion-spinner name="crescent" slot="start"></ion-spinner>
+                Salvando...
+              } @else {
+                Salvar Alterações
+              }
+            </ion-button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+</ion-grid>

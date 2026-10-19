@@ -1,0 +1,142 @@
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  inject,
+  signal,
+} from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { ActivatedRoute, RouterModule } from '@angular/router';
+import { IonIcon } from '@ionic/angular';
+import { addIcons } from 'ionicons';
+import {
+  addOutline,
+  cardOutline,
+  cashOutline,
+  pricetagOutline,
+  walletOutline,
+  barChartOutline,
+  settingsOutline,
+  checkmarkCircleOutline,
+  chevronForwardOutline,
+  flashOutline,
+  trendingUpOutline,
+} from 'ionicons/icons';
+import { TransactionModal } from '../../components/modals/transaction-modal/transaction-modal';
+
+export interface QuickMenuItem {
+  title: string;
+  subtitle: string;
+  route: string;
+  icon: string;
+  color: string;
+}
+
+@Component({
+  selector: 'app-mais',
+  standalone: true,
+  imports: [CommonModule, RouterModule, IonIcon, TransactionModal],
+  templateUrl: './mais.page.html',
+  styleUrl: './mais.page.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+})
+export class MaisPage implements OnInit {
+  private readonly route = inject(ActivatedRoute);
+
+  readonly modalNovaTransacaoAberto = signal<boolean>(false);
+
+  readonly menuItems: QuickMenuItem[] = [
+    {
+      title: 'Categorias',
+      subtitle: 'Gerencie categorias e subcategorias de receitas e despesas',
+      route: '/categorias',
+      icon: 'pricetag-outline',
+      color: '#38bdf8',
+    },
+    {
+      title: 'Cartões de Crédito',
+      subtitle: 'Controle limites, faturas abertas e compras parceladas',
+      route: '/cartoes',
+      icon: 'card-outline',
+      color: '#ec4899',
+    },
+    {
+      title: 'Contas Bancárias',
+      subtitle: 'Acompanhe contas bancárias e saldos disponíveis em um só lugar',
+      route: '/contas',
+      icon: 'wallet-outline',
+      color: '#a78bfa',
+    },
+    {
+      title: 'Contas a Pagar',
+      subtitle: 'Controle datas de vencimento e parcelamentos futuros',
+      route: '/contas-pagar',
+      icon: 'card-outline',
+      color: '#f87171',
+    },
+    {
+      title: 'Contas a Receber',
+      subtitle: 'Acompanhe recebimentos previstos e valores pendentes',
+      route: '/contas-receber',
+      icon: 'checkmark-circle-outline',
+      color: '#34d399',
+    },
+    {
+      title: 'Empréstimos & Financiamentos',
+      subtitle: 'Controle contratos, cronograma de parcelas e amortização com desconto',
+      route: '/emprestimos',
+      icon: 'cash-outline',
+      color: '#10b981',
+    },
+    {
+      title: 'Relatórios Financeiros',
+      subtitle: 'Gráficos de evolução, fluxo de caixa e projeções',
+      route: '/relatorios',
+      icon: 'bar-chart-outline',
+      color: '#fbbf24',
+    },
+    {
+      title: 'Configurações',
+      subtitle: 'Preferências da conta, segurança e customizações',
+      route: '/configuracoes',
+      icon: 'settings-outline',
+      color: '#94a3b8',
+    },
+  ];
+
+  constructor() {
+    addIcons({
+      addOutline,
+      cardOutline,
+      cashOutline,
+      pricetagOutline,
+      walletOutline,
+      barChartOutline,
+      settingsOutline,
+      checkmarkCircleOutline,
+      chevronForwardOutline,
+      flashOutline,
+      trendingUpOutline,
+    });
+  }
+
+  ngOnInit(): void {
+    const query = this.route.snapshot.queryParamMap;
+    if (query.get('action') === 'nova-transacao') {
+      this.abrirModalNovaTransacao();
+    }
+  }
+
+  abrirModalNovaTransacao(): void {
+    this.modalNovaTransacaoAberto.set(true);
+  }
+
+  fecharModalNovaTransacao(): void {
+    this.modalNovaTransacaoAberto.set(false);
+  }
+
+  onTransacaoCriada(): void {
+    // Transação adicionada com sucesso
+  }
+}
+

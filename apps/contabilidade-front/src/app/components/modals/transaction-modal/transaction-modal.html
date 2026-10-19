@@ -1,0 +1,287 @@
+@if (isOpen()) {
+  <div
+    class="transaction-modal__backdrop"
+    (click)="fechar()"
+    (keydown.escape)="fechar()"
+    tabindex="0"
+    role="button"
+    aria-label="Fechar modal"
+  ></div>
+
+  <div
+    class="transaction-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="modal-title"
+  >
+    <header class="transaction-modal__header">
+      <div class="transaction-modal__title-group">
+        <ion-icon
+          [name]="tipoAtual() === 'entrada' ? 'arrow-down-circle-outline' : 'arrow-up-circle-outline'"
+          [class.transaction-modal__icon--income]="tipoAtual() === 'entrada'"
+          [class.transaction-modal__icon--expense]="tipoAtual() === 'saida'"
+        ></ion-icon>
+        <div>
+          <h2 id="modal-title">Nova Transação</h2>
+          <p>Adicione receita, despesa à vista ou parcelada no cartão</p>
+        </div>
+      </div>
+      <button
+        type="button"
+        class="transaction-modal__close-btn"
+        (click)="fechar()"
+        aria-label="Fechar modal"
+      >
+        <ion-icon name="close-outline"></ion-icon>
+      </button>
+    </header>
+
+    <div class="transaction-modal__body">
+      <!-- Seletor de Tipo (Entrada vs Saída) -->
+      <div class="transaction-modal__type-toggle" role="radiogroup" aria-label="Tipo de Transação">
+        <button
+          type="button"
+          class="transaction-modal__type-btn"
+          [class.transaction-modal__type-btn--active-expense]="tipoAtual() === 'saida'"
+          (click)="setTipo('saida')"
+        >
+          <ion-icon name="arrow-up-circle-outline"></ion-icon>
+          <span>Saída (Despesa)</span>
+        </button>
+        <button
+          type="button"
+          class="transaction-modal__type-btn"
+          [class.transaction-modal__type-btn--active-income]="tipoAtual() === 'entrada'"
+          (click)="setTipo('entrada')"
+        >
+          <ion-icon name="arrow-down-circle-outline"></ion-icon>
+          <span>Entrada (Receita)</span>
+        </button>
+      </div>
+
+      <!-- Feedback de status -->
+      @if (erroMensagem()) {
+        <div class="transaction-modal__alert transaction-modal__alert--error" role="alert">
+          {{ erroMensagem() }}
+        </div>
+      }
+      @if (sucessoMensagem()) {
+        <div class="transaction-modal__alert transaction-modal__alert--success" role="status">
+          {{ sucessoMensagem() }}
+        </div>
+      }
+
+      <form [formGroup]="form" (ngSubmit)="salvar()" class="transaction-modal__form">
+        <!-- Descrição -->
+        <div class="transaction-modal__field">
+          <label for="modal-tx-descricao">Descrição</label>
+          <div class="transaction-modal__input-wrapper">
+            <ion-icon name="wallet-outline"></ion-icon>
+            <input
+              id="modal-tx-descricao"
+              type="text"
+              formControlName="descricao"
+              placeholder="Ex: Supermercado, Salário, Internet"
+              required
+            />
+          </div>
+        </div>
+
+        <div class="transaction-modal__row">
+          <!-- Valor Total -->
+          <div class="transaction-modal__field">
+            <label for="modal-tx-valor">Valor Total (R$)</label>
+            <div class="transaction-modal__input-wrapper">
+              <span class="currency-prefix">R$</span>
+              <input
+                id="modal-tx-valor"
+                type="number"
+                step="0.01"
+                min="0.01"
+                formControlName="valor"
+                placeholder="0,00"
+                required
+              />
+            </div>
+          </div>
+
+          <!-- Data -->
+          <div class="transaction-modal__field">
+            <label for="modal-tx-data">Data</label>
+            <div class="transaction-modal__input-wrapper">
+              <ion-icon name="calendar-outline"></ion-icon>
+              <input
+                id="modal-tx-data"
+                type="date"
+                formControlName="data"
+                required
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="transaction-modal__row">
+          <!-- Categoria -->
+          <div class="transaction-modal__field">
+            <label for="modal-tx-categoria">Categoria</label>
+            <div class="transaction-modal__input-wrapper">
+              <ion-icon name="pricetag-outline"></ion-icon>
+              <select id="modal-tx-categoria" formControlName="idcategoria">
+                <option [ngValue]="null" disabled>Selecione a categoria</option>
+                @for (cat of categoriaService.categorias(); track cat.id) {
+                  <option [ngValue]="cat.id">{{ cat.nome }}</option>
+                }
+              </select>
+            </div>
+          </div>
+
+          <!-- Subcategoria -->
+          <div class="transaction-modal__field">
+            <label for="modal-tx-subcategoria">Subcategoria</label>
+            <div class="transaction-modal__input-wrapper">
+              <ion-icon name="pricetag-outline"></ion-icon>
+              <select id="modal-tx-subcategoria" formControlName="categoria">
+                @for (sub of subcategoriasDisponiveis(); track sub.id) {
+                  <option [ngValue]="sub.id">{{ sub.nome }}</option>
+                }
+                @if (subcategoriasDisponiveis().length === 0) {
+                  <option [ngValue]="form.get('idcategoria')?.value">Padrão da Categoria</option>
+                }
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="transaction-modal__row">
+          <!-- Status -->
+          <div class="transaction-modal__field">
+            <label for="modal-tx-status">Situação</label>
+            <div class="transaction-modal__input-wrapper">
+              <ion-icon name="checkmark-circle-outline"></ion-icon>
+              <select id="modal-tx-status" formControlName="status">
+                <option value="pendente">
+                  {{ tipoAtual() === 'entrada' ? 'Pendente / A receber' : 'Pendente / A pagar' }}
+                </option>
+                <option value="pago">
+                  {{ tipoAtual() === 'entrada' ? 'Recebido / Concluído' : 'Pago / Concluído' }}
+                </option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Seções exclusivas para Saídas (Despesas) -->
+        @if (tipoAtual() === 'saida') {
+          <div class="transaction-modal__advanced-section">
+            <!-- Opção: Pago com cartão -->
+            <label class="transaction-modal__checkbox-label">
+              <input
+                type="checkbox"
+                formControlName="isCartao"
+                id="modal-tx-cartao-check"
+              />
+              <span class="custom-checkbox"></span>
+              <span class="checkbox-title">
+                <ion-icon name="card-outline"></ion-icon>
+                Pago com cartão de crédito
+              </span>
+            </label>
+
+            @if (form.get('isCartao')?.value) {
+              <div class="transaction-modal__subfield">
+                <label for="modal-tx-cartao-select">Cartão de Crédito</label>
+                <div class="transaction-modal__input-wrapper">
+                  <ion-icon name="card-outline"></ion-icon>
+                  <select id="modal-tx-cartao-select" formControlName="cartaoid">
+                    @for (cartao of cartaoService.cartoes(); track cartao.id) {
+                      <option [ngValue]="cartao.id">
+                        {{ cartao.nome }} (Fecha dia {{ cartao.dia_fatura }})
+                      </option>
+                    }
+                    @if (cartaoService.cartoes().length === 0) {
+                      <option [ngValue]="null">Nenhum cartão cadastrado</option>
+                    }
+                  </select>
+                </div>
+              </div>
+            }
+
+            <!-- Opção: Compra parcelada -->
+            <label class="transaction-modal__checkbox-label">
+              <input
+                type="checkbox"
+                formControlName="isParcelado"
+                id="modal-tx-parcelado-check"
+              />
+              <span class="custom-checkbox"></span>
+              <span class="checkbox-title">
+                <ion-icon name="layers-outline"></ion-icon>
+                Compra parcelada
+              </span>
+            </label>
+
+            @if (form.get('isParcelado')?.value) {
+              <div class="transaction-modal__parcelas-box">
+                <div class="transaction-modal__row">
+                  <div class="transaction-modal__field">
+                    <label for="modal-tx-qtd-parcelas">Nº de Parcelas</label>
+                    <div class="transaction-modal__input-wrapper">
+                      <input
+                        id="modal-tx-qtd-parcelas"
+                        type="number"
+                        min="1"
+                        max="72"
+                        formControlName="qtdParcelas"
+                        placeholder="Ex: 3"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="transaction-modal__field">
+                    <label for="modal-tx-valor-parcela">Valor por Parcela (R$)</label>
+                    <div class="transaction-modal__input-wrapper">
+                      <span class="currency-prefix">R$</span>
+                      <input
+                        id="modal-tx-valor-parcela"
+                        type="number"
+                        step="0.01"
+                        formControlName="valorParcela"
+                        placeholder="0,00"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <p class="parcelas-hint">
+                  O valor de cada parcela é recalculado automaticamente com base no valor total.
+                </p>
+              </div>
+            }
+          </div>
+        }
+
+        <footer class="transaction-modal__footer">
+          <button
+            type="button"
+            class="transaction-modal__btn transaction-modal__btn--cancel"
+            (click)="fechar()"
+            [disabled]="salvando()"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            class="transaction-modal__btn transaction-modal__btn--save"
+            [disabled]="form.invalid || salvando()"
+          >
+            @if (salvando()) {
+              <span>Salvando...</span>
+            } @else {
+              <span>Salvar Transação</span>
+            }
+          </button>
+        </footer>
+      </form>
+    </div>
+  </div>
+}
+

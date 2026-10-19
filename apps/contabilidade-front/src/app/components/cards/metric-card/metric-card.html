@@ -1,0 +1,31 @@
+<ion-card class="metric-card" [style.--background]="backgroundColor" [style.--color]="textColor">
+  <ion-card-header class="metric-card__header">
+    <div class="metric-card__title-wrapper">
+      <ion-icon [name]="iconName" class="metric-card__icon" aria-hidden="true"></ion-icon>
+      <ion-card-title class="metric-card__title">{{ title }}</ion-card-title>
+    </div>
+  </ion-card-header>
+
+  <ion-card-content class="metric-card__content">
+    <div class="metric-card__values">
+      <h2 class="metric-card__amount" data-testid="current-amount">
+        {{ currentAmount | currency: currencyCode : 'symbol' : '1.0-0' : 'pt-BR' }}
+      </h2>
+      <p class="metric-card__target" data-testid="target-text">
+        {{ descriptionLabel }} 
+        @if (targetAmount > 0) {
+          {{ targetAmount | currency: currencyCode : 'symbol' : '1.0-0' : 'pt-BR' }}
+        }
+      </p>
+    </div>
+
+    @if (progressValue !== null) {
+      <ion-progress-bar
+        class="metric-card__progress"
+        [value]="progressValue"
+        [style.--progress-background]="progressFillColor"
+        data-testid="progress-bar"
+      ></ion-progress-bar>
+    }
+  </ion-card-content>
+</ion-card>

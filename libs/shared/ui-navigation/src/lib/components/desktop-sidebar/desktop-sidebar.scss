@@ -1,0 +1,71 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+.desktop-sidebar {
+  width: 250px;
+  height: 100vh;
+  background-color: #171d23;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 24px 16px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+
+  &__brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 10px 32px 10px;
+  }
+
+  &__brand-icon {
+    font-size: 28px;
+    color: #4ade80;
+  }
+
+  &__brand-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #ffffff;
+
+    strong {
+      color: #60a5fa;
+    }
+  }
+
+  &__nav {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    text-decoration: none;
+    color: #94a3b8;
+    font-size: 0.95rem;
+    font-weight: 500;
+    transition: background-color 0.2s, color 0.2s;
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.04);
+      color: #ffffff;
+    }
+
+    &--active {
+      background-color: rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+      font-weight: 600;
+    }
+  }
+
+  &__item-icon {
+    font-size: 1.25rem;
+  }
+}

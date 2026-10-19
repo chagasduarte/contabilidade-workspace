@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 1180 260"
+     width="236" height="52"
+     role="img" aria-label="ContaPerfeita">
+
+  <defs>
+    <linearGradient id="gradient" x1="180" y1="1080" x2="920" y2="180"
+                    gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3479D0"/>
+      <stop offset="0.38" stop-color="#378BC8"/>
+      <stop offset="0.68" stop-color="#46B8A8"/>
+      <stop offset="1" stop-color="#58D39A"/>
+    </linearGradient>
+  </defs>
+
+  <g transform="translate(0 -2) scale(.2)" fill="none" stroke="url(#gradient)"
+     stroke-width="91" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 870 270
+       C 790 205, 685 178, 575 190
+       C 330 215, 135 410, 135 650
+       C 135 920, 350 1130, 620 1130
+       C 800 1130, 955 1035, 1050 915"/>
+    <path d="M 475 620 L 660 810 L 1020 450"/>
+  </g>
+  <text x="258" y="171" font-family="Arial,Helvetica,sans-serif"
+        font-size="124" font-weight="500" letter-spacing="-2">
+    <tspan fill="#f5f6f8">Conta</tspan><tspan fill="#657f9f">Perfeita</tspan>
+  </text>
+</svg>

@@ -1,0 +1,121 @@
+<section class="transactions-page" aria-labelledby="transactions-title">
+  <header class="transactions-page__header">
+    <div>
+      <p class="transactions-page__eyebrow">{{ periodoLabel() }}</p>
+      <h1 id="transactions-title">Lançamentos</h1>
+      <p class="transactions-page__intro">Acompanhe as entradas e saídas do seu mês.</p>
+    </div>
+
+    <div class="transactions-page__controls">
+      <button
+        type="button"
+        class="transactions-page__add-btn"
+        (click)="abrirModalNovaTransacao()"
+        aria-label="Nova Transação"
+      >
+        <ion-icon name="add-outline"></ion-icon>
+        <span>Nova Transação</span>
+      </button>
+      <app-month-selector
+        [mes]="dashboardService.mes()"
+        [ano]="dashboardService.ano()"
+        (mesChange)="selecionarMes($event)"
+        (mesAnterior)="mesAnterior()"
+        (proximoMes)="proximoMes()"
+      ></app-month-selector>
+      <ion-button
+        fill="clear"
+        size="small"
+        (click)="carregarExtrato()"
+        aria-label="Atualizar lançamentos"
+      >
+        <ion-icon slot="icon-only" name="refresh-outline"></ion-icon>
+      </ion-button>
+    </div>
+  </header>
+
+  <div class="transactions-summary" aria-label="Resumo do mês">
+    <article class="transactions-summary__card transactions-summary__card--income">
+      <span>Entradas no mês</span>
+      <strong>{{ monthlyIncome() | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}</strong>
+    </article>
+    <article class="transactions-summary__card transactions-summary__card--expense">
+      <span>Saídas no mês</span>
+      <strong>{{ monthlyExpenses() | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}</strong>
+    </article>
+    <article class="transactions-summary__card transactions-summary__card--pending">
+      <span>Lançamentos pendentes</span>
+      <strong>{{ pendingCount() }}</strong>
+    </article>
+  </div>
+
+  <section class="transactions-list" aria-labelledby="transactions-list-title">
+    <div class="transactions-list__header">
+      <h2 id="transactions-list-title">Movimentações recentes</h2>
+      <span>{{ transactions().length }} lançamentos</span>
+    </div>
+
+    @if (transacaoService.loading()) {
+      <div class="transactions-list__state">
+        <ion-spinner name="crescent"></ion-spinner>
+        <span>Carregando lançamentos...</span>
+      </div>
+    } @else if (transactions().length === 0) {
+      <div class="transactions-list__state">
+        <span>Nenhum lançamento encontrado para {{ periodoLabel() }}.</span>
+      </div>
+    } @else {
+      <div class="transactions-list__items">
+        @for (transaction of transactions(); track transaction.id) {
+          <article class="transaction">
+            <div class="transaction__date">
+              <strong>{{ transaction.date | date: 'dd' : 'UTC' : 'pt-BR' }}</strong>
+              <span>{{ transaction.date | date: 'MMM' : 'UTC' : 'pt-BR' }}</span>
+            </div>
+            <div class="transaction__details">
+              <strong>{{ transaction.description }}</strong>
+              <span>{{ transaction.category }}</span>
+            </div>
+            <span
+              class="transaction__type"
+              [class.transaction__type--income]="transaction.type === 'Entrada'"
+              [class.transaction__type--expense]="transaction.type === 'Saída'"
+            >
+              {{ transaction.type }}
+            </span>
+            <strong
+              class="transaction__amount"
+              [class.transaction__amount--income]="transaction.type === 'Entrada'"
+              [class.transaction__amount--expense]="transaction.type === 'Saída'"
+            >
+              {{ transaction.type === 'Entrada' ? '+' : '−' }}
+              {{ transaction.amount | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}
+            </strong>
+            <span
+              class="transaction__status"
+              [class.transaction__status--pending]="transaction.status === 'Pendente'"
+            >
+              {{ transaction.status }}
+            </span>
+          </article>
+        }
+      </div>
+    }
+  </section>
+
+  <!-- Botão Flutuante (FAB) visível no Mobile -->
+  <button
+    type="button"
+    class="transactions-page__fab"
+    (click)="abrirModalNovaTransacao()"
+    aria-label="Adicionar Nova Transação"
+  >
+    <ion-icon name="add-outline"></ion-icon>
+  </button>
+
+  <app-transaction-modal
+    [isOpen]="modalNovaTransacaoAberto()"
+    (closeModal)="fecharModalNovaTransacao()"
+    (transactionCreated)="onTransacaoCriada()"
+  ></app-transaction-modal>
+</section>

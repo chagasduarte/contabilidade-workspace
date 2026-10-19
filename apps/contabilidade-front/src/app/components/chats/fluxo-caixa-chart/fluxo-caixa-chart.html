@@ -1,0 +1,17 @@
+<section class="cash-flow" aria-labelledby="cash-flow-title">
+  <header class="cash-flow__header">
+    <h2 id="cash-flow-title">Fluxo de Caixa (Entradas vs. Saídas)</h2>
+    <div class="cash-flow__legend" aria-label="Legenda do gráfico">
+      <span><i class="cash-flow__legend-marker cash-flow__legend-marker--income"></i>Entradas</span>
+      <span><i class="cash-flow__legend-marker cash-flow__legend-marker--expense"></i>Saídas</span>
+      <span><i class="cash-flow__legend-marker cash-flow__legend-marker--progress"></i>Progressão</span>
+    </div>
+  </header>
+  <div class="cash-flow__chart">
+    <canvas
+      #cashFlowChart
+      role="img"
+      aria-label="Gráfico mensal de entradas, saídas e progressão financeira"
+    ></canvas>
+  </div>
+</section>

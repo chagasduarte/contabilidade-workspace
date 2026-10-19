@@ -1,0 +1,179 @@
+@if (isOpen()) {
+  <div
+    class="loan-modal__backdrop"
+    (click)="fechar()"
+    (keydown.escape)="fechar()"
+    tabindex="0"
+    role="button"
+    aria-label="Fechar modal"
+  ></div>
+
+  <div
+    class="loan-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="loan-modal-title"
+  >
+    <header class="loan-modal__header">
+      <div class="loan-modal__title-group">
+        <ion-icon name="cash-outline" class="loan-modal__icon"></ion-icon>
+        <div>
+          <h2 id="loan-modal-title">Novo Empréstimo</h2>
+          <p>Cadastre contrato, taxa e cronograma de amortização</p>
+        </div>
+      </div>
+      <button
+        type="button"
+        class="loan-modal__close-btn"
+        (click)="fechar()"
+        aria-label="Fechar modal"
+      >
+        <ion-icon name="close-outline"></ion-icon>
+      </button>
+    </header>
+
+    <div class="loan-modal__body">
+      <!-- Mensagens de Feedback -->
+      @if (erroMensagem()) {
+        <div class="loan-modal__alert loan-modal__alert--error" role="alert">
+          {{ erroMensagem() }}
+        </div>
+      }
+      @if (sucessoMensagem()) {
+        <div class="loan-modal__alert loan-modal__alert--success" role="status">
+          {{ sucessoMensagem() }}
+        </div>
+      }
+
+      <form [formGroup]="form" (ngSubmit)="salvar()" class="loan-modal__form">
+        <!-- Instituição Financeira -->
+        <div class="loan-modal__field">
+          <label for="modal-loan-instituicao">Instituição Financeira</label>
+          <div class="loan-modal__input-wrapper">
+            <ion-icon name="business-outline"></ion-icon>
+            <input
+              id="modal-loan-instituicao"
+              type="text"
+              formControlName="instituicao"
+              placeholder="Ex: Nubank, Banco do Brasil, Santander, Caixa"
+              required
+            />
+          </div>
+        </div>
+
+        <div class="loan-modal__row">
+          <!-- Valor Principal Financiado -->
+          <div class="loan-modal__field">
+            <label for="modal-loan-principal">Valor Principal (R$)</label>
+            <div class="loan-modal__input-wrapper">
+              <span class="currency-prefix">R$</span>
+              <input
+                id="modal-loan-principal"
+                type="number"
+                step="0.01"
+                min="1"
+                formControlName="valor_principal"
+                placeholder="10.000,00"
+                required
+              />
+            </div>
+          </div>
+
+          <!-- Taxa de Juros Mensal -->
+          <div class="loan-modal__field">
+            <label for="modal-loan-taxa">Taxa de Juros Mensal (%)</label>
+            <div class="loan-modal__input-wrapper">
+              <ion-icon name="trending-up-outline"></ion-icon>
+              <input
+                id="modal-loan-taxa"
+                type="number"
+                step="0.01"
+                min="0"
+                formControlName="taxa_juros_mensal"
+                placeholder="1.85"
+                required
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="loan-modal__row">
+          <!-- Quantidade de Parcelas -->
+          <div class="loan-modal__field">
+            <label for="modal-loan-qtd">Quantidade de Parcelas</label>
+            <div class="loan-modal__input-wrapper">
+              <ion-icon name="layers-outline"></ion-icon>
+              <input
+                id="modal-loan-qtd"
+                type="number"
+                min="1"
+                max="360"
+                formControlName="quantidade_parcelas"
+                placeholder="Ex: 24"
+                required
+              />
+            </div>
+          </div>
+
+          <!-- Valor de Cada Parcela -->
+          <div class="loan-modal__field">
+            <label for="modal-loan-valor-parcela">Valor da Parcela (R$)</label>
+            <div class="loan-modal__input-wrapper">
+              <span class="currency-prefix">R$</span>
+              <input
+                id="modal-loan-valor-parcela"
+                type="number"
+                step="0.01"
+                min="0.01"
+                formControlName="valor_parcela"
+                placeholder="Calculado automaticamente"
+                required
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- Primeiro Vencimento -->
+        <div class="loan-modal__field">
+          <label for="modal-loan-vencimento">Data do 1º Vencimento</label>
+          <div class="loan-modal__input-wrapper">
+            <ion-icon name="calendar-outline"></ion-icon>
+            <input
+              id="modal-loan-vencimento"
+              type="date"
+              formControlName="primeiro_vencimento"
+              required
+            />
+          </div>
+        </div>
+
+        <p class="loan-modal__hint">
+          O cronograma decomporá automaticamente a amortização do saldo e os juros de cada cota.
+        </p>
+
+        <footer class="loan-modal__footer">
+          <button
+            type="button"
+            class="loan-modal__btn loan-modal__btn--cancel"
+            (click)="fechar()"
+            [disabled]="salvando()"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            class="loan-modal__btn loan-modal__btn--save"
+            [disabled]="form.invalid || salvando()"
+          >
+            @if (salvando()) {
+              <span>Cadastrando...</span>
+            } @else {
+              <span>Criar Empréstimo</span>
+            }
+          </button>
+        </footer>
+      </form>
+    </div>
+  </div>
+}
+

@@ -1,0 +1,43 @@
+<section class="monthly-balance" aria-labelledby="monthly-balance-title">
+  <header class="monthly-balance__header">
+    <h2 id="monthly-balance-title">Relação Receitas vs Despesas do Mês</h2>
+  </header>
+
+  <div class="monthly-balance__overview">
+    <div class="monthly-balance__summary monthly-balance__summary--surplus">
+      <strong>{{ formatCurrency(monthlySurplus()) }}</strong>
+      <span>Sobra até este mês</span>
+    </div>
+
+    <div class="monthly-balance__chart">
+      <canvas
+        #monthlyBalanceChart
+        role="img"
+        aria-label="Gráfico de pizza comparando despesas e sobra deste mês"
+      ></canvas>
+      <div class="monthly-balance__commitment">
+        <strong>{{ formatPercentage(commitmentPercentage()) }}%</strong>
+        <span>Comprometido</span>
+      </div>
+    </div>
+
+    <div class="monthly-balance__summary monthly-balance__summary--expenses">
+      <strong>{{ formatCurrency(expenses()) }}</strong>
+      <span>Despesas</span>
+    </div>
+  </div>
+
+  <p class="monthly-balance__previous">
+    <span aria-hidden="true">✓</span>
+    <strong>{{ formatCurrency(previousSurplus()) }}</strong>
+    <span>Sobras de meses anteriores</span>
+  </p>
+
+  <footer class="monthly-balance__footer">
+    <span>+</span>
+    <strong>{{ formatCurrency(monthlySurplus()) }}</strong>
+    <span>(este mês) =</span>
+    <strong>{{ formatCurrency(cashBalance()) }}</strong>
+    <span>em Caixa</span>
+  </footer>
+</section>

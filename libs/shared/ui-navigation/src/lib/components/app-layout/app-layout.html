@@ -1,0 +1,42 @@
+<div class="layout-shell">
+  <!-- 1. Sidebar visível apenas no Desktop -->
+  <app-desktop-sidebar class="layout-shell__desktop-sidebar"></app-desktop-sidebar>
+
+  <div class="layout-shell__main">
+    <!-- 2. Header Mobile visível apenas no Mobile -->
+    <app-mobile-header
+      class="layout-shell__mobile-header"
+      [menuOpen]="isMobileMenuOpen()"
+      (menuClick)="toggleMobileMenu()"
+    ></app-mobile-header>
+    @if (isMobileMenuOpen()) {
+      <nav
+        id="mobile-extra-navigation"
+        class="layout-shell__mobile-menu"
+        aria-label="Mais opções"
+      >
+        @for (item of additionalItems; track item.route) {
+          <a
+            [routerLink]="item.route"
+            routerLinkActive="layout-shell__mobile-menu-item--active"
+            class="layout-shell__mobile-menu-item"
+            (click)="closeMobileMenu()"
+          >
+            {{ item.label }}
+          </a>
+        }
+      </nav>
+    }
+
+    <!-- 3. Header Desktop (somente Desktop Web) -->
+    <app-desktop-header class="layout-shell__desktop-header"></app-desktop-header>
+
+    <!-- 4. Área de Conteúdo (Dashboard e Telas) -->
+    <main class="layout-shell__content">
+      <router-outlet></router-outlet>
+    </main>
+
+    <!-- 5. Barra Inferior visível apenas no Mobile -->
+    <app-mobile-tabbar class="layout-shell__mobile-tabbar"></app-mobile-tabbar>
+  </div>
+</div>

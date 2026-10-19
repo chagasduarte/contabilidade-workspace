@@ -1,0 +1,24 @@
+<header class="desktop-header" aria-label="Cabeçalho desktop">
+  <div class="desktop-header__left">
+    @if (config().showSearch) {
+      <app-header-search
+        [placeholder]="config().searchPlaceholder"
+        [searchTerm]="headerState.searchTerm()"
+        (searchChange)="onSearchChange($event)"
+        (clear)="onClearSearch()"
+      ></app-header-search>
+    }
+  </div>
+
+  <div class="desktop-header__right">
+    @if (config().showYearSelector) {
+      <app-header-year-selector
+        [selectedYear]="headerState.selectedYear()"
+        (yearChange)="onYearChange($event)"
+      ></app-header-year-selector>
+    }
+
+    <app-header-actions></app-header-actions>
+  </div>
+</header>
+
