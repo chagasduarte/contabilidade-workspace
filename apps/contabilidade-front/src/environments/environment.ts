@@ -1,3 +1,4 @@
+import { isDevMode } from '@angular/core';
 import { Capacitor } from '@capacitor/core';
 
 export function resolveApiUrl(): string {
@@ -18,19 +19,21 @@ export function resolveApiUrl(): string {
     return 'http://192.168.0.5:3000';
   }
 
-  const hostname = window.location.hostname;
-  const port = window.location.port;
-
-  // 3. Desenvolvimento local via Angular/Ionic Dev Server (ng serve nas portas 4200 ou 8100)
-  if (port === '4200' || port === '8100') {
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return 'http://localhost:3000';
+  // 3. Se for modo desenvolvimento (ng serve / ionic serve ativo)
+  try {
+    if (isDevMode()) {
+      const hostname = window.location.hostname;
+      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return 'http://localhost:3000';
+      }
+      // Acessando dev-server por IP na rede local (ex: http://192.168.0.x:4200)
+      return `http://${hostname}:3000`;
     }
-    // Acessando dev-server por IP na rede local (ex: http://192.168.0.x:4200)
-    return `http://${hostname}:3000`;
+  } catch {
+    // Fallback caso isDevMode seja invocado antes da inicialização completa
   }
 
-  // 4. Produção no servidor (servido via Nginx / Docker / VPS / Domínio)
+  // 4. Em produção (build compilado servido via Nginx / Docker na porta 4200 / Cloudflare Tunnel / Domínio)
   // O Nginx faz o proxy reverso transparente de /api/ para http://api:3000/
   return '/api';
 }
