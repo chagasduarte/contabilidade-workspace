@@ -13,10 +13,9 @@ FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
-COPY package*.json ./
-RUN npm install --omit=dev --legacy-peer-deps
-
-# Copia os artefatos compilados de apps/api/dist
+# Reutiliza os node_modules já instalados e validados no builder
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/src ./apps/api/src
 
