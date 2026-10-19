@@ -16,18 +16,18 @@ export function resolveApiUrl(): string {
     return 'http://192.168.0.5:3000';
   }
 
-  // Se executando em navegador web:
-  // Usa o mesmo hostname acessado no browser (localhost, 127.0.0.1 ou IP da rede local)
+  // Se estiver rodando em desenvolvimento puro no localhost (ng serve)
   const hostname = window.location.hostname;
-  if (hostname) {
-    return `http://${hostname}:3000`;
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return 'http://localhost:3000';
   }
 
-  return 'http://localhost:3000';
+  // Em produção / acesso web pelo domínio (Nginx faz o proxy reverso de /api para o backend)
+  return '/api';
 }
 
 export const environment = {
-  production: false,
+  production: true,
   get apiUrl(): string {
     return resolveApiUrl();
   },
