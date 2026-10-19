@@ -33,6 +33,7 @@ export const ENV = {
   DB_USER: process.env.DB_USER,
   DB_PASS: process.env.DB_PASS,
   DB_NAME: process.env.DB_NAME,
+  DB_SSL: process.env.DB_SSL,
   DATABASE_URL: process.env.DATABASE_URL,
   GROQ_API_KEY: process.env.GROQ_API_KEY,
   AI_TEXT_MODEL: process.env.AI_TEXT_MODEL || 'openai/gpt-oss-20b',
