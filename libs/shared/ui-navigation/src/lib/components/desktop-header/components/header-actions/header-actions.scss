@@ -24,6 +24,15 @@
       color: #ffffff;
       background: rgba(255, 255, 255, 0.05);
     }
+
+    &--logout {
+      color: #f87171;
+
+      &:hover {
+        color: #ef4444;
+        background: rgba(239, 68, 68, 0.1);
+      }
+    }
   }
 
   &__avatar {

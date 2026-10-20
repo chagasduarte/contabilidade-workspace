@@ -2,12 +2,13 @@ import {
   ChangeDetectionStrategy,
   Component,
   OnInit,
+  computed,
   inject,
   signal,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
-import { IonIcon } from '@ionic/angular';
+import { AlertController, IonIcon } from '@ionic/angular';
 import { addIcons } from 'ionicons';
 import {
   addOutline,
@@ -21,8 +22,10 @@ import {
   chevronForwardOutline,
   flashOutline,
   trendingUpOutline,
+  logOutOutline,
 } from 'ionicons/icons';
 import { TransactionModal } from '../../components/modals/transaction-modal/transaction-modal';
+import { AuthService } from '../../core/services/auth.service';
 
 export interface QuickMenuItem {
   title: string;
@@ -42,6 +45,14 @@ export interface QuickMenuItem {
 })
 export class MaisPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
+  private readonly authService = inject(AuthService);
+  private readonly alertCtrl = inject(AlertController);
+
+  readonly currentUser = this.authService.currentUser;
+  readonly userInitial = computed(() => {
+    const nome = this.currentUser()?.nome;
+    return (nome?.charAt(0) || 'U').toUpperCase();
+  });
 
   readonly modalNovaTransacaoAberto = signal<boolean>(false);
 
@@ -117,6 +128,7 @@ export class MaisPage implements OnInit {
       chevronForwardOutline,
       flashOutline,
       trendingUpOutline,
+      logOutOutline,
     });
   }
 
@@ -125,6 +137,27 @@ export class MaisPage implements OnInit {
     if (query.get('action') === 'nova-transacao') {
       this.abrirModalNovaTransacao();
     }
+  }
+
+  async confirmarLogout(): Promise<void> {
+    const alert = await this.alertCtrl.create({
+      header: 'Sair da Conta',
+      message: 'Tem certeza de que deseja encerrar sua sessão?',
+      buttons: [
+        {
+          text: 'Cancelar',
+          role: 'cancel',
+        },
+        {
+          text: 'Sair',
+          role: 'destructive',
+          handler: () => {
+            this.authService.logout();
+          },
+        },
+      ],
+    });
+    await alert.present();
   }
 
   abrirModalNovaTransacao(): void {

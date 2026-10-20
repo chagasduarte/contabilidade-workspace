@@ -23,10 +23,41 @@ describe('HeaderActions', () => {
     let clicked = false;
     component.notificationClick.subscribe(() => (clicked = true));
 
-    const btn = fixture.nativeElement.querySelector('button');
+    const btn = fixture.nativeElement.querySelector('[data-testid="header-notifications-btn"]');
     btn.click();
 
     expect(clicked).toBe(true);
+  });
+
+  it('should call authHandler.logout when logout button is clicked', async () => {
+    const logoutMock = vi.fn();
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [HeaderActions],
+      providers: [
+        {
+          provide: (await import('../../../../tokens/auth-navigation.token')).AUTH_NAVIGATION_HANDLER,
+          useValue: {
+            logout: logoutMock,
+            currentUser: () => ({ nome: 'João Silva', email: 'joao@teste.com' }),
+          },
+        },
+      ],
+    }).compileComponents();
+
+    const authFixture = TestBed.createComponent(HeaderActions);
+    const authComp = authFixture.componentInstance;
+    authFixture.detectChanges();
+    await authFixture.whenStable();
+
+    expect(authComp.userInitial()).toBe('J');
+    expect(authComp.userName()).toBe('João Silva');
+
+    const logoutBtn = authFixture.nativeElement.querySelector('[data-testid="header-logout-btn"]');
+    expect(logoutBtn).toBeTruthy();
+    logoutBtn.click();
+
+    expect(logoutMock).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -25,6 +25,17 @@
             {{ item.label }}
           </a>
         }
+        @if (authHandler) {
+          <button
+            type="button"
+            class="layout-shell__mobile-menu-item layout-shell__mobile-menu-item--logout"
+            (click)="onLogout()"
+            data-testid="mobile-menu-logout-btn"
+          >
+            <ion-icon name="log-out-outline"></ion-icon>
+            <span>Sair da conta</span>
+          </button>
+        }
       </nav>
     }
 

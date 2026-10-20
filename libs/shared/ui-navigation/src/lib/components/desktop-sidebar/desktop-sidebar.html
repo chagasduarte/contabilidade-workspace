@@ -17,4 +17,31 @@
       </a>
     }
   </nav>
+
+  @if (authHandler) {
+    <div class="desktop-sidebar__footer">
+      <div class="desktop-sidebar__user">
+        <div class="desktop-sidebar__avatar">
+          <span>{{ userInitial() }}</span>
+        </div>
+        <div class="desktop-sidebar__user-details">
+          <span class="desktop-sidebar__user-name">{{ userName() }}</span>
+          @if (userEmail()) {
+            <span class="desktop-sidebar__user-email">{{ userEmail() }}</span>
+          }
+        </div>
+      </div>
+      <button
+        type="button"
+        class="desktop-sidebar__logout-btn"
+        (click)="onLogout()"
+        aria-label="Sair da conta"
+        title="Sair da conta"
+        data-testid="sidebar-logout-btn"
+      >
+        <ion-icon name="log-out-outline" aria-hidden="true"></ion-icon>
+        <span>Sair</span>
+      </button>
+    </div>
+  }
 </aside>

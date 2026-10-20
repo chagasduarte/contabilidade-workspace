@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   effect,
   HostListener,
   inject,
@@ -67,6 +68,14 @@ export class TransactionModal {
   readonly sucessoMensagem = signal<string | null>(null);
   readonly subcategoriasDisponiveis = signal<Subcategoria[]>([]);
   readonly tipoAtual = signal<TipoTransacao>('saida');
+
+  readonly categoriasDisponiveis = computed(() => {
+    const tipoTx = this.tipoAtual();
+    const esperado = tipoTx === 'entrada' ? 'receita' : 'despesa';
+    const todas = this.categoriaService.categorias();
+    const filtradas = todas.filter((c) => (c.tipo ?? 'despesa') === esperado);
+    return filtradas.length > 0 ? filtradas : todas;
+  });
 
   private wasOpen = false;
 

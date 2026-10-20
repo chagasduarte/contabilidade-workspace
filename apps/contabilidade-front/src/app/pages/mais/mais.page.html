@@ -7,6 +7,28 @@
     </p>
   </header>
 
+  <!-- Perfil do Usuário e Logout -->
+  <article class="mais-page__user-card" aria-label="Perfil do usuário conectado">
+    <div class="mais-page__user-avatar">
+      <span>{{ userInitial() }}</span>
+    </div>
+    <div class="mais-page__user-details">
+      <h2>{{ currentUser()?.nome || 'Usuário Conectado' }}</h2>
+      <p>{{ currentUser()?.email || 'Sessão ativa no ContaPerfeita' }}</p>
+    </div>
+    <button
+      type="button"
+      class="mais-page__logout-btn"
+      (click)="confirmarLogout()"
+      aria-label="Sair da conta"
+      title="Sair da conta"
+      data-testid="mais-logout-btn"
+    >
+      <ion-icon name="log-out-outline"></ion-icon>
+      <span>Sair</span>
+    </button>
+  </article>
+
   <!-- Card Destaque: Adicionar Transação -->
   <article class="mais-page__hero-cta">
     <div class="mais-page__hero-badge">

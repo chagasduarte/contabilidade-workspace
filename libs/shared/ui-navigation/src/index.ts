@@ -14,3 +14,4 @@ export * from './lib/components/desktop-header/strategies/default-header.strateg
 export * from './lib/components/desktop-header/strategies/desktop-header-strategy.factory';
 export * from './lib/components/desktop-header/models/desktop-header.models';
 export * from './lib/components/app-layout/app-layout';
+export * from './lib/tokens/auth-navigation.token';

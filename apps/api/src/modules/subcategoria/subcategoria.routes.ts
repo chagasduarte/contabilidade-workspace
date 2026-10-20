@@ -7,6 +7,7 @@ router.get('/', SubcategoriaController.listar);
 router.post('/', SubcategoriaController.criar);
 router.get('/categoria/:idcategoria', SubcategoriaController.listarPorCategoria);
 router.get('/:id', SubcategoriaController.buscar);
+router.put('/:id', SubcategoriaController.atualizar);
 router.delete('/:id', SubcategoriaController.deletar);
 
 export default router;

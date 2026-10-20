@@ -13,9 +13,23 @@
     class="header-actions__avatar"
     role="img"
     aria-label="Perfil do usuário"
+    [title]="userName()"
     data-testid="header-user-avatar"
   >
-    <span>U</span>
+    <span>{{ userInitial() }}</span>
   </div>
+
+  @if (authHandler) {
+    <button
+      type="button"
+      class="header-actions__btn header-actions__btn--logout"
+      (click)="onLogoutClick()"
+      aria-label="Sair da conta"
+      title="Sair da conta"
+      data-testid="header-logout-btn"
+    >
+      <ion-icon name="log-out-outline" aria-hidden="true"></ion-icon>
+    </button>
+  }
 </div>
 

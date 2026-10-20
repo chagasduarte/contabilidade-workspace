@@ -128,7 +128,7 @@
               <ion-icon name="pricetag-outline"></ion-icon>
               <select id="modal-tx-categoria" formControlName="idcategoria">
                 <option [ngValue]="null" disabled>Selecione a categoria</option>
-                @for (cat of categoriaService.categorias(); track cat.id) {
+                @for (cat of categoriasDisponiveis(); track cat.id) {
                   <option [ngValue]="cat.id">{{ cat.nome }}</option>
                 }
               </select>

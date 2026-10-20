@@ -54,4 +54,38 @@ describe('AppLayout', () => {
       fixture.nativeElement.querySelector('.layout-shell__mobile-menu'),
     ).toBeNull();
   });
+
+  it('should call authHandler.logout when clicking logout in mobile menu', async () => {
+    const logoutMock = vi.fn();
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [AppLayout],
+      providers: [
+        provideRouter([]),
+        {
+          provide: (await import('../../tokens/auth-navigation.token')).AUTH_NAVIGATION_HANDLER,
+          useValue: {
+            logout: logoutMock,
+            currentUser: () => ({ nome: 'Carlos', email: 'carlos@teste.com' }),
+          },
+        },
+      ],
+    }).compileComponents();
+
+    const authFixture = TestBed.createComponent(AppLayout);
+    const authComp = authFixture.componentInstance;
+    authFixture.detectChanges();
+    await authFixture.whenStable();
+
+    // Abre menu mobile
+    authComp.toggleMobileMenu();
+    authFixture.detectChanges();
+
+    const logoutBtn = authFixture.nativeElement.querySelector('[data-testid="mobile-menu-logout-btn"]');
+    expect(logoutBtn).toBeTruthy();
+    logoutBtn.click();
+
+    expect(logoutMock).toHaveBeenCalledTimes(1);
+    expect(authComp.isMobileMenuOpen()).toBe(false);
+  });
 });

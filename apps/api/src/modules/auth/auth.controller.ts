@@ -52,4 +52,11 @@ export const AuthController = {
       res.status(statusCode).json({ error: message, erro: message });
     }
   },
+
+  async logout(_req: Request, res: Response): Promise<void> {
+    res.status(200).json({
+      success: true,
+      message: 'Logout realizado com sucesso',
+    });
+  },
 };

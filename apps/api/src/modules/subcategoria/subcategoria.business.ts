@@ -1,5 +1,9 @@
 import { SubcategoriaRepository } from './subcategoria.repository';
-import { SubcategoriaEntity, CreateSubcategoriaDto } from './subcategoria.types';
+import {
+  SubcategoriaEntity,
+  CreateSubcategoriaDto,
+  UpdateSubcategoriaDto,
+} from './subcategoria.types';
 
 export const SubcategoriaBusiness = {
   async criar(subcategoria: CreateSubcategoriaDto): Promise<SubcategoriaEntity> {
@@ -21,8 +25,19 @@ export const SubcategoriaBusiness = {
     return await SubcategoriaRepository.buscar(subcategoriaId);
   },
 
+  async atualizar(
+    subcategoriaId: number | string,
+    dto: UpdateSubcategoriaDto
+  ): Promise<SubcategoriaEntity | undefined> {
+    if (dto.nome !== undefined && !dto.nome.trim()) {
+      throw new Error('Nome da subcategoria não pode ser vazio');
+    }
+    return await SubcategoriaRepository.atualizar(subcategoriaId, dto);
+  },
+
   async deletar(subcategoriaId: number | string): Promise<SubcategoriaEntity | undefined> {
     return await SubcategoriaRepository.deletar(subcategoriaId);
   },
 };
+
 

@@ -24,7 +24,10 @@ CREATE TABLE IF NOT EXISTS usuarios (
 CREATE TABLE IF NOT EXISTS categoria (
     id SERIAL PRIMARY KEY,
     nome VARCHAR(255) NOT NULL,
-    icone VARCHAR(100) NULL
+    tipo VARCHAR(20) NOT NULL DEFAULT 'despesa',
+    cor VARCHAR(50) NULL DEFAULT '#3880ff',
+    icone VARCHAR(100) NULL,
+    idcategoria INTEGER NULL
 );
 
 -- ------------------------------------------------------------------------------
@@ -34,7 +37,8 @@ CREATE TABLE IF NOT EXISTS subcategoria (
     id SERIAL PRIMARY KEY,
     idcategoria INTEGER NOT NULL REFERENCES categoria(id) ON DELETE CASCADE,
     nome VARCHAR(255) NOT NULL,
-    icone VARCHAR(100) NULL
+    icone VARCHAR(100) NULL,
+    cor VARCHAR(50) NULL DEFAULT '#3880ff'
 );
 
 -- ------------------------------------------------------------------------------
@@ -250,41 +254,7 @@ CREATE INDEX IF NOT EXISTS idx_loan_installments_due ON loan_installments(due_da
 CREATE INDEX IF NOT EXISTS idx_loan_payments_loan ON loan_payments(loan_id, installment_id);
 
 -- ------------------------------------------------------------------------------
--- 18. Dados Iniciais de Seed (Categorias Padrão do Sistema)
+-- 18. Categorias e Subcategorias são cadastradas manualmente pelo usuário
 -- ------------------------------------------------------------------------------
-INSERT INTO categoria (nome, icone) VALUES
-    ('Alimentação', 'restaurant-outline'),
-    ('Moradia', 'home-outline'),
-    ('Transporte', 'car-outline'),
-    ('Saúde', 'medkit-outline'),
-    ('Educação', 'school-outline'),
-    ('Lazer', 'game-controller-outline'),
-    ('Salário', 'cash-outline'),
-    ('Investimentos', 'trending-up-outline'),
-    ('Outros', 'ellipsis-horizontal-outline')
-ON CONFLICT DO NOTHING;
 
--- Subcategorias associadas
-INSERT INTO subcategoria (idcategoria, nome, icone)
-SELECT c.id, s.nome, s.icone
-FROM categoria c
-JOIN (VALUES
-    ('Alimentação', 'Supermercado', 'cart-outline'),
-    ('Alimentação', 'Restaurante / Delivery', 'fast-food-outline'),
-    ('Moradia', 'Aluguel / Condomínio', 'key-outline'),
-    ('Moradia', 'Energia Elétrica', 'flash-outline'),
-    ('Moradia', 'Água & Saneamento', 'water-outline'),
-    ('Moradia', 'Internet & TV', 'wifi-outline'),
-    ('Transporte', 'Combustível', 'speedometer-outline'),
-    ('Transporte', 'Transporte Público / App', 'bus-outline'),
-    ('Saúde', 'Farmácia', 'bandage-outline'),
-    ('Saúde', 'Consultas / Exames', 'fitness-outline'),
-    ('Educação', 'Cursos & Livros', 'book-outline'),
-    ('Lazer', 'Viagens & Cinema', 'film-outline'),
-    ('Salário', 'Salário Mensal', 'wallet-outline'),
-    ('Investimentos', 'Renda Fixa / Ações', 'bar-chart-outline')
-) AS s(cat_nome, nome, icone) ON c.nome = s.cat_nome
-WHERE NOT EXISTS (
-    SELECT 1 FROM subcategoria sub WHERE sub.idcategoria = c.id AND sub.nome = s.nome
-);
 

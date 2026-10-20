@@ -195,8 +195,9 @@ export class CategoriasPage implements OnInit {
   abrirNovaCategoria(): void {
     this.categoriaEmEdicao.set(null);
     this.formCategoriaNome = '';
-    this.formCategoriaTipo = 'despesa';
-    this.formCategoriaCor = '#3880ff';
+    const filtroAtual = this.tipoFiltro();
+    this.formCategoriaTipo = filtroAtual === 'receita' ? 'receita' : 'despesa';
+    this.formCategoriaCor = this.formCategoriaTipo === 'receita' ? '#2dd36f' : '#3880ff';
     this.formCategoriaIcone = 'pricetag-outline';
     this.modalCategoriaAberto.set(true);
   }

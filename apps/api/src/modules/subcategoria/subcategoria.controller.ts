@@ -51,6 +51,24 @@ export const SubcategoriaController = {
     }
   },
 
+  async atualizar(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const dto = req.body;
+      const response = await SubcategoriaBusiness.atualizar(id, dto);
+
+      if (!response) {
+        res.status(404).json({ error: 'Subcategoria não encontrada', erro: 'Subcategoria não encontrada' });
+        return;
+      }
+
+      res.status(200).json(response);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Erro ao atualizar subcategoria';
+      res.status(400).json({ error: message, erro: message });
+    }
+  },
+
   async deletar(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
