@@ -131,33 +131,27 @@ export const DashboardRepository = {
     ano: number,
     userid: number
   ): Promise<PlannedItemRow[]> {
-    const mm = String(mes).padStart(2, '0');
-    const ultimoDia = new Date(ano, mes, 0).getDate();
-    const dataInicio = `${ano}-${mm}-01`;
-    const dataFim = `${ano}-${mm}-${String(ultimoDia).padStart(2, '0')}`;
-    const userUuid = normalizeUserIdToUuid(userid);
-
     const query = `
       SELECT 
         pt.id,
-        COALESCE(pt.descricao, pt.description, '') AS descricao,
-        COALESCE(pt.tipo, pt.type, 'DESPESA') AS tipo,
-        COALESCE(pt.valor, pt.amount, 0)::numeric AS valor,
-        TO_CHAR(COALESCE(pt.data_prevista, pt.expected_date, CURRENT_DATE)::date, 'YYYY-MM-DD') AS data_prevista,
+        COALESCE(pt.descricao, '') AS descricao,
+        pt.tipo,
+        pt.valor::numeric AS valor,
+        TO_CHAR(pt.data_prevista, 'YYYY-MM-DD') AS data_prevista,
         pt.status,
         c.nome AS categoria_nome,
-        COALESCE(pt.recorrencia, pt.recurrence_type, 'NONE') AS recorrencia,
+        pt.recorrencia,
         pt.parent_recurrence_id
       FROM planned_transactions pt
-      LEFT JOIN categoria c ON (c.id = pt.idcategoria OR c.id::text = pt.category_id::text)
-      WHERE (pt.userid = $1 OR pt.user_id = $6::uuid)
+      LEFT JOIN categoria c ON c.id = pt.idcategoria
+      WHERE pt.userid = $1
         AND pt.status = 'PENDING'
-        AND EXTRACT(MONTH FROM COALESCE(pt.data_prevista, pt.expected_date)) = $2
-        AND EXTRACT(YEAR FROM COALESCE(pt.data_prevista, pt.expected_date)) = $3
-      ORDER BY COALESCE(pt.data_prevista, pt.expected_date) ASC
+        AND EXTRACT(MONTH FROM pt.data_prevista) = $2
+        AND EXTRACT(YEAR FROM pt.data_prevista) = $3
+      ORDER BY pt.data_prevista ASC
     `;
     try {
-      const { rows } = await pool.query<PlannedItemRow>(query, [userid, mes, ano, dataInicio, dataFim, userUuid]);
+      const { rows } = await pool.query<PlannedItemRow>(query, [userid, mes, ano]);
       return rows.map((r) => ({
         ...r,
         valor: Number(r.valor),
@@ -187,7 +181,7 @@ export const DashboardRepository = {
         l.institution_name
       FROM loan_installments li
       INNER JOIN loans l ON l.id = li.loan_id
-      WHERE (l.user_id = $1::uuid OR l.user_id = $2)
+      WHERE l.user_id IN ($1, $2)
         AND li.status = 'PENDING'
         AND EXTRACT(MONTH FROM li.due_date) = $3
         AND EXTRACT(YEAR FROM li.due_date) = $4
@@ -270,14 +264,14 @@ export const DashboardRepository = {
       ),
       planned_agregadas AS (
         SELECT 
-          EXTRACT(MONTH FROM COALESCE(pt.data_prevista, pt.expected_date))::integer AS mes,
-          COALESCE(SUM(CASE WHEN UPPER(COALESCE(pt.tipo, pt.type)) = 'RECEITA' THEN COALESCE(pt.valor, pt.amount) ELSE 0 END), 0)::numeric AS rec_plan,
-          COALESCE(SUM(CASE WHEN UPPER(COALESCE(pt.tipo, pt.type)) = 'DESPESA' THEN COALESCE(pt.valor, pt.amount) ELSE 0 END), 0)::numeric AS desp_plan
+          EXTRACT(MONTH FROM pt.data_prevista)::integer AS mes,
+          COALESCE(SUM(CASE WHEN pt.tipo = 'RECEITA' THEN pt.valor ELSE 0 END), 0)::numeric AS rec_plan,
+          COALESCE(SUM(CASE WHEN pt.tipo = 'DESPESA' THEN pt.valor ELSE 0 END), 0)::numeric AS desp_plan
         FROM planned_transactions pt
-        WHERE (pt.userid = $1 OR pt.user_id = $3::uuid)
+        WHERE pt.userid = $1
           AND pt.status = 'PENDING'
-          AND EXTRACT(YEAR FROM COALESCE(pt.data_prevista, pt.expected_date)) = $2::integer
-        GROUP BY EXTRACT(MONTH FROM COALESCE(pt.data_prevista, pt.expected_date))
+          AND EXTRACT(YEAR FROM pt.data_prevista) = $2::integer
+        GROUP BY EXTRACT(MONTH FROM pt.data_prevista)
       ),
       loans_agregadas AS (
         SELECT 
@@ -285,7 +279,7 @@ export const DashboardRepository = {
           COALESCE(SUM(li.original_amount), 0)::numeric AS desp_loan
         FROM loan_installments li
         INNER JOIN loans l ON l.id = li.loan_id
-        WHERE (l.user_id = $3::uuid OR l.user_id::text = $4)
+        WHERE l.user_id IN ($3, $4)
           AND li.status = 'PENDING'
           AND EXTRACT(YEAR FROM li.due_date) = $2::integer
         GROUP BY EXTRACT(MONTH FROM li.due_date)

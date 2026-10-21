@@ -21,6 +21,11 @@ jobs:
 
           echo "==> Reconstruindo os containers com Docker Compose..."
           docker compose build
+
+          echo "==> Subindo o banco e aplicando migrations..."
+          docker compose up -d --wait postgres
+          sh docker/postgres/migrate.sh
+
           docker compose up -d
 
           echo "==> Limpando imagens antigas sem uso..."

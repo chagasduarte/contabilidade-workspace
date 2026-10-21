@@ -9,6 +9,7 @@ export const CategoriaController = {
       const response = await CategoriaBusiness.criar(categoria);
       res.status(201).json(response);
     } catch (error: unknown) {
+      console.error('[CategoriaController]', error);
       const message = error instanceof Error ? error.message : 'Erro ao criar categoria';
       res.status(400).json({ error: message, erro: message });
     }
@@ -20,6 +21,7 @@ export const CategoriaController = {
       const response = await CategoriaBusiness.listar(tipo);
       res.status(200).json(response);
     } catch (error: unknown) {
+      console.error('[CategoriaController]', error);
       const message = error instanceof Error ? error.message : 'Erro ao listar categorias';
       res.status(400).json({ error: message, erro: message });
     }
@@ -37,6 +39,7 @@ export const CategoriaController = {
 
       res.status(200).json(response);
     } catch (error: unknown) {
+      console.error('[CategoriaController]', error);
       const message = error instanceof Error ? error.message : 'Erro ao buscar categoria';
       res.status(400).json({ error: message, erro: message });
     }
@@ -55,6 +58,7 @@ export const CategoriaController = {
 
       res.status(200).json(response);
     } catch (error: unknown) {
+      console.error('[CategoriaController]', error);
       const message = error instanceof Error ? error.message : 'Erro ao atualizar categoria';
       res.status(400).json({ error: message, erro: message });
     }
@@ -72,6 +76,7 @@ export const CategoriaController = {
 
       res.status(200).json(response);
     } catch (error: unknown) {
+      console.error('[CategoriaController]', error);
       const message = error instanceof Error ? error.message : 'Erro ao deletar categoria';
       res.status(400).json({ error: message, erro: message });
     }

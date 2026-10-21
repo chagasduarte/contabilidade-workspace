@@ -8,6 +8,7 @@ export const SubcategoriaController = {
       const response = await SubcategoriaBusiness.criar(subcategoria);
       res.status(201).json(response);
     } catch (error: unknown) {
+      console.error('[SubcategoriaController]', error);
       const message = error instanceof Error ? error.message : 'Erro ao criar subcategoria';
       res.status(400).json({ error: message, erro: message });
     }
@@ -18,6 +19,7 @@ export const SubcategoriaController = {
       const response = await SubcategoriaBusiness.listar();
       res.status(200).json(response);
     } catch (error: unknown) {
+      console.error('[SubcategoriaController]', error);
       const message = error instanceof Error ? error.message : 'Erro ao listar subcategorias';
       res.status(400).json({ error: message, erro: message });
     }
@@ -29,6 +31,7 @@ export const SubcategoriaController = {
       const response = await SubcategoriaBusiness.listarPorCategoria(idcategoria);
       res.status(200).json(response);
     } catch (error: unknown) {
+      console.error('[SubcategoriaController]', error);
       const message = error instanceof Error ? error.message : 'Erro ao listar subcategorias por categoria';
       res.status(400).json({ error: message, erro: message });
     }
@@ -46,6 +49,7 @@ export const SubcategoriaController = {
 
       res.status(200).json(response);
     } catch (error: unknown) {
+      console.error('[SubcategoriaController]', error);
       const message = error instanceof Error ? error.message : 'Erro ao buscar subcategoria';
       res.status(400).json({ error: message, erro: message });
     }
@@ -64,6 +68,7 @@ export const SubcategoriaController = {
 
       res.status(200).json(response);
     } catch (error: unknown) {
+      console.error('[SubcategoriaController]', error);
       const message = error instanceof Error ? error.message : 'Erro ao atualizar subcategoria';
       res.status(400).json({ error: message, erro: message });
     }
@@ -81,6 +86,7 @@ export const SubcategoriaController = {
 
       res.status(200).json(response);
     } catch (error: unknown) {
+      console.error('[SubcategoriaController]', error);
       const message = error instanceof Error ? error.message : 'Erro ao deletar subcategoria';
       res.status(400).json({ error: message, erro: message });
     }
