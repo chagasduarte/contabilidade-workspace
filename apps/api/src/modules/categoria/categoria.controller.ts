@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { sendError } from '../../common/utils/error-response';
 import { CategoriaBusiness } from './categoria.business';
 import { TipoCategoria } from './categoria.types';
 
@@ -10,8 +11,7 @@ export const CategoriaController = {
       res.status(201).json(response);
     } catch (error: unknown) {
       console.error('[CategoriaController]', error);
-      const message = error instanceof Error ? error.message : 'Erro ao criar categoria';
-      res.status(400).json({ error: message, erro: message });
+      sendError(res, error, 'Erro ao criar categoria');
     }
   },
 
@@ -22,8 +22,7 @@ export const CategoriaController = {
       res.status(200).json(response);
     } catch (error: unknown) {
       console.error('[CategoriaController]', error);
-      const message = error instanceof Error ? error.message : 'Erro ao listar categorias';
-      res.status(400).json({ error: message, erro: message });
+      sendError(res, error, 'Erro ao listar categorias');
     }
   },
 
@@ -40,8 +39,7 @@ export const CategoriaController = {
       res.status(200).json(response);
     } catch (error: unknown) {
       console.error('[CategoriaController]', error);
-      const message = error instanceof Error ? error.message : 'Erro ao buscar categoria';
-      res.status(400).json({ error: message, erro: message });
+      sendError(res, error, 'Erro ao buscar categoria');
     }
   },
 
@@ -59,8 +57,7 @@ export const CategoriaController = {
       res.status(200).json(response);
     } catch (error: unknown) {
       console.error('[CategoriaController]', error);
-      const message = error instanceof Error ? error.message : 'Erro ao atualizar categoria';
-      res.status(400).json({ error: message, erro: message });
+      sendError(res, error, 'Erro ao atualizar categoria');
     }
   },
 
@@ -77,8 +74,7 @@ export const CategoriaController = {
       res.status(200).json(response);
     } catch (error: unknown) {
       console.error('[CategoriaController]', error);
-      const message = error instanceof Error ? error.message : 'Erro ao deletar categoria';
-      res.status(400).json({ error: message, erro: message });
+      sendError(res, error, 'Erro ao deletar categoria');
     }
   },
 };
