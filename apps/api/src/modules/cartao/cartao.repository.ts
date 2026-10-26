@@ -28,25 +28,14 @@ export const CartaoRepository = {
     return result.rows[0];
   },
 
+  /**
+   * Somente leitura. A sincronização credit_cards -> cartoes acontece na criação do cartão
+   * (CardRepository.criarCartao / CartaoRepository.criar); o legado foi alinhado uma vez pelo
+   * script aprovado docker/postgres/manual/sync_cartoes_legado.sql.
+   */
   async listar(userid: number): Promise<CartaoEntity[]> {
     // Tenta consultar a tabela legado cartoes
     try {
-      try {
-        await pool.query(
-          `INSERT INTO cartoes (nome, dia_fatura, dia_vencimento, limite, userid)
-           SELECT cc.nome, cc.dia_fechamento, cc.dia_vencimento, cc.limite_total, cc.usuario_id
-           FROM credit_cards cc
-           WHERE cc.usuario_id = $1 AND cc.ativo = true
-             AND NOT EXISTS (
-               SELECT 1 FROM cartoes c 
-               WHERE c.userid = cc.usuario_id AND LOWER(TRIM(c.nome)) = LOWER(TRIM(cc.nome))
-             )`,
-          [userid]
-        );
-      } catch {
-        // Segue para a consulta mesmo se houver falha na sincronização
-      }
-
       const result = await pool.query<CartaoEntity>(
         'SELECT * FROM cartoes WHERE userid = $1 ORDER BY id ASC',
         [userid]
