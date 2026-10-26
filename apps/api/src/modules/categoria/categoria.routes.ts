@@ -1,7 +1,10 @@
 import { Router } from 'express';
 import { CategoriaController } from './categoria.controller';
+import { authMiddleware } from '../../core/middlewares/auth.middleware';
 
 const router = Router();
+
+router.use(authMiddleware);
 
 router.get('/', CategoriaController.listar);
 router.post('/', CategoriaController.criar);

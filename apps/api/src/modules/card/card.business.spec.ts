@@ -11,6 +11,13 @@ import {
 } from './card.business';
 import { CardRepository } from './card.repository';
 import { pool } from '../../core/config/database';
+import { CategoriaBusiness } from '../categoria/categoria.business';
+
+vi.mock('../categoria/categoria.business', () => ({
+  CategoriaBusiness: {
+    categoriaVisivel: vi.fn().mockResolvedValue(true),
+  },
+}));
 
 vi.mock('./card.repository', () => ({
   CardRepository: {
@@ -144,6 +151,20 @@ describe('CardBusiness', () => {
       ativo: true,
     };
 
+    it('deve rejeitar categoria_id não visível ao usuário antes de abrir transação', async () => {
+      vi.mocked(CategoriaBusiness.categoriaVisivel).mockResolvedValueOnce(false);
+
+      await expect(
+        CardBusiness.lancarTransacao(
+          { cartao_id: 'card-1', descricao: 'TV', valor_total: 300, quantidade_parcelas: 1, data_compra: '2026-10-10', categoria_id: 77 },
+          1
+        )
+      ).rejects.toThrow(CardValidationError);
+      expect(CategoriaBusiness.categoriaVisivel).toHaveBeenCalledWith(77, 1);
+      expect(CardRepository.buscarCartaoPorId).not.toHaveBeenCalled();
+      expect(pool.connect).not.toHaveBeenCalled();
+    });
+
     it('deve lançar erro se o limite disponível for insuficiente', async () => {
       vi.mocked(CardRepository.buscarCartaoPorId).mockResolvedValue(mockCartao);
       vi.mocked(CardRepository.obterLimiteComprometido).mockResolvedValue(2500); // Disponível: 500
@@ -160,6 +181,41 @@ describe('CardBusiness', () => {
           1
         )
       ).rejects.toThrow(CardValidationError);
+    });
+
+    it('deve travar o cartão (FOR UPDATE) e revalidar o limite dentro da transação', async () => {
+      // Corrida: na checagem prévia há limite (comprometido 0), mas outra compra concorrente
+      // consumiu o limite antes do lock; dentro da transação o comprometido já é 2900.
+      vi.mocked(CardRepository.buscarCartaoPorId).mockResolvedValue(mockCartao);
+      vi.mocked(CardRepository.obterLimiteComprometido)
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(2900);
+
+      const mockClient = {
+        query: vi.fn().mockResolvedValue({ rows: [] }),
+        release: vi.fn(),
+      };
+      vi.mocked(pool.connect).mockResolvedValue(mockClient as any);
+
+      await expect(
+        CardBusiness.lancarTransacao(
+          { cartao_id: 'card-1', descricao: 'TV', valor_total: 300, quantidade_parcelas: 1, data_compra: '2026-10-10' },
+          1
+        )
+      ).rejects.toThrow(/Limite disponível insuficiente/);
+
+      const sqls = mockClient.query.mock.calls.map(([sql]) => String(sql));
+      const idxBegin = sqls.indexOf('BEGIN');
+      const idxLock = sqls.findIndex((q) => q.includes('FROM credit_cards') && q.includes('FOR UPDATE'));
+      expect(idxBegin).toBeGreaterThanOrEqual(0);
+      expect(idxLock).toBeGreaterThan(idxBegin);
+      expect(mockClient.query.mock.calls[idxLock][1]).toEqual([mockCartao.id, 1]);
+      // O recálculo do comprometido usa o mesmo client da transação (lock em vigor)
+      expect(CardRepository.obterLimiteComprometido).toHaveBeenLastCalledWith(mockCartao.id, mockClient);
+      expect(sqls).toContain('ROLLBACK');
+      expect(sqls).not.toContain('COMMIT');
+      expect(CardRepository.criarTransacao).not.toHaveBeenCalled();
+      expect(mockClient.release).toHaveBeenCalled();
     });
 
     it('deve parcelar compra e criar faturas automaticamente em transação atômica', async () => {

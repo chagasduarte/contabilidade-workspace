@@ -23,6 +23,10 @@ export interface ForecastTimelineEventDto {
   type: ForecastEventType;
   origin: ForecastEventOrigin;
   originId: string;
+  /** Categoria do evento (só PLANNED); null para empréstimo e fatura. */
+  idcategoria: number | null;
+  /** Nome da categoria; null quando não houver. */
+  categoria_nome: string | null;
 }
 
 /**

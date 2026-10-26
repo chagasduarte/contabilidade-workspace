@@ -1,8 +1,9 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
+import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import { ENV } from './core/config/env';
+import { ENV, assertRequiredEnv } from './core/config/env';
 
 import authRoutes from './modules/auth/auth.routes';
 import userRoutes from './modules/user/user.routes';
@@ -19,6 +20,9 @@ import cardRoutes from './modules/card/card.routes';
 import plannedTransactionRoutes from './modules/planned-transaction/planned-transaction.routes';
 import forecastRoutes from './modules/forecast/forecast.routes';
 import { setupSwagger } from './core/swagger/swagger.setup';
+
+// Falha no boot se variáveis obrigatórias (ex: JWT_SECRET) estiverem ausentes
+assertRequiredEnv();
 
 const app = express();
 
@@ -45,6 +49,16 @@ const defaultAllowedOrigins = [
   ...configuredOrigins,
 ];
 
+// Origens dos apps nativos Capacitor/Ionic (WebView iOS/Android)
+const nativeAppOrigins = [
+  'capacitor://localhost',
+  'ionic://localhost',
+  'http://localhost',
+  'https://localhost',
+];
+
+const isProduction = ENV.NODE_ENV === 'production';
+
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -53,23 +67,28 @@ app.use(
         return callback(null, true);
       }
 
-      // Permite localhost, 127.0.0.1, Capacitor/Ionic nativo e IPs da rede local
-      const isLocalOrLan =
-        origin.startsWith('http://localhost:') ||
-        origin.startsWith('http://127.0.0.1:') ||
-        origin.startsWith('capacitor://') ||
-        origin.startsWith('ionic://') ||
-        /^http:\/\/(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/.test(origin);
-
-      if (isLocalOrLan || defaultAllowedOrigins.includes(origin)) {
+      if (defaultAllowedOrigins.includes(origin) || nativeAppOrigins.includes(origin)) {
         return callback(null, true);
       }
 
-      return callback(null, true); // Permite desenvolvimento e integrações flexíveis
+      // Fora de produção, libera localhost em qualquer porta e IPs da rede local
+      const isLocalOrLan =
+        origin.startsWith('http://localhost:') ||
+        origin.startsWith('http://127.0.0.1:') ||
+        /^http:\/\/(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/.test(origin);
+
+      if (!isProduction && isLocalOrLan) {
+        return callback(null, true);
+      }
+
+      // Origem não autorizada: responde sem cabeçalhos CORS (o navegador bloqueia)
+      return callback(null, false);
     },
     credentials: true,
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization'],
+    // Cursor da paginação opcional (extrato, planned-transactions, loans)
+    exposedHeaders: ['X-Next-Cursor'],
   })
 );
 
@@ -150,6 +169,36 @@ app.use('/api/forecast', forecastRoutes);
 
 // Middleware de tratamento global de erros
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  // Erros de upload (tamanho/tipo de arquivo) são erros do cliente
+  if (err instanceof multer.MulterError) {
+    const message =
+      err.code === 'LIMIT_FILE_SIZE'
+        ? 'Arquivo excede o tamanho máximo permitido (2 MB).'
+        : err.message;
+    res.status(400).json({ success: false, error: message, erro: message });
+    return;
+  }
+
+  // Erros do body-parser (express.json): corpo acima do limite ou JSON malformado
+  const tipoBodyParser = (err as { type?: string })?.type;
+  if (tipoBodyParser === 'entity.too.large') {
+    const message = 'A requisição é muito grande (máximo 10 MB). Se estiver enviando uma foto, reduza a resolução.';
+    res.status(413).json({ success: false, error: message, erro: message, codigo: 'IMAGEM_GRANDE' });
+    return;
+  }
+  if (tipoBodyParser === 'entity.parse.failed') {
+    const message = 'O corpo da requisição não é um JSON válido.';
+    res.status(400).json({ success: false, error: message, erro: message });
+    return;
+  }
+
+  // Erros de cliente sinalizados com statusCode 4xx (ex: tipo de arquivo inválido)
+  const statusCode = (err as { statusCode?: number })?.statusCode;
+  if (err instanceof Error && statusCode && statusCode >= 400 && statusCode < 500) {
+    res.status(statusCode).json({ success: false, error: err.message, erro: err.message });
+    return;
+  }
+
   console.error('[API Error]:', err);
   const message = err instanceof Error ? err.message : 'Erro interno do servidor';
   res.status(500).json({

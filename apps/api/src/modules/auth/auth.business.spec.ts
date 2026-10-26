@@ -36,7 +36,7 @@ describe('AuthBusiness', () => {
       vi.mocked(UserRepository.buscaPorNomeOuEmail).mockResolvedValueOnce(undefined);
 
       await expect(AuthBusiness.login('usuario_inexistente', '123456')).rejects.toThrow(
-        'Usuário não encontrado'
+        'Usuário ou senha inválidos'
       );
     });
 
@@ -50,7 +50,7 @@ describe('AuthBusiness', () => {
       vi.mocked(bcrypt.compare).mockResolvedValueOnce(false as never);
 
       await expect(AuthBusiness.login('teste@exemplo.com', 'senha_errada')).rejects.toThrow(
-        'Senha incorreta'
+        'Usuário ou senha inválidos'
       );
     });
 

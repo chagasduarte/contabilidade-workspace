@@ -84,6 +84,23 @@ export const UserRepository = {
     return result.rows[0];
   },
 
+  /** Atualiza nome/email (campos null mantêm o atual). Unicidade garantida pelos índices LOWER() da 007. */
+  async atualizarPerfil(
+    userId: number,
+    dados: { nome?: string | null; email?: string | null }
+  ): Promise<UserEntity | undefined> {
+    await this.ensureTableExists();
+    const result = await pool.query<UserEntity>(
+      `UPDATE usuarios
+       SET nome = COALESCE($1, nome),
+           email = COALESCE($2, email)
+       WHERE id = $3
+       RETURNING *`,
+      [dados.nome ?? null, dados.email ?? null, userId]
+    );
+    return result.rows[0];
+  },
+
   async updateAvatar(userId: number, avatar: string): Promise<UserEntity | undefined> {
     await this.ensureTableExists();
     const result = await pool.query<UserEntity>(

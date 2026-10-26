@@ -57,6 +57,8 @@ export function expandPlannedTransactionOccurrences(
         type: pt.tipo,
         origin: 'PLANNED',
         originId: pt.id,
+        idcategoria: pt.idcategoria ?? null,
+        categoria_nome: pt.categoria_nome ?? null,
       });
     }
     return events;
@@ -80,6 +82,8 @@ export function expandPlannedTransactionOccurrences(
         type: pt.tipo,
         origin: 'PLANNED',
         originId: pt.id,
+        idcategoria: pt.idcategoria ?? null,
+        categoria_nome: pt.categoria_nome ?? null,
       });
     }
 
@@ -163,6 +167,9 @@ export const ForecastService = {
         type: 'DESPESA',
         origin: 'LOAN',
         originId: li.id,
+        // Empréstimo e fatura (soma de várias compras) não têm categoria única
+        idcategoria: null,
+        categoria_nome: null,
       });
     }
 
@@ -176,6 +183,9 @@ export const ForecastService = {
         type: 'DESPESA',
         origin: 'CREDIT_CARD',
         originId: ci.id,
+        // Empréstimo e fatura (soma de várias compras) não têm categoria única
+        idcategoria: null,
+        categoria_nome: null,
       });
     }
 

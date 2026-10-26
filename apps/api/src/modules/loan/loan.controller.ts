@@ -6,7 +6,8 @@ import {
   LoanValidationError,
 } from './loan.business';
 import { CreateLoanDto, RegisterPaymentDto } from './loan.dto';
-import { normalizeUserIdToUuid, parseUserIdFromUuid } from './loan.repository';
+import { normalizeUserIdToUuid } from './loan.repository';
+import { lerPaginacao, responderPaginado, PaginacaoInvalidaError } from '../../common/utils/paginacao';
 
 export const LoanController = {
   /**
@@ -15,7 +16,8 @@ export const LoanController = {
    */
   async criar(req: Request, res: Response): Promise<void> {
     try {
-      const usuarioId = req.usuarioId ?? req.body.user_id ?? req.body.usuario_id;
+      // Identidade vem exclusivamente do token (nunca do body)
+      const usuarioId = req.usuarioId;
       if (!usuarioId) {
         res.status(401).json({ erro: 'Usuário não autenticado.' });
         return;
@@ -31,7 +33,7 @@ export const LoanController = {
         first_due_date: req.body.first_due_date ?? req.body.primeiro_vencimento,
 
         // Aliases para compatibilidade
-        usuario_id: typeof usuarioId === 'number' ? usuarioId : parseUserIdFromUuid(String(usuarioId)),
+        usuario_id: usuarioId,
         instituicao: req.body.institution_name ?? req.body.instituicao,
         valor_principal: Number(req.body.principal_amount ?? req.body.valor_principal),
         taxa_juros_mensal: Number(req.body.monthly_interest_rate ?? req.body.taxa_juros_mensal),
@@ -59,6 +61,12 @@ export const LoanController = {
    */
   async registrarPagamento(req: Request, res: Response): Promise<void> {
     try {
+      const usuarioId = req.usuarioId;
+      if (!usuarioId) {
+        res.status(401).json({ erro: 'Usuário não autenticado.' });
+        return;
+      }
+
       const dto: RegisterPaymentDto = {
         loan_id: req.body.loan_id ?? req.body.emprestimo_id,
         installment_id: req.body.installment_id ?? req.body.parcela_id,
@@ -98,7 +106,7 @@ export const LoanController = {
         data_pagamento: req.body.payment_date ?? req.body.data_pagamento,
       };
 
-      const resultado = await LoanBusiness.registrarPagamento(dto);
+      const resultado = await LoanBusiness.registrarPagamento(dto, usuarioId);
       res.status(201).json(resultado);
     } catch (error: unknown) {
       if (
@@ -156,9 +164,25 @@ export const LoanController = {
         return;
       }
 
+      // Paginação opcional: sem ?paginado/?cursor a resposta continua sendo o array completo
+      const paginacao = lerPaginacao(req.query as Record<string, unknown>);
+      if (paginacao.paginado && paginacao.limit) {
+        const { items, next_cursor } = await LoanBusiness.listarPaginaPorUsuario(
+          usuarioId,
+          paginacao.cursor,
+          paginacao.limit
+        );
+        responderPaginado(res, items, next_cursor, true);
+        return;
+      }
+
       const emprestimos = await LoanBusiness.listarPorUsuario(usuarioId);
       res.status(200).json(emprestimos);
     } catch (error: unknown) {
+      if (error instanceof PaginacaoInvalidaError || error instanceof LoanValidationError) {
+        res.status(400).json({ erro: (error as Error).message, error: (error as Error).message });
+        return;
+      }
       const message =
         error instanceof Error ? error.message : 'Erro ao listar empréstimos.';
       res.status(500).json({ erro: message, error: message });

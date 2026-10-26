@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { TransacaoBusiness } from './transacao.business';
+import { responderPaginado } from '../../common/utils/paginacao';
 
 export const TransacaoController = {
   async criar(req: Request, res: Response): Promise<void> {
@@ -91,7 +92,13 @@ export const TransacaoController = {
 
   async atualizar(req: Request, res: Response): Promise<void> {
     try {
-      const transacao = await TransacaoBusiness.atualizar(req.params.id, req.body);
+      const userid = req.usuarioId;
+      if (!userid) {
+        res.status(401).json({ erro: 'Usuário não autenticado' });
+        return;
+      }
+
+      const transacao = await TransacaoBusiness.atualizar(req.params.id, req.body, userid);
       res.json(transacao);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Erro ao atualizar transação';
@@ -101,7 +108,13 @@ export const TransacaoController = {
 
   async excluir(req: Request, res: Response): Promise<void> {
     try {
-      await TransacaoBusiness.excluir(req.params.id);
+      const userid = req.usuarioId;
+      if (!userid) {
+        res.status(401).json({ erro: 'Usuário não autenticado' });
+        return;
+      }
+
+      await TransacaoBusiness.excluir(req.params.id, userid);
       res.status(204).send();
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Erro ao excluir transação';
@@ -163,7 +176,13 @@ export const TransacaoController = {
   async receber(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      await TransacaoBusiness.uptopago(id);
+      const userid = req.usuarioId;
+      if (!userid) {
+        res.status(401).json({ erro: 'Usuário não autenticado' });
+        return;
+      }
+
+      await TransacaoBusiness.uptopago(id, userid);
       res.status(200).json('ok');
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Erro ao marcar como pago';
@@ -250,10 +269,12 @@ export const TransacaoController = {
 
   async extrato(req: Request, res: Response): Promise<void> {
     try {
-      const { limit, mes, ano } = req.query as {
+      const { limit, mes, ano, cursor, paginado } = req.query as {
         limit?: string;
         mes?: string;
         ano?: string;
+        cursor?: string;
+        paginado?: string;
       };
       const userid = req.usuarioId;
       if (!userid) {
@@ -261,11 +282,18 @@ export const TransacaoController = {
         return;
       }
 
-      const result = await TransacaoBusiness.extrato(limit, mes, ano, userid);
-      res.json(result);
+      // ?cursor implica paginado (mesma regra de lerPaginacao em planned-transactions e loans)
+      const querPaginado = paginado === 'true' || paginado === '1' || Boolean(cursor);
+      const { items, next_cursor, totais } = await TransacaoBusiness.extrato(
+        { limit, mes, ano, cursor, paginado: querPaginado },
+        userid
+      );
+
+      // Retrocompatível: sem ?paginado=true continua devolvendo o array; o cursor vai no header
+      responderPaginado(res, items, next_cursor, querPaginado, totais ? { totais } : {});
     } catch (erro: unknown) {
       const message = erro instanceof Error ? erro.message : 'Erro ao gerar extrato';
-      res.status(404).json({ erro: message, error: message });
+      res.status(400).json({ erro: message, error: message });
     }
   },
 };

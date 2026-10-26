@@ -14,6 +14,10 @@ export default defineConfig(() => ({
     include: ['src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
     reporters: ['default'],
     passWithNoTests: true,
+    env: {
+      // Segredo fixo apenas para testes (a API exige JWT_SECRET no boot)
+      JWT_SECRET: 'test-secret',
+    },
     coverage: {
       reportsDirectory: '../../coverage/apps/api',
       provider: 'v8' as const,

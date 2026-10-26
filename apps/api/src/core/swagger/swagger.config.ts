@@ -191,6 +191,44 @@ Permite o controle integral de fluxo de caixa, cartões de crédito com faturas 
         },
       },
     },
+    '/user/me': {
+      get: {
+        tags: ['Usuários'],
+        summary: 'Perfil do usuário autenticado',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: 'Perfil', content: { 'application/json': { schema: { $ref: '#/components/schemas/Perfil' } } } },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+      put: {
+        tags: ['Usuários'],
+        summary: 'Atualizar nome e/ou e-mail',
+        description: 'nome: 2–255 caracteres; email válido (salvo em minúsculas). Já usado por outro usuário (sem diferenciar maiúsculas) -> 409.',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  nome: { type: 'string', minLength: 2, maxLength: 255, example: 'Ana Paula' },
+                  email: { type: 'string', format: 'email', example: 'ana@exemplo.com' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: 'Perfil atualizado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Perfil' } } } },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          409: { description: 'Nome de usuário ou e-mail já em uso', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErroPadrao' } } } },
+        },
+      },
+    },
     '/user/avatar': {
       get: {
         tags: ['Usuários'],
@@ -451,19 +489,36 @@ Permite o controle integral de fluxo de caixa, cartões de crédito com faturas 
       get: {
         tags: ['Empréstimos'],
         summary: 'Listar contratos de empréstimos',
-        description: 'Lista todos os contratos ativos e liquidados do usuário autenticado.',
+        description:
+          'Lista os contratos do usuário autenticado (contracted_at DESC, created_at DESC). Paginação keyset opcional.',
         security: [{ bearerAuth: [] }],
+        parameters: [
+          { $ref: '#/components/parameters/Paginado' },
+          { $ref: '#/components/parameters/Cursor' },
+          { $ref: '#/components/parameters/Limit' },
+        ],
         responses: {
           200: {
+            description: 'Contratos de empréstimo. Sem ?paginado/?cursor: array completo (formato antigo). Com paginação: { items, next_cursor }.',
+            headers: { 'X-Next-Cursor': { $ref: '#/components/headers/XNextCursor' } },
             content: {
               'application/json': {
                 schema: {
-                  type: 'array',
-                  items: { $ref: '#/components/schemas/Loan' },
+                  oneOf: [
+                    { type: 'array', items: { $ref: '#/components/schemas/Loan' } },
+                    {
+                      type: 'object',
+                      properties: {
+                        items: { type: 'array', items: { $ref: '#/components/schemas/Loan' } },
+                        next_cursor: { type: 'string', nullable: true, description: 'Cursor opaco da próxima página; null na última.' },
+                      },
+                    },
+                  ],
                 },
               },
             },
           },
+          400: { description: 'cursor, limit, mes ou ano inválido' },
         },
       },
       post: {
@@ -752,12 +807,49 @@ Permite o controle integral de fluxo de caixa, cartões de crédito com faturas 
       get: {
         tags: ['Transações'],
         summary: 'Extrato consolidado do período',
+        description:
+          'Extrato por competência (cartão -> pagamento, conta -> data), ordenado por data DESC, id DESC. Paginação keyset opcional; cursor no formato YYYY-MM-DD_id (trate como opaco).',
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: 'mes', in: 'query', schema: { type: 'integer' } },
+          { name: 'mes', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 12 } },
           { name: 'ano', in: 'query', schema: { type: 'integer' } },
+          { $ref: '#/components/parameters/Paginado' },
+          { $ref: '#/components/parameters/Cursor' },
+          { $ref: '#/components/parameters/Limit' },
         ],
-        responses: { 200: { description: 'Extrato financeiro' } },
+        responses: {
+          200: {
+            description: 'Extrato financeiro. Sem ?paginado/?cursor: array completo (formato antigo). Com paginação: { items, next_cursor }.',
+            headers: { 'X-Next-Cursor': { $ref: '#/components/headers/XNextCursor' } },
+            content: {
+              'application/json': {
+                schema: {
+                  oneOf: [
+                    { type: 'array', items: { $ref: '#/components/schemas/Transacao' } },
+                    {
+                      type: 'object',
+                      properties: {
+                        items: { type: 'array', items: { $ref: '#/components/schemas/Transacao' } },
+                        next_cursor: { type: 'string', nullable: true, description: 'Cursor opaco da próxima página; null na última.' },
+                        totais: {
+                          type: 'object',
+                          description:
+                            'Só na 1ª página paginada (sem cursor): totais do período inteiro (mesmos filtros mes/ano), independentes da página.',
+                          properties: {
+                            entradas: { type: 'number', description: "Soma dos valores com tipo 'entrada'" },
+                            saidas: { type: 'number', description: "Soma dos valores dos demais tipos ('saida', 'cartao')" },
+                            pendentes: { type: 'integer', description: "QUANTIDADE de lançamentos com status 'pendente'" },
+                          },
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          400: { description: 'cursor, limit, mes ou ano inválido' },
+        },
       },
     },
     '/transacoes/agrupadaPorTipos': {
@@ -771,7 +863,22 @@ Permite o controle integral de fluxo de caixa, cartões de crédito com faturas 
           { name: 'tipo', in: 'query', schema: { type: 'string' } },
           { name: 'status', in: 'query', schema: { type: 'string' } },
         ],
-        responses: { 200: { description: 'Agrupamento retornado' } },
+        responses: {
+          200: {
+            description: 'Agrupamento retornado',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    soma: { type: 'object', properties: { soma: { type: 'number' } } },
+                    agrupamento: { type: 'array', items: { $ref: '#/components/schemas/AgrupamentoTipoItem' } },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     },
     '/transacoes/entradas': {
@@ -883,13 +990,19 @@ Permite o controle integral de fluxo de caixa, cartões de crédito com faturas 
     '/dashboard/agrupamento': {
       get: {
         tags: ['Dashboard'],
-        summary: 'Distribuição percentual por categoria',
+        summary: 'Despesas do ano agrupadas por categoria',
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'mes', in: 'query', schema: { type: 'integer' } },
-          { name: 'ano', in: 'query', schema: { type: 'integer' } },
-        ],
-        responses: { 200: { description: 'Agrupamento para gráfico de rosca/pizza' } },
+        parameters: [{ name: 'ano', in: 'query', schema: { type: 'integer' } }],
+        responses: {
+          200: {
+            description: 'Agrupamento para gráfico de rosca/pizza',
+            content: {
+              'application/json': {
+                schema: { type: 'array', items: { $ref: '#/components/schemas/AgrupamentoCategoria' } },
+              },
+            },
+          },
+        },
       },
     },
 
@@ -899,6 +1012,7 @@ Permite o controle integral de fluxo de caixa, cartões de crédito com faturas 
     '/categorias': {
       get: {
         tags: ['Categorias'],
+        security: [{ bearerAuth: [] }],
         summary: 'Listar todas as categorias',
         responses: {
           200: {
@@ -915,6 +1029,7 @@ Permite o controle integral de fluxo de caixa, cartões de crédito com faturas 
       },
       post: {
         tags: ['Categorias'],
+        security: [{ bearerAuth: [] }],
         summary: 'Criar nova categoria',
         requestBody: {
           required: true,
@@ -938,12 +1053,14 @@ Permite o controle integral de fluxo de caixa, cartões de crédito com faturas 
     '/categorias/{id}': {
       get: {
         tags: ['Categorias'],
+        security: [{ bearerAuth: [] }],
         summary: 'Buscar categoria por ID',
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
         responses: { 200: { description: 'Categoria encontrada' }, 404: { description: 'Não encontrada' } },
       },
       delete: {
         tags: ['Categorias'],
+        security: [{ bearerAuth: [] }],
         summary: 'Deletar categoria',
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
         responses: { 200: { description: 'Categoria deletada' } },
@@ -952,6 +1069,7 @@ Permite o controle integral de fluxo de caixa, cartões de crédito com faturas 
     '/subcategorias': {
       get: {
         tags: ['Subcategorias'],
+        security: [{ bearerAuth: [] }],
         summary: 'Listar subcategorias',
         responses: {
           200: {
@@ -968,6 +1086,7 @@ Permite o controle integral de fluxo de caixa, cartões de crédito com faturas 
       },
       post: {
         tags: ['Subcategorias'],
+        security: [{ bearerAuth: [] }],
         summary: 'Criar nova subcategoria',
         requestBody: {
           required: true,
@@ -983,6 +1102,7 @@ Permite o controle integral de fluxo de caixa, cartões de crédito com faturas 
     '/subcategorias/categoria/{idcategoria}': {
       get: {
         tags: ['Subcategorias'],
+        security: [{ bearerAuth: [] }],
         summary: 'Listar subcategorias de uma categoria',
         parameters: [{ name: 'idcategoria', in: 'path', required: true, schema: { type: 'string' } }],
         responses: { 200: { description: 'Subcategorias vinculadas' } },
@@ -991,12 +1111,14 @@ Permite o controle integral de fluxo de caixa, cartões de crédito com faturas 
     '/subcategorias/{id}': {
       get: {
         tags: ['Subcategorias'],
+        security: [{ bearerAuth: [] }],
         summary: 'Buscar subcategoria por ID',
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
         responses: { 200: { description: 'Subcategoria encontrada' } },
       },
       delete: {
         tags: ['Subcategorias'],
+        security: [{ bearerAuth: [] }],
         summary: 'Deletar subcategoria',
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
         responses: { 200: { description: 'Subcategoria removida' } },
@@ -1009,36 +1131,69 @@ Permite o controle integral de fluxo de caixa, cartões de crédito com faturas 
     '/planejamento': {
       get: {
         tags: ['Planejamento'],
-        summary: 'Listar orçamentos planejados',
+        summary: 'Listar planejamentos (orçamentos) do usuário',
+        description: 'Sem mes/ano lista todos; com ano filtra o ano; com mes+ano filtra o mês. Valores como number.',
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: 'mes', in: 'query', schema: { type: 'integer' } },
+          { name: 'mes', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 12 } },
           { name: 'ano', in: 'query', schema: { type: 'integer' } },
         ],
-        responses: { 200: { description: 'Planejamento mensal' } },
+        responses: {
+          200: { description: 'Planejamentos', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/Planejamento' } } } } },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+        },
       },
       post: {
         tags: ['Planejamento'],
-        summary: 'Criar ou definir teto de orçamento',
+        summary: 'Criar planejamento do mês',
+        description:
+          'Categoria precisa ser do usuário ou global (senão 400). Nomes de categoria/subcategoria vêm do banco. Se já existe planejamento do mesmo mês/tipo/categoria/subcategoria, o valor é SOMADO nele (responde o registro atualizado).',
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
-          content: {
-            'application/json': {
-              schema: { $ref: '#/components/schemas/CreatePlanejamentoDto' },
-            },
-          },
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/CreatePlanejamentoDto' } } },
         },
-        responses: { 201: { description: 'Planejamento registrado' } },
+        responses: {
+          201: { description: 'Planejamento criado (ou somado ao existente)', content: { 'application/json': { schema: { $ref: '#/components/schemas/Planejamento' } } } },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+        },
       },
     },
     '/planejamento/agrupados': {
       get: {
         tags: ['Planejamento'],
-        summary: 'Planejamento agrupado por ano',
+        summary: 'Planejamento agrupado por tipo e categoria',
         security: [{ bearerAuth: [] }],
-        parameters: [{ name: 'ano', in: 'query', schema: { type: 'integer' } }],
-        responses: { 200: { description: 'Resumo anual' } },
+        parameters: [
+          { name: 'mes', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 12 } },
+          { name: 'ano', in: 'query', schema: { type: 'integer' } },
+        ],
+        responses: {
+          200: { description: 'Agrupamento', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/PlanejamentoAgrupadoTipo' } } } } },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+    '/planejamento/resumo': {
+      get: {
+        tags: ['Planejamento'],
+        summary: 'Planejado x realizado por categoria no mês',
+        description:
+          'Por categoria: planejado, realizado_pago e realizado_pendente (separados; o front decide como somar). Realizado = lançamentos do mês na conta por competência (cartão legado -> vencimento; conta -> data) + parcelas de cartão das faturas de referência do mês (só despesa). Pagamento de fatura gravado como lançamento (source_type CREDIT_CARD_INVOICE_PAYMENT) é excluído para não contar duas vezes. Padrão: mês corrente, tipo despesa.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'mes', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 12 } },
+          { name: 'ano', in: 'query', schema: { type: 'integer' } },
+          { name: 'tipo', in: 'query', schema: { type: 'string', enum: ['despesa', 'receita'], default: 'despesa' } },
+        ],
+        responses: {
+          200: { description: 'Resumo do mês', content: { 'application/json': { schema: { $ref: '#/components/schemas/ResumoPlanejamento' } } } },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+        },
       },
     },
     '/planejamento/{id}': {
@@ -1046,52 +1201,106 @@ Permite o controle integral de fluxo de caixa, cartões de crédito com faturas 
         tags: ['Planejamento'],
         summary: 'Buscar planejamento por ID',
         security: [{ bearerAuth: [] }],
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-        responses: { 200: { description: 'Orçamento encontrado' } },
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+        responses: {
+          200: { description: 'Planejamento', content: { 'application/json': { schema: { $ref: '#/components/schemas/Planejamento' } } } },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
       },
       put: {
         tags: ['Planejamento'],
-        summary: 'Atualizar limite de orçamento',
+        summary: 'Atualizar planejamento (parcial)',
+        description: 'Campos ausentes mantêm o valor atual; o mês não muda. Trocar a categoria sem informar subcategoria limpa a subcategoria.',
         security: [{ bearerAuth: [] }],
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
         requestBody: {
           required: true,
-          content: {
-            'application/json': {
-              schema: { $ref: '#/components/schemas/CreatePlanejamentoDto' },
-            },
-          },
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/UpdatePlanejamentoDto' } } },
         },
-        responses: { 200: { description: 'Planejamento atualizado' } },
+        responses: {
+          200: { description: 'Planejamento atualizado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Planejamento' } } } },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
       },
       delete: {
         tags: ['Planejamento'],
         summary: 'Excluir planejamento',
         security: [{ bearerAuth: [] }],
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-        responses: { 200: { description: 'Planejamento excluído' } },
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+        responses: {
+          204: { description: 'Excluído' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
       },
     },
     '/objetivos': {
       get: {
         tags: ['Objetivos'],
-        summary: 'Listar metas financeiras',
+        summary: 'Listar objetivos (metas) com progresso',
         security: [{ bearerAuth: [] }],
-        responses: { 200: { description: 'Lista de objetivos' } },
+        responses: {
+          200: { description: 'Objetivos', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/Objetivo' } } } } },
+          401: { $ref: '#/components/responses/Unauthorized' },
+        },
       },
       post: {
         tags: ['Objetivos'],
-        summary: 'Criar nova meta financeira',
+        summary: 'Criar objetivo',
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
-          content: {
-            'application/json': {
-              schema: { $ref: '#/components/schemas/CreateObjetivoDto' },
-            },
-          },
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/CreateObjetivoDto' } } },
         },
-        responses: { 201: { description: 'Meta criada com sucesso' } },
+        responses: {
+          201: { description: 'Objetivo criado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Objetivo' } } } },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+    '/objetivos/{id}': {
+      get: {
+        tags: ['Objetivos'],
+        summary: 'Buscar objetivo (com progresso)',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+        responses: {
+          200: { description: 'Objetivo', content: { 'application/json': { schema: { $ref: '#/components/schemas/Objetivo' } } } },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+      put: {
+        tags: ['Objetivos'],
+        summary: 'Atualizar objetivo (parcial)',
+        description: 'Envie só os campos a alterar. Para registrar o quanto já foi guardado, atualize valor_acumulado.',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/UpdateObjetivoDto' } } },
+        },
+        responses: {
+          200: { description: 'Objetivo atualizado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Objetivo' } } } },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+      delete: {
+        tags: ['Objetivos'],
+        summary: 'Excluir objetivo',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+        responses: {
+          204: { description: 'Excluído' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
       },
     },
 
@@ -1101,8 +1310,9 @@ Permite o controle integral de fluxo de caixa, cartões de crédito com faturas 
     '/ai/chat': {
       post: {
         tags: ['Inteligência Artificial'],
-        summary: 'Conversar com assistente financeiro',
-        description: 'Envia mensagem para análise financeira e recomendações personalizadas com base no histórico do usuário.',
+        summary: 'Extrair uma transação de texto ou de foto de recibo',
+        description:
+          'Interpreta a mensagem e/ou a foto e devolve uma transação estruturada (NÃO grava nada; o front confirma e chama POST /transacoes). Com foto, message é opcional. Imagem: base64 cru ou data URL, JPEG/PNG/WEBP (detectado pelos bytes), até AI_MAX_IMAGE_MB (padrão 4 MB, limite da Groq). Corpo total até 10 MB.',
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
@@ -1110,29 +1320,24 @@ Permite o controle integral de fluxo de caixa, cartões de crédito com faturas 
             'application/json': {
               schema: {
                 type: 'object',
-                required: ['message'],
                 properties: {
-                  message: { type: 'string', example: 'Qual foi meu maior gasto este mês?' },
+                  message: { type: 'string', maxLength: 2000, example: 'Gastei 87,50 no mercado hoje' },
+                  base64Image: { type: 'string', description: 'Foto do recibo em base64 ou data URL (data:image/jpeg;base64,...)' },
                 },
               },
             },
           },
         },
         responses: {
-          200: {
-            description: 'Resposta gerada pela IA',
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {
-                    reply: { type: 'string', example: 'Seu maior gasto este mês foi na categoria Alimentação...' },
-                  },
-                },
-              },
-            },
-          },
-          400: { description: 'Mensagem inválida' },
+          200: { description: 'Transação extraída (não gravada)', content: { 'application/json': { schema: { $ref: '#/components/schemas/TransacaoExtraidaIA' } } } },
+          400: { description: 'Sem mensagem e sem foto, mensagem longa demais ou base64 inválido', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErroIA' } } } },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          413: { description: 'Foto acima do limite (IMAGEM_GRANDE)', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErroIA' } } } },
+          415: { description: 'Formato de imagem não suportado (IMAGEM_FORMATO)', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErroIA' } } } },
+          422: { description: 'A IA não identificou uma transação (IA_SEM_RESULTADO); peça foto mais nítida', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErroIA' } } } },
+          429: { description: 'Limite de uso do provedor de IA (IA_LIMITE)', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErroIA' } } } },
+          502: { description: 'Falha do provedor de IA (IA_INDISPONIVEL)', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErroIA' } } } },
+          503: { description: 'IA ou leitura de fotos não configurada / timeout (IA_INDISPONIVEL)', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErroIA' } } } },
         },
       },
     },
@@ -1211,19 +1416,33 @@ Permite o controle integral de fluxo de caixa, cartões de crédito com faturas 
             description: 'ID da categoria vinculada',
             schema: { type: 'integer', example: 1 },
           },
+          { $ref: '#/components/parameters/Paginado' },
+          { $ref: '#/components/parameters/Cursor' },
+          { $ref: '#/components/parameters/Limit' },
         ],
         responses: {
           200: {
-            description: 'Lista de transações planejadas retornada com sucesso',
+            description:
+              'Transações planejadas (data_prevista, created_at, id ASC). Sem ?paginado/?cursor: array completo (formato antigo). Com paginação: { items, next_cursor }.',
+            headers: { 'X-Next-Cursor': { $ref: '#/components/headers/XNextCursor' } },
             content: {
               'application/json': {
                 schema: {
-                  type: 'array',
-                  items: { $ref: '#/components/schemas/PlannedTransaction' },
+                  oneOf: [
+                    { type: 'array', items: { $ref: '#/components/schemas/PlannedTransaction' } },
+                    {
+                      type: 'object',
+                      properties: {
+                        items: { type: 'array', items: { $ref: '#/components/schemas/PlannedTransaction' } },
+                        next_cursor: { type: 'string', nullable: true, description: 'Cursor opaco da próxima página; null na última.' },
+                      },
+                    },
+                  ],
                 },
               },
             },
           },
+          400: { description: 'cursor ou limit inválido' },
           401: { $ref: '#/components/responses/Unauthorized' },
         },
       },
@@ -1441,6 +1660,47 @@ Permite o controle integral de fluxo de caixa, cartões de crédito com faturas 
     },
   },
   components: {
+    parameters: {
+      Paginado: {
+        name: 'paginado',
+        in: 'query',
+        description:
+          'Opcional. true = resposta paginada { items, next_cursor }. Sem este parâmetro (e sem cursor) a resposta é o array completo, como antes.',
+        schema: { type: 'boolean' },
+      },
+      Cursor: {
+        name: 'cursor',
+        in: 'query',
+        description: 'Opcional. Valor de next_cursor (ou do header X-Next-Cursor) da página anterior. Implica paginado=true.',
+        schema: { type: 'string' },
+      },
+      Limit: {
+        name: 'limit',
+        in: 'query',
+        description: 'Itens por página quando paginado (padrão 50, máximo 200).',
+        schema: { type: 'integer', minimum: 1, maximum: 200, default: 50 },
+      },
+    },
+    responses: {
+      BadRequest: {
+        description: 'Requisição inválida',
+        content: { 'application/json': { schema: { $ref: '#/components/schemas/ErroPadrao' } } },
+      },
+      Unauthorized: {
+        description: 'Token ausente, inválido ou expirado (401)',
+        content: { 'application/json': { schema: { $ref: '#/components/schemas/ErroPadrao' } } },
+      },
+      NotFound: {
+        description: 'Recurso não encontrado',
+        content: { 'application/json': { schema: { $ref: '#/components/schemas/ErroPadrao' } } },
+      },
+    },
+    headers: {
+      XNextCursor: {
+        description: 'Cursor da próxima página (ausente na última). Exposto via CORS.',
+        schema: { type: 'string' },
+      },
+    },
     securitySchemes: {
       bearerAuth: {
         type: 'http',
@@ -1450,6 +1710,13 @@ Permite o controle integral de fluxo de caixa, cartões de crédito com faturas 
       },
     },
     schemas: {
+      ErroPadrao: {
+        type: 'object',
+        properties: {
+          erro: { type: 'string', example: 'Mensagem de erro' },
+          error: { type: 'string', example: 'Mensagem de erro' },
+        },
+      },
       // -----------------------------------------------------------------------
       // SCHEMAS GERAIS E AUTH
       // -----------------------------------------------------------------------
@@ -1704,43 +1971,115 @@ Permite o controle integral de fluxo de caixa, cartões de crédito com faturas 
       // -----------------------------------------------------------------------
       Transacao: {
         type: 'object',
+        description:
+          'Lançamento em transacoes. categoria_nome/subcategoria_nome vêm sempre (null quando não houver). Campos numéricos legados podem chegar como string (numeric do Postgres).',
         properties: {
           id: { type: 'integer', example: 101 },
+          tipo: { type: 'string', enum: ['entrada', 'saida', 'cartao'], example: 'saida' },
           descricao: { type: 'string', example: 'Supermercado Mensal' },
-          valor: { type: 'number', example: 450.5 },
+          valor: { oneOf: [{ type: 'number' }, { type: 'string' }], example: '450.50' },
           data: { type: 'string', format: 'date', example: '2026-10-14' },
-          tipo: { type: 'string', enum: ['receita', 'despesa', 'transferencia'], example: 'despesa' },
-          categoria_id: { type: 'integer', nullable: true, example: 2 },
-          subcategoria_id: { type: 'integer', nullable: true, example: 5 },
-          pago: { type: 'boolean', example: true },
-          forma_pagamento: { type: 'string', example: 'Cartão de Débito' },
+          pagamento: { type: 'string', format: 'date', nullable: true, description: 'Vencimento/competência' },
+          status: { type: 'string', enum: ['pendente', 'pago'], example: 'pendente' },
+          idcategoria: { type: 'integer', nullable: true, example: 2 },
+          idsubcategoria: { type: 'integer', nullable: true, example: 5 },
+          categoria_nome: { type: 'string', nullable: true, example: 'Casa' },
+          subcategoria_nome: { type: 'string', nullable: true, example: 'Energia' },
+          categoria: {
+            type: 'integer',
+            nullable: true,
+            deprecated: true,
+            description: 'LEGADO: subcategoria ou a própria categoria. Use idsubcategoria e os nomes.',
+          },
+          ispaycart: { type: 'boolean' },
+          cartaoid: { type: 'integer', nullable: true },
+          parcela_grupo_id: { type: 'string', format: 'uuid', nullable: true },
+          parcela_numero: { type: 'integer', nullable: true },
+          parcela_total: { type: 'integer', nullable: true },
+          source_type: { type: 'string', nullable: true, example: 'PLANNED' },
+          source_id: { type: 'string', nullable: true },
         },
       },
       CreateTransacaoDto: {
         type: 'object',
-        required: ['descricao', 'valor', 'data', 'tipo'],
+        required: ['tipo', 'descricao', 'valor', 'data'],
         properties: {
+          tipo: {
+            type: 'string',
+            enum: ['entrada', 'saida', 'cartao'],
+            description: "'cartao' (ou ispaycart/cartaoid) desvia a compra para o modelo de cartão (card_transactions).",
+          },
           descricao: { type: 'string', example: 'Supermercado Mensal' },
           valor: { type: 'number', example: 450.5 },
           data: { type: 'string', format: 'date', example: '2026-10-14' },
-          tipo: { type: 'string', enum: ['receita', 'despesa'], example: 'despesa' },
-          categoria_id: { type: 'integer', example: 2 },
-          subcategoria_id: { type: 'integer', example: 5 },
-          cartao_id: { type: 'integer', nullable: true },
-          pago: { type: 'boolean', default: false },
-          forma_pagamento: { type: 'string', example: 'PIX' },
+          pagamento: { type: 'string', format: 'date', nullable: true },
+          status: { type: 'string', enum: ['pendente', 'pago'], default: 'pendente' },
+          idcategoria: {
+            type: 'integer',
+            nullable: true,
+            description: 'Categoria do usuário ou global; senão 400 "Categoria não encontrada."',
+          },
+          idsubcategoria: {
+            type: 'integer',
+            nullable: true,
+            description:
+              'Opcional. Subcategoria visível ao usuário e pertencente a idcategoria; senão 400 "Subcategoria não encontrada." Tem prioridade sobre categoria.',
+          },
+          categoria: {
+            type: 'integer',
+            nullable: true,
+            deprecated: true,
+            description:
+              'LEGADO (fase 1, ainda aceito): se for subcategoria válida de idcategoria vira idsubcategoria; igual a idcategoria = sem subcategoria; qualquer outro valor é ignorado.',
+          },
+          ispaycart: { type: 'boolean', default: false },
+          cartaoid: { oneOf: [{ type: 'integer' }, { type: 'string', format: 'uuid' }], nullable: true },
         },
       },
       CreateTransacaoParceladaDto: {
         type: 'object',
-        required: ['descricao', 'valor_total', 'qtd_parcelas', 'data'],
+        required: ['descricao', 'valor', 'data', 'parcelas'],
         properties: {
           descricao: { type: 'string', example: 'Smartphone Novo' },
-          valor_total: { type: 'number', example: 2400.0 },
-          qtd_parcelas: { type: 'integer', minimum: 2, example: 12 },
+          valor: { type: 'number', description: 'Valor total', example: 2400.0 },
           data: { type: 'string', format: 'date', example: '2026-10-15' },
-          categoria_id: { type: 'integer', example: 4 },
-          cartao_id: { type: 'integer', nullable: true },
+          parcelado: { type: 'boolean', example: true },
+          tipo: { type: 'string', enum: ['saida', 'cartao'] },
+          ispaycart: { type: 'boolean' },
+          cartaoid: { oneOf: [{ type: 'integer' }, { type: 'string', format: 'uuid' }], nullable: true },
+          idcategoria: { type: 'integer', nullable: true },
+          idsubcategoria: { type: 'integer', nullable: true, description: 'Mesmas regras de CreateTransacaoDto' },
+          categoria: { type: 'integer', nullable: true, deprecated: true },
+          parcelas: {
+            type: 'object',
+            required: ['QtdParcelas'],
+            properties: {
+              QtdParcelas: { type: 'integer', minimum: 1, maximum: 420, example: 12 },
+              Valor: { type: 'number', description: 'Valor de cada parcela (tolerância de 0,05)', example: 200 },
+            },
+          },
+        },
+      },
+      AgrupamentoTipoItem: {
+        type: 'object',
+        properties: {
+          total_tipo: { type: 'string', example: '350.00' },
+          idcategoria: { type: 'integer', nullable: true },
+          subcategoria: { type: 'integer', nullable: true, deprecated: true, description: 'LEGADO: valor da coluna categoria' },
+          idsubcategoria: { type: 'integer', nullable: true },
+          categoria_nome: { type: 'string', nullable: true },
+          subcategoria_nome: { type: 'string', nullable: true },
+        },
+      },
+      AgrupamentoCategoria: {
+        type: 'object',
+        properties: {
+          categoria: { type: 'integer', nullable: true, deprecated: true, description: 'LEGADO: valor da coluna categoria' },
+          media_mensal: { type: 'string', example: '1200.00' },
+          idcategoria: { type: 'integer', nullable: true },
+          idsubcategoria: { type: 'integer', nullable: true },
+          categoria_nome: { type: 'string', nullable: true },
+          subcategoria_nome: { type: 'string', nullable: true },
         },
       },
       DashboardResumo: {
@@ -1795,26 +2134,164 @@ Permite o controle integral de fluxo de caixa, cartões de crédito com faturas 
           idcategoria: { type: 'integer', example: 1 },
         },
       },
+      Planejamento: {
+        type: 'object',
+        properties: {
+          id: { type: 'integer' },
+          categoriaid: { type: 'integer' },
+          categoria: { type: 'string', description: 'Nome da categoria (vem do banco)', example: 'Mercado' },
+          subcategoriaid: { type: 'integer', nullable: true },
+          subcategoria: { type: 'string', nullable: true, description: 'Nome da subcategoria' },
+          tipo: { type: 'string', enum: ['despesa', 'receita'] },
+          valor: { type: 'number', example: 800 },
+          data: { type: 'string', format: 'date', description: 'Mês de referência', example: '2026-11-01' },
+          userid: { type: 'integer' },
+        },
+      },
       CreatePlanejamentoDto: {
         type: 'object',
-        required: ['idcategoria', 'valor_limite', 'mes', 'ano'],
+        required: ['categoriaid', 'valor', 'data'],
         properties: {
-          idcategoria: { type: 'integer', example: 1 },
-          valor_limite: { type: 'number', example: 1200.0 },
-          mes: { type: 'integer', example: 10 },
-          ano: { type: 'integer', example: 2026 },
+          categoriaid: { type: 'integer', example: 3 },
+          subcategoriaid: { type: 'integer', nullable: true, description: 'Precisa pertencer à categoria' },
+          valor: { type: 'number', exclusiveMinimum: true, minimum: 0, example: 800 },
+          tipo: { type: 'string', enum: ['despesa', 'receita'], description: 'Opcional: padrão = tipo da categoria' },
+          data: { type: 'string', format: 'date', example: '2026-11-01' },
+        },
+      },
+      UpdatePlanejamentoDto: {
+        type: 'object',
+        description: 'Parcial; o mês (data) não muda.',
+        properties: {
+          categoriaid: { type: 'integer' },
+          subcategoriaid: { type: 'integer', nullable: true },
+          valor: { type: 'number', exclusiveMinimum: true, minimum: 0 },
+          tipo: { type: 'string', enum: ['despesa', 'receita'] },
+        },
+      },
+      PlanejamentoAgrupadoTipo: {
+        type: 'object',
+        properties: {
+          tipo: { type: 'string' },
+          soma: { type: 'number' },
+          agrupamentoTipo: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                categoria: { type: 'string' },
+                categoriaid: { type: 'integer' },
+                soma: { type: 'number' },
+                planejamento: { type: 'array', items: { $ref: '#/components/schemas/Planejamento' } },
+              },
+            },
+          },
+        },
+      },
+      ResumoPlanejamento: {
+        type: 'object',
+        properties: {
+          mes: { type: 'integer' },
+          ano: { type: 'integer' },
+          tipo: { type: 'string', enum: ['despesa', 'receita'] },
+          totais: { $ref: '#/components/schemas/ResumoPlanejamentoValores' },
+          categorias: {
+            type: 'array',
+            items: {
+              allOf: [
+                {
+                  type: 'object',
+                  properties: {
+                    idcategoria: { type: 'integer' },
+                    categoria_nome: { type: 'string', nullable: true },
+                  },
+                },
+                { $ref: '#/components/schemas/ResumoPlanejamentoValores' },
+              ],
+            },
+          },
+        },
+      },
+      ResumoPlanejamentoValores: {
+        type: 'object',
+        properties: {
+          planejado: { type: 'number' },
+          realizado_pago: { type: 'number', description: "Transações 'pago' + parcelas de faturas 'PAID'" },
+          realizado_pendente: { type: 'number', description: 'Transações pendentes + parcelas de faturas não pagas' },
+        },
+      },
+      Objetivo: {
+        type: 'object',
+        properties: {
+          id: { type: 'integer' },
+          usuario_id: { type: 'integer' },
+          nome: { type: 'string', example: 'Reserva de emergência' },
+          tipo: { type: 'string', example: 'reserva' },
+          valor_objetivo: { type: 'number', example: 12000 },
+          valor_mensal: { type: 'number', example: 1000 },
+          valor_acumulado: { type: 'number', example: 3000 },
+          data_final: { type: 'string', format: 'date', example: '2027-06-15' },
+          criado_em: { type: 'string', format: 'date-time' },
+          progresso_percentual: { type: 'number', example: 25, description: 'Pode passar de 100' },
+          valor_restante: { type: 'number', example: 9000 },
+          meses_restantes: { type: 'integer', example: 7 },
+          valor_mensal_necessario: { type: 'number', nullable: true, example: 1285.71, description: 'null se o prazo já passou' },
         },
       },
       CreateObjetivoDto: {
         type: 'object',
-        required: ['titulo', 'valor_alvo'],
+        required: ['nome', 'tipo', 'valor_objetivo', 'data_final'],
         properties: {
-          titulo: { type: 'string', example: 'Reserva de Emergência' },
-          valor_alvo: { type: 'number', example: 20000.0 },
-          valor_atual: { type: 'number', default: 0, example: 5000.0 },
-          data_limite: { type: 'string', format: 'date', example: '2026-12-31' },
-          cor: { type: 'string', example: '#3B82F6' },
-          icone: { type: 'string', example: 'shield-checkmark-outline' },
+          nome: { type: 'string', maxLength: 255 },
+          tipo: { type: 'string', maxLength: 50, description: 'Texto livre (ex.: reserva, viagem, compra)' },
+          valor_objetivo: { type: 'number', exclusiveMinimum: true, minimum: 0 },
+          valor_mensal: { type: 'number', minimum: 0, default: 0 },
+          valor_acumulado: { type: 'number', minimum: 0, default: 0 },
+          data_final: { type: 'string', format: 'date' },
+        },
+      },
+      UpdateObjetivoDto: {
+        type: 'object',
+        description: 'Parcial: mesmas regras de CreateObjetivoDto para os campos enviados.',
+        properties: {
+          nome: { type: 'string', maxLength: 255 },
+          tipo: { type: 'string', maxLength: 50 },
+          valor_objetivo: { type: 'number', exclusiveMinimum: true, minimum: 0 },
+          valor_mensal: { type: 'number', minimum: 0 },
+          valor_acumulado: { type: 'number', minimum: 0 },
+          data_final: { type: 'string', format: 'date' },
+        },
+      },
+      Perfil: {
+        type: 'object',
+        properties: {
+          id: { type: 'integer' },
+          nome: { type: 'string' },
+          email: { type: 'string', nullable: true },
+          avatar: { type: 'string', nullable: true, description: 'Caminho relativo' },
+          avatarUrl: { type: 'string', description: 'URL pública (ou imagem padrão)' },
+        },
+      },
+      TransacaoExtraidaIA: {
+        type: 'object',
+        properties: {
+          tipo: { type: 'string', enum: ['entrada', 'saida'] },
+          descricao: { type: 'string', example: 'Mercado' },
+          valor: { type: 'number', example: 87.5 },
+          categoria: { type: 'string', description: 'Nome sugerido pela IA (não é id)', example: 'Alimentação' },
+          data: { type: 'string', format: 'date' },
+          ispaycart: { type: 'boolean' },
+        },
+      },
+      ErroIA: {
+        type: 'object',
+        properties: {
+          erro: { type: 'string', description: 'Mensagem amigável, pode ser exibida ao usuário' },
+          error: { type: 'string' },
+          codigo: {
+            type: 'string',
+            enum: ['MENSAGEM_INVALIDA', 'IMAGEM_INVALIDA', 'IMAGEM_FORMATO', 'IMAGEM_GRANDE', 'IA_INDISPONIVEL', 'IA_LIMITE', 'IA_SEM_RESULTADO'],
+          },
         },
       },
       PlannedTransaction: {
@@ -1909,6 +2386,8 @@ Permite o controle integral de fluxo de caixa, cartões de crédito com faturas 
           type: { type: 'string', enum: ['RECEITA', 'DESPESA'], example: 'RECEITA' },
           origin: { type: 'string', enum: ['PLANNED', 'LOAN', 'CREDIT_CARD'], example: 'PLANNED' },
           originId: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+          idcategoria: { type: 'integer', nullable: true, description: 'Só eventos PLANNED; null para LOAN/CREDIT_CARD' },
+          categoria_nome: { type: 'string', nullable: true },
         },
       },
       DailyForecastPoint: {

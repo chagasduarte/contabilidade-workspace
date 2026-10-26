@@ -1,8 +1,11 @@
 import { TransacaoRepository } from './transacao.repository';
 import { CartaoRepository } from '../cartao/cartao.repository';
 import { CardBusiness } from '../card/card.business';
+import { CategoriaBusiness } from '../categoria/categoria.business';
+import { SubcategoriaBusiness } from '../subcategoria/subcategoria.business';
 import { pool } from '../../core/config/database';
 import { getPeriodoFatura } from '../../common/utils/periodo-fatura';
+import crypto from 'crypto';
 import {
   TransacaoEntity,
   CreateTransacaoDto,
@@ -10,7 +13,43 @@ import {
   InitialUserTransactionsDto,
   DespesaParceladaItem,
   LinhaTemporalItem,
+  PeriodoConsulta,
+  TransacaoLoteItem,
+  ExtratoCursor,
+  AgrupamentoTipoItem,
+  ExtratoTotais,
 } from './transacao.types';
+
+const EXTRATO_LIMIT_PADRAO = 50;
+const EXTRATO_LIMIT_MAX = 200;
+
+function intervaloMes(mes: number, ano: number): { inicio: string; fim: string } {
+  const mm = String(mes).padStart(2, '0');
+  const ultimoDia = new Date(ano, mes, 0).getDate();
+  return { inicio: `${ano}-${mm}-01`, fim: `${ano}-${mm}-${String(ultimoDia).padStart(2, '0')}` };
+}
+
+/**
+ * Períodos de consulta do mês: conta corrente (mês civil) + cada cartão legado (período da fatura).
+ * Cartões com id não numérico (fallback de credit_cards) são ignorados: transacoes.cartaoid é INTEGER.
+ */
+async function montarPeriodos(
+  mes: number,
+  ano: number,
+  userid: number,
+  incluirCartoes: boolean
+): Promise<PeriodoConsulta[]> {
+  const periodos: PeriodoConsulta[] = [{ cartaoid: null, ...intervaloMes(mes, ano) }];
+  if (!incluirCartoes) return periodos;
+
+  const cartoes = await CartaoRepository.listar(userid);
+  for (const cartao of cartoes ?? []) {
+    const id = Number(cartao.id);
+    if (!Number.isInteger(id) || id <= 0) continue;
+    periodos.push({ cartaoid: id, ...getPeriodoFatura(cartao.dia_fatura, mes, ano) });
+  }
+  return periodos;
+}
 
 export async function resolverCartaoId(
   cartaoid: string | number | null | undefined,
@@ -74,6 +113,67 @@ export async function resolverCartaoId(
   } catch {
     return String(cartaoid || '038d70c8-5141-4894-8395-3ed40bc50eed');
   }
+}
+
+/**
+ * idcategoria precisa referenciar categoria visível ao usuário (dele ou global).
+ * Vazio/ausente é permitido. Valores não numéricos são rejeitados (antes viravam NULL em silêncio).
+ * Compras no cartão são validadas em CardBusiness.lancarTransacao.
+ */
+async function validarCategoria(idcategoria: unknown, userid: number): Promise<void> {
+  if (idcategoria === undefined || idcategoria === null || idcategoria === '') return;
+  if (!(await CategoriaBusiness.categoriaVisivel(idcategoria as number | string, userid))) {
+    throw new Error('Categoria não encontrada.');
+  }
+}
+
+const vazio = (v: unknown): boolean => v === undefined || v === null || v === '';
+
+/**
+ * Resolve a subcategoria da transação (fase 1 da semântica de categoria):
+ * - `idsubcategoria` informado: precisa ser visível ao usuário e pertencer a `idcategoria` (senão 400);
+ * - senão, o campo legado `categoria` é interpretado: se for subcategoria visível de `idcategoria`,
+ *   vira `idsubcategoria`; qualquer outro valor é ignorado (continua só na coluna legada) para não
+ *   quebrar clientes antigos.
+ */
+async function resolverSubcategoria(
+  idcategoria: unknown,
+  idsubcategoria: unknown,
+  categoriaLegado: unknown,
+  userid: number
+): Promise<number | null> {
+  if (!vazio(idsubcategoria)) {
+    if (
+      vazio(idcategoria) ||
+      !(await SubcategoriaBusiness.subcategoriaDaCategoria(
+        idsubcategoria as number | string,
+        idcategoria as number | string,
+        userid
+      ))
+    ) {
+      throw new Error('Subcategoria não encontrada.');
+    }
+    return Number(idsubcategoria);
+  }
+
+  if (vazio(idcategoria) || vazio(categoriaLegado) || Number(categoriaLegado) === Number(idcategoria)) {
+    return null;
+  }
+  const ehSubcategoria = await SubcategoriaBusiness.subcategoriaDaCategoria(
+    categoriaLegado as number | string,
+    idcategoria as number | string,
+    userid
+  );
+  return ehSubcategoria ? Number(categoriaLegado) : null;
+}
+
+/**
+ * Coluna legada `categoria` durante a transição: se o cliente não enviou, preenche como o front
+ * sempre fez (subcategoria ?? categoria), para os agrupamentos que ainda leem a coluna legada.
+ */
+function categoriaLegada(categoria: unknown, idsubcategoria: number | null, idcategoria: unknown): unknown {
+  if (!vazio(categoria)) return categoria;
+  return idsubcategoria ?? (vazio(idcategoria) ? null : idcategoria);
 }
 
 function calcularDataPagamento(
@@ -174,6 +274,14 @@ export const TransacaoBusiness = {
       };
     }
 
+    await validarCategoria(transacao.idcategoria, userid);
+    const idsubcategoria = await resolverSubcategoria(
+      transacao.idcategoria,
+      transacao.idsubcategoria,
+      transacao.categoria,
+      userid
+    );
+
     const cartaoidNum =
       transacao.cartaoid && !isNaN(Number(transacao.cartaoid)) && Number(transacao.cartaoid) > 0
         ? Number(transacao.cartaoid)
@@ -183,7 +291,7 @@ export const TransacaoBusiness = {
     if (!dataPagamento) {
       let diaFatura: number | null = null;
       if (cartaoidNum) {
-        const cartao = await CartaoRepository.buscar(cartaoidNum);
+        const cartao = await CartaoRepository.buscar(cartaoidNum, userid);
         if (cartao?.dia_fatura) {
           diaFatura = cartao.dia_fatura;
         }
@@ -194,6 +302,8 @@ export const TransacaoBusiness = {
     return await TransacaoRepository.criar(
       {
         ...transacao,
+        categoria: categoriaLegada(transacao.categoria, idsubcategoria, transacao.idcategoria) as CreateTransacaoDto['categoria'],
+        idsubcategoria,
         cartaoid: cartaoidNum,
         pagamento: dataPagamento,
       },
@@ -210,7 +320,7 @@ export const TransacaoBusiness = {
     }
 
     const qtdParcelas = Number(payload.parcelas?.QtdParcelas ?? 1);
-    if (qtdParcelas <= 0) {
+    if (!Number.isInteger(qtdParcelas) || qtdParcelas <= 0 || qtdParcelas > 420) {
       throw new Error('Quantidade de parcelas inválida.');
     }
 
@@ -277,6 +387,14 @@ export const TransacaoBusiness = {
       }));
     }
 
+    await validarCategoria(payload.idcategoria, userId);
+    const idsubcategoria = await resolverSubcategoria(
+      payload.idcategoria,
+      payload.idsubcategoria,
+      payload.categoria,
+      userId
+    );
+
     const cartaoidNum =
       payload.cartaoid && !isNaN(Number(payload.cartaoid)) && Number(payload.cartaoid) > 0
         ? Number(payload.cartaoid)
@@ -284,7 +402,7 @@ export const TransacaoBusiness = {
 
     let cartao = null;
     if (cartaoidNum) {
-      cartao = await CartaoRepository.buscar(cartaoidNum);
+      cartao = await CartaoRepository.buscar(cartaoidNum, userId);
     }
 
     let baseYear: number;
@@ -303,7 +421,8 @@ export const TransacaoBusiness = {
       baseDay = d.getDate();
     }
 
-    const parcelasCriadas: TransacaoEntity[] = [];
+    const parcelaGrupoId = crypto.randomUUID();
+    const parcelas: TransacaoLoteItem[] = [];
 
     for (let i = 0; i < qtdParcelas; i++) {
       let mesParcela = baseMonth + i;
@@ -322,24 +441,26 @@ export const TransacaoBusiness = {
         cartao?.dia_fatura
       );
 
-      const parcela: CreateTransacaoDto = {
+      parcelas.push({
         tipo: 'saida',
         descricao: `${payload.descricao} - Parcela`,
         valor: valorParcelaInformado,
-        categoria: payload.categoria,
+        categoria: categoriaLegada(payload.categoria, idsubcategoria, payload.idcategoria) as CreateTransacaoDto['categoria'],
         idcategoria: payload.idcategoria,
+        idsubcategoria,
         data: dataParcelaStr,
         pagamento: dataPagamentoParcela,
         status: 'pendente',
         ispaycart: Boolean(payload.ispaycart),
         cartaoid: cartaoidNum,
-      };
-
-      const criada = await TransacaoRepository.criar(parcela, userId);
-      parcelasCriadas.push(criada);
+        parcela_grupo_id: parcelaGrupoId,
+        parcela_numero: i + 1,
+        parcela_total: qtdParcelas,
+      });
     }
 
-    return parcelasCriadas;
+    // INSERT único: ou todas as parcelas são gravadas, ou nenhuma
+    return await TransacaoRepository.criarEmLote(parcelas, userId);
   },
 
   async saveNewuser(
@@ -361,7 +482,9 @@ export const TransacaoBusiness = {
     const startYear = hoje.getFullYear();
     const startMonth = hoje.getMonth();
 
-    const todasTransacoes: CreateTransacaoDto[] = [];
+    const todasTransacoes: TransacaoLoteItem[] = [];
+    // Um grupo de parcelamento por despesa fixa (12 ocorrências)
+    const gruposSaida = saidas.map(() => crypto.randomUUID());
 
     const lastDayOfMonth = (year: number, monthZero: number) => {
       return new Date(year, monthZero + 1, 0).getDate();
@@ -387,12 +510,13 @@ export const TransacaoBusiness = {
           valor: Math.abs(valorEntrada),
           categoria: entrada.category || entrada.categoria || undefined,
           data,
+          pagamento: data, // conta corrente: vencimento = data (sem pagamento as linhas somem de GET /transacoes)
           status: 'pendente',
           ispaycart: false,
         });
       }
 
-      for (const saida of saidas) {
+      for (const [idxSaida, saida] of saidas.entries()) {
         const valorSaida = Number(saida.value ?? saida.valor);
         const dia = safeDay(year, month, Number(saida.day_of_month));
         const data = new Date(year, month, dia);
@@ -403,17 +527,17 @@ export const TransacaoBusiness = {
           valor: Math.abs(valorSaida),
           categoria: saida.category ?? saida.categoria ?? undefined,
           data,
+          pagamento: data,
           status: 'pendente',
           ispaycart: false,
+          parcela_grupo_id: gruposSaida[idxSaida],
+          parcela_numero: m + 1,
+          parcela_total: monthsToGenerate,
         });
       }
     }
 
-    const criadas: TransacaoEntity[] = [];
-    for (const tr of todasTransacoes) {
-      const criada = await TransacaoRepository.criar(tr, userId);
-      criadas.push(criada);
-    }
+    const criadas = await TransacaoRepository.criarEmLote(todasTransacoes, userId);
 
     return {
       ok: true,
@@ -435,41 +559,38 @@ export const TransacaoBusiness = {
     adicionais: TransacaoEntity[];
     pagos: TransacaoEntity[];
   }> {
-    const cartoes = await CartaoRepository.listar(userid);
-
     const mesValido = mes ?? new Date().getMonth() + 1;
     const anoValido = ano ?? new Date().getFullYear();
 
-    const mm = String(mesValido).padStart(2, '0');
-    let data_inicio = `${anoValido}-${mm}-01`;
-    const ultimoDia = new Date(anoValido, mesValido, 0).getDate();
-    let data_fim = `${anoValido}-${mm}-${String(ultimoDia).padStart(2, '0')}`;
-
+    let periodos: PeriodoConsulta[];
     if (cardId) {
-      const cartao = await CartaoRepository.buscar(cardId);
-      if (cartao) {
-        const periodo = getPeriodoFatura(cartao.dia_fatura, mesValido, anoValido);
-        data_inicio = periodo.inicio;
-        data_fim = periodo.fim;
+      // Um cartão específico: período da fatura dele (ou mês civil se não encontrado)
+      const cardIdNum = Number(cardId);
+      if (!Number.isInteger(cardIdNum) || cardIdNum <= 0) {
+        periodos = [];
+      } else {
+        const cartao = await CartaoRepository.buscar(cardIdNum, userid);
+        periodos = [
+          {
+            cartaoid: cardIdNum,
+            ...(cartao
+              ? getPeriodoFatura(cartao.dia_fatura, mesValido, anoValido)
+              : intervaloMes(mesValido, anoValido)),
+          },
+        ];
       }
+    } else {
+      periodos = await montarPeriodos(mesValido, anoValido, userid, true);
     }
 
-    const parceladas = await TransacaoRepository.listaParceladas(data_inicio, data_fim, userid, cardId);
-    const adicionais = await TransacaoRepository.listaAdicionais(data_inicio, data_fim, userid, cardId);
-    const pagos = await TransacaoRepository.listaTransacoes('saida', 'pago', data_inicio, data_fim, userid, cardId);
-
-    if (!cardId && cartoes && cartoes.length > 0) {
-      for (const cartao of cartoes) {
-        const periodo = getPeriodoFatura(cartao.dia_fatura, mesValido, anoValido);
-
-        const parceladasCartoes = await TransacaoRepository.listaParceladas(periodo.inicio, periodo.fim, userid, cartao.id);
-        const adicionaisCartoes = await TransacaoRepository.listaAdicionais(periodo.inicio, periodo.fim, userid, cartao.id);
-        const pagosCartoes = await TransacaoRepository.listaTransacoes('saida', 'pago', periodo.inicio, periodo.fim, userid, cartao.id);
-
-        parceladas.push(...parceladasCartoes);
-        adicionais.push(...adicionaisCartoes);
-        pagos.push(...pagosCartoes);
-      }
+    const linhas = await TransacaoRepository.listarMes(userid, periodos);
+    const parceladas: TransacaoEntity[] = [];
+    const adicionais: TransacaoEntity[] = [];
+    const pagos: TransacaoEntity[] = [];
+    for (const { grupo, ...linha } of linhas) {
+      if (grupo === 'pagos') pagos.push(linha);
+      else if (grupo === 'parceladas') parceladas.push(linha);
+      else adicionais.push(linha);
     }
 
     const soma_parcelados = parceladas.reduce((acc, p) => acc + Number(p.valor || 0), 0);
@@ -536,15 +657,45 @@ export const TransacaoBusiness = {
 
   async atualizar(
     id: number | string,
-    dados: Partial<CreateTransacaoDto>
+    dados: Partial<CreateTransacaoDto>,
+    userid: number
   ): Promise<TransacaoEntity | undefined> {
-    await this.buscarPorId(id);
-    return await TransacaoRepository.atualizar(id, dados);
+    const existente = await this.buscarPorId(id, userid);
+    await validarCategoria(dados.idcategoria, userid);
+
+    // idcategoria ausente/null mantém a atual (COALESCE no repositório)
+    const idcategoriaEfetiva = vazio(dados.idcategoria) ? existente.idcategoria : dados.idcategoria;
+    let subcategoria: { alterar: boolean; valor: number | null } = { alterar: false, valor: null };
+    if (dados.idsubcategoria !== undefined) {
+      subcategoria = {
+        alterar: true,
+        valor: await resolverSubcategoria(idcategoriaEfetiva, dados.idsubcategoria, null, userid),
+      };
+    } else if (dados.categoria !== undefined) {
+      subcategoria = {
+        alterar: true,
+        valor: await resolverSubcategoria(idcategoriaEfetiva, null, dados.categoria, userid),
+      };
+    } else if (!vazio(dados.idcategoria) && Number(dados.idcategoria) !== Number(existente.idcategoria)) {
+      // Trocou de categoria sem informar subcategoria: a anterior não pertence mais a ela
+      subcategoria = { alterar: true, valor: null };
+    }
+
+    // Coluna legada: sem 'categoria' no payload mantém a atual (antes era apagada em todo PUT),
+    // a menos que a subcategoria/categoria tenha mudado
+    const categoria =
+      dados.categoria !== undefined
+        ? dados.categoria
+        : subcategoria.alterar
+        ? (categoriaLegada(null, subcategoria.valor, idcategoriaEfetiva) as CreateTransacaoDto['categoria'])
+        : existente.categoria;
+
+    return await TransacaoRepository.atualizar(id, { ...dados, categoria }, userid, subcategoria);
   },
 
-  async excluir(id: number | string): Promise<boolean> {
-    await this.buscarPorId(id);
-    return await TransacaoRepository.excluir(id);
+  async excluir(id: number | string, userid: number): Promise<boolean> {
+    await this.buscarPorId(id, userid);
+    return await TransacaoRepository.excluir(id, userid);
   },
 
   async listaDespesasParceladas(
@@ -552,26 +703,11 @@ export const TransacaoBusiness = {
     ano: number | null,
     userid: number
   ): Promise<{ parcelas: DespesaParceladaItem[]; mensal: { pendente: number } }> {
-    const cartoes = await CartaoRepository.listar(userid);
-
     const mesValido = mes ?? new Date().getMonth() + 1;
     const anoValido = ano ?? new Date().getFullYear();
 
-    const mm = String(mesValido).padStart(2, '0');
-    const data_inicio = `${anoValido}-${mm}-01`;
-    const ultimoDia = new Date(anoValido, mesValido, 0).getDate();
-    const data_fim = `${anoValido}-${mm}-${String(ultimoDia).padStart(2, '0')}`;
-
-    const parcelas = await TransacaoRepository.listaDespesasParceladas(data_inicio, data_fim, userid);
-    const array: DespesaParceladaItem[] = [...parcelas];
-
-    if (cartoes && cartoes.length > 0) {
-      for (const cartao of cartoes) {
-        const periodo = getPeriodoFatura(cartao.dia_fatura, mesValido, anoValido);
-        const parcelasCartao = await TransacaoRepository.listaDespesasParceladas(periodo.inicio, periodo.fim, userid, cartao.id);
-        array.push(...parcelasCartao);
-      }
-    }
+    const periodos = await montarPeriodos(mesValido, anoValido, userid, true);
+    const array: DespesaParceladaItem[] = await TransacaoRepository.listaDespesasParceladas(userid, periodos);
 
     const pendenteTotal = array.reduce(
       (acc, p) => acc + Number(p.valor_pendente_mes || 0),
@@ -589,7 +725,7 @@ export const TransacaoBusiness = {
     userid: number
   ): Promise<{
     soma: { soma: number };
-    agrupamento: Array<{ total_tipo: string; idcategoria: number | null; subcategoria: string }>;
+    agrupamento: AgrupamentoTipoItem[];
   }> {
     const mesValido = mes ?? new Date().getMonth() + 1;
     const anoValido = ano ?? new Date().getFullYear();
@@ -608,8 +744,10 @@ export const TransacaoBusiness = {
     };
   },
 
-  async uptopago(id: number | string): Promise<boolean> {
-    return await TransacaoRepository.uptopago(id);
+  async uptopago(id: number | string, userid: number): Promise<boolean> {
+    const atualizado = await TransacaoRepository.uptopago(id, userid);
+    if (!atualizado) throw new Error('Transação não encontrada.');
+    return atualizado;
   },
 
   async listaDespesa(
@@ -639,13 +777,67 @@ export const TransacaoBusiness = {
     return { soma: { soma: somaTotal }, result };
   },
 
+  /**
+   * Extrato por competência. Sem `cursor`/`paginado` mantém o comportamento antigo
+   * (array completo, `limit` opcional). Com paginação, usa keyset (data, id) e devolve
+   * `next_cursor` (formato `YYYY-MM-DD_id`) quando há próxima página.
+   */
   async extrato(
-    limit?: number | string | null,
-    mes?: number | string | null,
-    ano?: number | string | null,
-    userid?: number
-  ): Promise<TransacaoEntity[]> {
-    return await TransacaoRepository.extrato(limit, mes, ano, userid);
+    params: {
+      limit?: number | string | null;
+      mes?: number | string | null;
+      ano?: number | string | null;
+      cursor?: string | null;
+      paginado?: boolean;
+    },
+    userid: number
+  ): Promise<{ items: TransacaoEntity[]; next_cursor: string | null; totais?: ExtratoTotais }> {
+    const mes = params.mes ? Number(params.mes) : null;
+    const ano = params.ano ? Number(params.ano) : null;
+    if (mes !== null && (!Number.isInteger(mes) || mes < 1 || mes > 12)) {
+      throw new Error('Mês inválido.');
+    }
+    if (ano !== null && (!Number.isInteger(ano) || ano < 1900 || ano > 9999)) {
+      throw new Error('Ano inválido.');
+    }
+
+    let inicio: string | null = null;
+    let fimExclusivo: string | null = null;
+    if (ano !== null) {
+      if (mes !== null) {
+        inicio = `${ano}-${String(mes).padStart(2, '0')}-01`;
+        fimExclusivo = mes === 12 ? `${ano + 1}-01-01` : `${ano}-${String(mes + 1).padStart(2, '0')}-01`;
+      } else {
+        inicio = `${ano}-01-01`;
+        fimExclusivo = `${ano + 1}-01-01`;
+      }
+    }
+
+    let cursor: ExtratoCursor | null = null;
+    if (params.cursor) {
+      const match = /^(\d{4}-\d{2}-\d{2})_(\d+)$/.exec(params.cursor);
+      if (!match) throw new Error("Cursor inválido. Formato esperado: 'YYYY-MM-DD_id'.");
+      cursor = { data: match[1], id: Number(match[2]) };
+    }
+
+    const paginado = Boolean(params.paginado || cursor);
+    const limitInformado = params.limit && Number(params.limit) > 0 ? Math.floor(Number(params.limit)) : null;
+    const limit = paginado
+      ? Math.min(limitInformado ?? EXTRATO_LIMIT_PADRAO, EXTRATO_LIMIT_MAX)
+      : limitInformado;
+
+    // Totais do período inteiro só na 1ª página paginada: o scroll infinito mostra o resumo do mês
+    // sem depender das páginas já carregadas
+    const [items, totais] = await Promise.all([
+      TransacaoRepository.extrato(userid, inicio, fimExclusivo, cursor, limit),
+      paginado && !cursor ? TransacaoRepository.extratoTotais(userid, inicio, fimExclusivo) : undefined,
+    ]);
+
+    const ultimo = items[items.length - 1];
+    const next_cursor =
+      paginado && limit && items.length === limit && ultimo ? `${ultimo.data}_${ultimo.id}` : null;
+
+    return totais ? { items, next_cursor, totais } : { items, next_cursor };
   },
 };
 

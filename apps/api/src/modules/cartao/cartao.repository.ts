@@ -80,38 +80,42 @@ export const CartaoRepository = {
     }
   },
 
-  async buscar(cartaoid: number | string): Promise<CartaoEntity | undefined> {
-    const isNum = !isNaN(Number(cartaoid)) && String(cartaoid).indexOf('-') === -1;
-    if (isNum) {
+  /**
+   * Busca cartão do usuário: id numérico na tabela legada `cartoes`, UUID em `credit_cards`.
+   * Sempre filtra pelo dono.
+   */
+  async buscar(cartaoid: number | string, userid: number): Promise<CartaoEntity | undefined> {
+    const idStr = String(cartaoid).trim();
+
+    if (/^\d+$/.test(idStr)) {
       const result = await pool.query<CartaoEntity>(
-        'SELECT * FROM cartoes WHERE id = $1',
-        [Number(cartaoid)]
+        'SELECT * FROM cartoes WHERE id = $1 AND userid = $2',
+        [Number(idStr), userid]
       );
-      if (result.rows[0]) return result.rows[0];
+      return result.rows[0];
     }
 
-    // Se for UUID ou não encontrado por ID numérico, busca em credit_cards
-    try {
-      const ccResult = await pool.query(
-        `SELECT id, nome, dia_fechamento as dia_fatura, dia_vencimento, limite_total as limite, usuario_id as userid 
-         FROM credit_cards 
-         WHERE id::text = $1`,
-        [String(cartaoid)]
-      );
-      if (ccResult.rows[0]) {
-        return {
-          id: ccResult.rows[0].id,
-          nome: ccResult.rows[0].nome,
-          dia_fatura: Number(ccResult.rows[0].dia_fatura),
-          dia_vencimento: Number(ccResult.rows[0].dia_vencimento),
-          limite: Number(ccResult.rows[0].limite),
-          userid: Number(ccResult.rows[0].userid),
-        };
-      }
-    } catch {
-      // Ignora erro
+    // UUID: compara com a PK nativa (id = $1::uuid usa o índice; id::text = $1 não)
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idStr)) {
+      return undefined;
     }
 
-    return undefined;
+    const ccResult = await pool.query(
+      `SELECT id, nome, dia_fechamento as dia_fatura, dia_vencimento, limite_total as limite, usuario_id as userid
+       FROM credit_cards
+       WHERE id = $1::uuid AND usuario_id = $2`,
+      [idStr, userid]
+    );
+    const row = ccResult.rows[0];
+    if (!row) return undefined;
+
+    return {
+      id: row.id,
+      nome: row.nome,
+      dia_fatura: Number(row.dia_fatura),
+      dia_vencimento: Number(row.dia_vencimento),
+      limite: Number(row.limite),
+      userid: Number(row.userid),
+    };
   },
 };
