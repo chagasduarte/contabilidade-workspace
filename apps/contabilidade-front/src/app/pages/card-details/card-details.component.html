@@ -1,7 +1,7 @@
 <ion-header class="ion-no-border">
   <ion-toolbar color="primary">
     <ion-buttons slot="start">
-      <ion-back-button defaultHref="/cartoes"></ion-back-button>
+      <ion-back-button defaultHref="/cartoes" text="" aria-label="Voltar"></ion-back-button>
     </ion-buttons>
     <ion-title>Gestão do Cartão</ion-title>
     <ion-buttons slot="end">
@@ -243,8 +243,18 @@
 
 <!-- MODAL DE NOVA COMPRA -->
 @if (modalNovaCompraAberto()) {
-  <div class="modal-backdrop" (click)="fecharModalNovaCompra()"></div>
-  <div class="purchase-modal" role="dialog" aria-labelledby="modal-compra-title">
+  <div
+    class="modal-backdrop"
+    aria-hidden="true"
+    (click)="fecharModalNovaCompra()"
+  ></div>
+  <div
+    class="purchase-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="modal-compra-title"
+    (keydown.escape)="fecharModalNovaCompra()"
+  >
     <header class="modal-header">
       <div class="title-group">
         <ion-icon name="card-outline"></ion-icon>

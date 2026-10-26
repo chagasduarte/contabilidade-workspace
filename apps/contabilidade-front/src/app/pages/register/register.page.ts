@@ -48,6 +48,7 @@ import {
   walletOutline,
 } from 'ionicons/icons';
 import { AuthService } from '../../core/services/auth.service';
+import { mensagemErroHttp } from '../../core/utils/http-error';
 
 export interface RegisterForm {
   nome: FormControl<string>;
@@ -214,10 +215,8 @@ export class RegisterPage {
         }, 800);
       },
       error: (err) => {
-        const message =
-          err?.error?.erro ||
-          err?.error?.error ||
-          'Erro ao criar conta. Verifique os dados informados.';
+        // Sem conexão vira "Sem conexão…" em vez de "credenciais inválidas".
+        const message = mensagemErroHttp(err, 'Erro ao criar conta. Verifique os dados informados.');
         this.errorMessage.set(message);
       },
     });

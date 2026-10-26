@@ -12,6 +12,8 @@ export interface Categoria {
   icone: string;
   cor: string;
   tipo?: TipoCategoria;
+  /** `null` = categoria padrão do sistema (somente leitura); número = do usuário logado. */
+  userid?: number | null;
 }
 
 /**

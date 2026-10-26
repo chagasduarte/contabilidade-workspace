@@ -23,6 +23,7 @@ import {
   flashOutline,
   trendingUpOutline,
   logOutOutline,
+  pieChartOutline,
 } from 'ionicons/icons';
 import { TransactionModal } from '../../components/modals/transaction-modal/transaction-modal';
 import { AuthService } from '../../core/services/auth.service';
@@ -63,6 +64,13 @@ export class MaisPage implements OnInit {
       route: '/categorias',
       icon: 'pricetag-outline',
       color: '#38bdf8',
+    },
+    {
+      title: 'Planejamento',
+      subtitle: 'Orçamento do mês por categoria: planejado x realizado',
+      route: '/planejamento',
+      icon: 'pie-chart-outline',
+      color: '#f97316',
     },
     {
       title: 'Cartões de Crédito',
@@ -129,6 +137,7 @@ export class MaisPage implements OnInit {
       flashOutline,
       trendingUpOutline,
       logOutOutline,
+      pieChartOutline,
     });
   }
 

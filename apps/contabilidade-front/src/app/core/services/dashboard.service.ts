@@ -1,4 +1,5 @@
 import { inject, Injectable, signal } from '@angular/core';
+import { mensagemErroHttp } from '../utils/http-error';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, tap, catchError, throwError, finalize, forkJoin } from 'rxjs';
 import {
@@ -47,7 +48,7 @@ export class DashboardService {
           this.despesas.set(dados.despesas_mes ?? []);
         }),
         catchError((err: Error) => {
-          this.error.set(err.message || 'Erro ao carregar resumo do dashboard.');
+          this.error.set(mensagemErroHttp(err, 'Erro ao carregar resumo do dashboard.'));
           return throwError(() => err);
         }),
         finalize(() => {
@@ -72,7 +73,7 @@ export class DashboardService {
           this.projecao.set(dados ?? []);
         }),
         catchError((err: Error) => {
-          this.error.set(err.message || 'Erro ao carregar projeção anual.');
+          this.error.set(mensagemErroHttp(err, 'Erro ao carregar projeção anual.'));
           return throwError(() => err);
         }),
         finalize(() => {
@@ -99,7 +100,7 @@ export class DashboardService {
         }),
         catchError((err: Error) => {
           this.error.set(
-            err.message || 'Erro ao carregar agrupamento de categorias.'
+            mensagemErroHttp(err, 'Erro ao carregar agrupamento de categorias.')
           );
           return throwError(() => err);
         })
@@ -139,7 +140,7 @@ export class DashboardService {
         this.despesas.set(resumo.despesas_mes ?? []);
       }),
       catchError((err: Error) => {
-        this.error.set(err.message || 'Erro ao carregar dados do dashboard.');
+        this.error.set(mensagemErroHttp(err, 'Erro ao carregar dados do dashboard.'));
         return throwError(() => err);
       }),
       finalize(() => {

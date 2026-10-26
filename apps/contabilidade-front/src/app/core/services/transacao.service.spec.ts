@@ -76,6 +76,44 @@ describe('TransacaoService', () => {
     expect(service.loading()).toBe(false);
   });
 
+  it('deve paginar o extrato por cursor, anexando a próxima página', () => {
+    service.carregarExtratoPaginado(10, 2026).subscribe();
+    httpMock
+      .expectOne(
+        `${mockApiUrl}/transacoes/extrato?paginado=true&limit=50&mes=10&ano=2026`
+      )
+      .flush({ items: [mockTransacoes[0]], next_cursor: '2026-10-10_1' });
+
+    expect(service.extrato()).toEqual([mockTransacoes[0]]);
+    expect(service.nextCursor()).toBe('2026-10-10_1');
+    expect(service.loading()).toBe(false);
+
+    service.carregarExtratoPaginado(10, 2026, '2026-10-10_1').subscribe();
+    expect(service.carregandoMais()).toBe(true);
+    httpMock
+      .expectOne(
+        `${mockApiUrl}/transacoes/extrato?paginado=true&limit=50&mes=10&ano=2026&cursor=2026-10-10_1`
+      )
+      .flush({ items: [mockTransacoes[0], mockTransacoes[1]], next_cursor: null });
+
+    // não duplica itens repetidos entre páginas
+    expect(service.extrato()).toEqual(mockTransacoes);
+    expect(service.nextCursor()).toBeNull();
+    expect(service.carregandoMais()).toBe(false);
+  });
+
+  it('deve aceitar a resposta antiga (array) como página única', () => {
+    service.carregarExtratoPaginado(10, 2026).subscribe();
+    httpMock
+      .expectOne(
+        `${mockApiUrl}/transacoes/extrato?paginado=true&limit=50&mes=10&ano=2026`
+      )
+      .flush(mockTransacoes);
+
+    expect(service.extrato()).toEqual(mockTransacoes);
+    expect(service.nextCursor()).toBeNull();
+  });
+
   it('deve marcar uma transação como paga e atualizar seu status no signal', () => {
     service.extrato.set(mockTransacoes);
 

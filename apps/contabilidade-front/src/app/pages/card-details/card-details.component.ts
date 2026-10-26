@@ -25,7 +25,6 @@ import {
   IonFabButton,
   IonHeader,
   IonIcon,
-  IonItem,
   IonLabel,
   IonList,
   IonProgressBar,
@@ -58,7 +57,7 @@ import {
   closeOutline,
   checkmarkOutline,
 } from 'ionicons/icons';
-import { CardInvoice, CardTransaction, CreateTransactionDto, InvoiceItem } from './card.model';
+import { CardInvoice, CreateTransactionDto } from './card.model';
 import { CardService } from './card.service';
 
 const MESES_NOME = [

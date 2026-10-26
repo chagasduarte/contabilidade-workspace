@@ -48,3 +48,19 @@ export interface UpdatePlannedTransactionDto {
   updateMode?: 'SINGLE' | 'ALL_FUTURE';
 }
 
+
+export type PlannedUpdateMode = 'SINGLE' | 'ALL_FUTURE';
+
+/** Filtros de `GET /planned-transactions`. Datas no formato YYYY-MM-DD. */
+export interface PlannedTransactionFiltros {
+  status?: PlannedTransactionStatus;
+  tipo?: PlannedTransactionType;
+  dataInicio?: string;
+  dataFim?: string;
+}
+
+/** Resposta de `GET /planned-transactions?paginado=true` (cursor opaco). */
+export interface PlannedTransactionPagina {
+  items: PlannedTransaction[];
+  next_cursor: string | null;
+}

@@ -14,6 +14,7 @@ import {
   effect,
   inject,
   signal,
+  untracked,
 } from '@angular/core';
 import {
   FormControl,
@@ -54,6 +55,7 @@ import {
 import { DashboardService } from '../../core/services/dashboard.service';
 import { TransacaoService } from '../../core/services/transacao.service';
 import { CategoriaService } from '../../core/services/categoria.service';
+import { rotuloCategoria } from '../../core/utils/categoria-label';
 import { CartaoService } from '../../core/services/cartao.service';
 import { PlannedTransactionService } from '../../core/services/planned-transaction.service';
 import {
@@ -221,6 +223,15 @@ export class Dashboard implements OnInit {
     return this.saldoAcumulado();
   });
 
+  private readonly nomesCategorias = computed(
+    () => new Map(this.categoriaService.categorias().map((c) => [c.id, c.nome]))
+  );
+
+  /** Rótulo da categoria na tabela de despesas (nunca o id numérico). */
+  rotuloCategoria(item: Transacao): string {
+    return rotuloCategoria(item, this.nomesCategorias());
+  }
+
   readonly ultimasDespesas = computed<Transacao[]>(() => {
     const unified = this.dashboardService.despesas ? this.dashboardService.despesas() : [];
     if (unified && unified.length > 0) {
@@ -321,6 +332,17 @@ export class Dashboard implements OnInit {
         }
       }
     });
+
+    // Régua de meses do header mobile
+    effect(() => {
+      const month = this.headerState.selectedMonth();
+      if (month !== untracked(this.dashboardService.mes)) {
+        this.dashboardService.mes.set(month);
+        if (isPlatformBrowser(this.platformId)) {
+          this.carregarDados();
+        }
+      }
+    });
   }
 
   private atualizarCalculoParcelas(): void {
@@ -339,6 +361,7 @@ export class Dashboard implements OnInit {
 
   ngOnInit(): void {
     this.headerState.setYear(this.dashboardService.ano());
+    this.headerState.setMonth(this.dashboardService.mes());
     if (isPlatformBrowser(this.platformId)) {
       this.carregarDados();
     }
@@ -383,6 +406,7 @@ export class Dashboard implements OnInit {
     this.dashboardService.mes.set(mes);
     this.dashboardService.ano.set(ano);
     this.headerState.setYear(ano);
+    this.headerState.setMonth(mes);
     this.carregarDados();
   }
 
@@ -396,12 +420,14 @@ export class Dashboard implements OnInit {
     this.dashboardService.mes.set(mes);
     this.dashboardService.ano.set(ano);
     this.headerState.setYear(ano);
+    this.headerState.setMonth(mes);
     this.carregarDados();
   }
 
   selecionarMes(novoMes: number): void {
     if (novoMes >= 1 && novoMes <= 12 && novoMes !== this.dashboardService.mes()) {
       this.dashboardService.mes.set(novoMes);
+      this.headerState.setMonth(novoMes);
       this.carregarDados();
     }
   }
@@ -445,7 +471,12 @@ export class Dashboard implements OnInit {
     }
 
     const catId = raw.idcategoria ? Number(raw.idcategoria) : null;
-    const subcatId = raw.categoria ? Number(raw.categoria) : catId;
+    // O select de subcategoria pode conter o próprio id da categoria quando não há
+    // subcategorias; só enviamos ids que realmente pertencem à lista carregada.
+    const subcatSelecionada = raw.categoria != null ? Number(raw.categoria) : null;
+    const subcatId = this.subcategoriasDisponiveis().some((s) => s.id === subcatSelecionada)
+      ? subcatSelecionada
+      : null;
 
     if (raw.recorrencia === 'MENSAL') {
       this.plannedTransactionService
@@ -483,7 +514,7 @@ export class Dashboard implements OnInit {
         descricao: raw.descricao.trim(),
         valor: valorNum,
         idcategoria: catId,
-        categoria: subcatId,
+        idsubcategoria: subcatId,
         data: raw.data,
         ispaycart: raw.isCartao,
         cartaoid: raw.isCartao && raw.cartaoid != null
@@ -514,7 +545,7 @@ export class Dashboard implements OnInit {
           valor: valorNum,
           data: raw.data,
           idcategoria: catId,
-          categoria: subcatId,
+          idsubcategoria: subcatId,
           status: raw.status,
           ispaycart: raw.isCartao,
           cartaoid: raw.isCartao && raw.cartaoid != null

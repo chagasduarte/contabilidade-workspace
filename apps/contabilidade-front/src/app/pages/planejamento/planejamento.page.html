@@ -1,0 +1,302 @@
+<ion-content class="planejamento-content">
+  <ion-refresher slot="fixed" (ionRefresh)="recarregar($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
+
+  <section class="plan-page" aria-labelledby="plan-title">
+    <header class="plan-page__header">
+      <div>
+        <h1 id="plan-title">Planejamento</h1>
+        <p class="plan-page__intro">Orçamento do mês por categoria: planejado x realizado.</p>
+      </div>
+      <div class="plan-page__controls">
+        <button type="button" class="plan-page__add-btn" (click)="abrirNovo()">
+          <ion-icon name="add-outline" aria-hidden="true"></ion-icon>
+          <span>Novo orçamento</span>
+        </button>
+        <app-month-selector
+          [mes]="dashboardService.mes()"
+          [ano]="dashboardService.ano()"
+          (mesChange)="selecionarMes($event)"
+          (mesAnterior)="mesAnterior()"
+          (proximoMes)="proximoMes()"
+        ></app-month-selector>
+      </div>
+    </header>
+
+    <ion-segment
+      class="plan-page__segment"
+      [value]="tipo()"
+      (ionChange)="onTipo($event)"
+      aria-label="Tipo de orçamento"
+    >
+      <ion-segment-button value="despesa">Despesas</ion-segment-button>
+      <ion-segment-button value="receita">Receitas</ion-segment-button>
+    </ion-segment>
+
+    <!-- Totais do tipo selecionado -->
+    <article class="plan-total" aria-label="Resumo do orçamento do mês">
+      <div class="plan-total__row">
+        <div>
+          <span>{{ tipo() === 'despesa' ? 'Gasto' : 'Recebido' }}</span>
+          <strong>{{ totais().realizado | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}</strong>
+        </div>
+        <div class="plan-total__right">
+          <span>Planejado</span>
+          <strong>{{ totais().planejado | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}</strong>
+        </div>
+      </div>
+      @if (totais().percentual !== null) {
+        <div
+          class="barra"
+          [class.barra--estourou]="tipo() === 'despesa' && totais().restante < 0"
+          role="progressbar"
+          aria-label="Uso do orçamento total"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          [attr.aria-valuenow]="largura(totais().percentual) | number: '1.0-0'"
+        >
+          <span [style.width.%]="largura(totais().percentual)"></span>
+        </div>
+        <p class="plan-total__hint">
+          @if (tipo() === 'despesa') {
+            @if (totais().restante >= 0) {
+              Restam {{ totais().restante | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }} no orçamento.
+            } @else {
+              Orçamento estourado em
+              {{ -totais().restante | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}.
+            }
+          } @else {
+            {{ totais().percentual | number: '1.0-0' : 'pt-BR' }}% da meta de receitas.
+          }
+          @if (totais().realizado > totais().realizadoPago) {
+            <br />
+            <small>
+              {{ totais().realizadoPago | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}
+              {{ tipo() === 'despesa' ? 'pagos' : 'recebidos' }} ·
+              {{ totais().realizado - totais().realizadoPago | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}
+              pendentes
+            </small>
+          }
+        </p>
+      }
+    </article>
+
+    <section class="plan-list" aria-labelledby="plan-list-title">
+      <h2 id="plan-list-title" class="sr-only">Categorias</h2>
+
+      @if (service.loading() && linhas().length === 0) {
+        <div class="plan-list__state">
+          <ion-spinner name="crescent"></ion-spinner>
+          <span>Carregando planejamento...</span>
+        </div>
+      } @else if (service.error() && linhas().length === 0) {
+        <div class="plan-list__state plan-list__state--error" role="alert">
+          <ion-icon name="alert-circle-outline" aria-hidden="true"></ion-icon>
+          <span>Não foi possível carregar o planejamento. {{ service.error() }}</span>
+          <ion-button fill="outline" size="small" (click)="carregar()">Tentar novamente</ion-button>
+        </div>
+      } @else if (linhas().length === 0) {
+        <div class="plan-list__state">
+          <ion-icon name="pie-chart-outline" aria-hidden="true"></ion-icon>
+          <span>
+            Nenhum orçamento de {{ tipo() === 'despesa' ? 'despesas' : 'receitas' }} para este mês.
+          </span>
+          <ion-button fill="clear" size="small" (click)="abrirNovo()">Definir orçamento</ion-button>
+        </div>
+      } @else {
+        <ul class="plan-list__items">
+          @for (linha of linhas(); track linha.idcategoria) {
+            <li class="cat" [attr.data-situacao]="linha.situacao">
+              <button
+                type="button"
+                class="cat__head"
+                [attr.aria-expanded]="expandidas().has(linha.idcategoria)"
+                [attr.aria-controls]="'cat-linhas-' + linha.idcategoria"
+                (click)="alternar(linha.idcategoria)"
+              >
+                <span class="cat__nome">{{ linha.nome }}</span>
+                <span class="cat__valores">
+                  {{ linha.realizado | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}
+                  @if (linha.planejado > 0) {
+                    <small>de {{ linha.planejado | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}</small>
+                  }
+                </span>
+                <ion-icon class="cat__chevron" name="chevron-down-outline" aria-hidden="true"></ion-icon>
+              </button>
+
+              @if (linha.situacao !== 'sem-orcamento') {
+                <div
+                  class="barra"
+                  role="progressbar"
+                  [attr.aria-label]="'Uso do orçamento de ' + linha.nome"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  [attr.aria-valuenow]="largura(linha.percentual) | number: '1.0-0'"
+                >
+                  <span [style.width.%]="largura(linha.percentual)"></span>
+                </div>
+              }
+
+              <p class="cat__status">
+                @switch (linha.situacao) {
+                  @case ('estourou') {
+                    Estourou {{ -linha.diferenca | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}
+                    ({{ linha.percentual | number: '1.0-0' : 'pt-BR' }}%)
+                  }
+                  @case ('sem-orcamento') {
+                    Sem orçamento definido.
+                    <button type="button" class="link" (click)="abrirNovo(linha.idcategoria)">
+                      Definir
+                    </button>
+                  }
+                  @case ('atingida') {
+                    Meta atingida ({{ linha.percentual | number: '1.0-0' : 'pt-BR' }}%)
+                  }
+                  @default {
+                    @if (tipo() === 'despesa') {
+                      Restam {{ linha.diferenca | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}
+                    } @else {
+                      Faltam {{ linha.diferenca | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}
+                    }
+                    ({{ linha.percentual | number: '1.0-0' : 'pt-BR' }}% usado)
+                  }
+                }
+                @if (linha.realizado_pendente > 0) {
+                  <span class="cat__pendente">
+                    · {{ linha.realizado_pendente | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }} pendente
+                  </span>
+                }
+              </p>
+
+              @if (expandidas().has(linha.idcategoria)) {
+                <ul class="cat__linhas" [id]="'cat-linhas-' + linha.idcategoria">
+                  @for (p of linha.linhas; track p.id) {
+                    <li>
+                      <span>{{ p.subcategoria || 'Categoria inteira' }}</span>
+                      <strong>{{ p.valor | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}</strong>
+                      <ion-button
+                        fill="clear"
+                        size="small"
+                        [attr.aria-label]="'Editar orçamento de ' + (p.subcategoria || p.categoria)"
+                        (click)="abrirEdicao(p)"
+                      >
+                        <ion-icon slot="icon-only" name="create-outline" aria-hidden="true"></ion-icon>
+                      </ion-button>
+                      <ion-button
+                        fill="clear"
+                        size="small"
+                        color="danger"
+                        [attr.aria-label]="'Excluir orçamento de ' + (p.subcategoria || p.categoria)"
+                        (click)="remover(p)"
+                      >
+                        <ion-icon slot="icon-only" name="trash-outline" aria-hidden="true"></ion-icon>
+                      </ion-button>
+                    </li>
+                  } @empty {
+                    <li class="cat__vazio">Nenhum orçamento cadastrado para esta categoria.</li>
+                  }
+                  <li>
+                    <button type="button" class="link" (click)="abrirNovo(linha.idcategoria)">
+                      + Adicionar orçamento nesta categoria
+                    </button>
+                  </li>
+                </ul>
+              }
+            </li>
+          }
+        </ul>
+      }
+    </section>
+  </section>
+
+  <button type="button" class="plan-page__fab" aria-label="Novo orçamento" (click)="abrirNovo()">
+    <ion-icon name="add-outline" aria-hidden="true"></ion-icon>
+  </button>
+
+  <ion-modal [isOpen]="modalAberto()" (didDismiss)="fecharModal()" class="form-modal">
+    <ng-template>
+      <ion-header class="ion-no-border">
+        <ion-toolbar>
+          <ion-title>{{ emEdicao() ? 'Editar orçamento' : 'Novo orçamento' }}</ion-title>
+          <ion-buttons slot="end">
+            <ion-button aria-label="Fechar" (click)="fecharModal()">
+              <ion-icon slot="icon-only" name="close-outline" aria-hidden="true"></ion-icon>
+            </ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+
+      <ion-content>
+        <form [formGroup]="form" (ngSubmit)="salvar()" novalidate>
+          <p class="dica">
+            {{ tipo() === 'despesa' ? 'Teto de gastos' : 'Meta de receita' }} para
+            {{ dashboardService.mes() }}/{{ dashboardService.ano() }}.
+          </p>
+
+          <div class="form-group">
+            <label for="plan-categoria">Categoria</label>
+            <select
+              id="plan-categoria"
+              formControlName="categoriaid"
+              [attr.aria-invalid]="form.controls.categoriaid.touched && form.controls.categoriaid.invalid"
+            >
+              <option [ngValue]="null" disabled>Selecione</option>
+              @for (cat of categoriasDoTipo(); track cat.id) {
+                <option [ngValue]="cat.id">{{ cat.nome }}</option>
+              }
+            </select>
+            @if (form.controls.categoriaid.touched && form.controls.categoriaid.invalid) {
+              <small class="erro">Escolha a categoria.</small>
+            }
+          </div>
+
+          @if (subcategorias().length > 0) {
+            <div class="form-group">
+              <label for="plan-subcategoria">Subcategoria (opcional)</label>
+              <select id="plan-subcategoria" formControlName="subcategoriaid">
+                <option [ngValue]="null">Categoria inteira</option>
+                @for (sub of subcategorias(); track sub.id) {
+                  <option [ngValue]="sub.id">{{ sub.nome }}</option>
+                }
+              </select>
+            </div>
+          }
+
+          <div class="form-group">
+            <label for="plan-valor">Valor (R$)</label>
+            <input
+              id="plan-valor"
+              type="number"
+              inputmode="decimal"
+              min="0.01"
+              step="0.01"
+              formControlName="valor"
+              [attr.aria-invalid]="form.controls.valor.touched && form.controls.valor.invalid"
+            />
+            @if (form.controls.valor.touched && form.controls.valor.invalid) {
+              <small class="erro">Informe um valor maior que zero.</small>
+            }
+          </div>
+
+          @if (erroFormulario()) {
+            <p class="form-error" role="alert">{{ erroFormulario() }}</p>
+          }
+
+          <div class="modal-buttons">
+            <ion-button fill="outline" color="medium" type="button" (click)="fecharModal()">
+              Cancelar
+            </ion-button>
+            <ion-button type="submit" [disabled]="salvando()">
+              @if (salvando()) {
+                <ion-spinner name="crescent"></ion-spinner>
+              } @else {
+                Salvar
+              }
+            </ion-button>
+          </div>
+        </form>
+      </ion-content>
+    </ng-template>
+  </ion-modal>
+</ion-content>

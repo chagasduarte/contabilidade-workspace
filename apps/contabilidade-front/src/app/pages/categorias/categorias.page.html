@@ -1,7 +1,7 @@
 <ion-header class="ion-no-border">
   <ion-toolbar color="dark">
     <ion-buttons slot="start">
-      <ion-menu-button></ion-menu-button>
+      <ion-back-button defaultHref="/mais" text="" aria-label="Voltar"></ion-back-button>
     </ion-buttons>
     <ion-title>Categorias & Subcategorias</ion-title>
   </ion-toolbar>
@@ -32,8 +32,18 @@
       </div>
     }
 
+    <!-- Estado de Erro -->
+    @if (!loading() && error() && categorias().length === 0) {
+      <div class="empty-state error-state" role="alert">
+        <ion-icon name="alert-circle-outline" aria-hidden="true"></ion-icon>
+        <h3>Não foi possível carregar as categorias</h3>
+        <p>{{ error() }}</p>
+        <ion-button fill="outline" (click)="carregarCategorias()">Tentar novamente</ion-button>
+      </div>
+    }
+
     <!-- Estado Vazio -->
-    @if (!loading() && categoriasFiltradas().length === 0) {
+    @if (!loading() && !error() && categoriasFiltradas().length === 0) {
       <div class="empty-state">
         <ion-icon name="folder-open-outline"></ion-icon>
         <h3>Nenhuma categoria encontrada</h3>
@@ -64,7 +74,7 @@
                 ></ion-icon>
                 <ion-label>
                   <h2>{{ cat.nome }}</h2>
-                  <p>{{ cat.tipo === 'receita' ? 'Receita' : 'Despesa' }}</p>
+                  <p>{{ isPadrao(cat) ? 'Padrão do sistema' : 'Personalizada' }}</p>
                 </ion-label>
                 <ion-badge
                   slot="end"
@@ -75,21 +85,25 @@
                 </ion-badge>
               </ion-item>
 
-              <!-- Ações Deslizantes da Categoria -->
-              <ion-item-options side="end">
-                <ion-item-option
-                  color="warning"
-                  (click)="abrirEditarCategoria(cat, $event)"
-                >
-                  <ion-icon slot="icon-only" name="pencil-outline"></ion-icon>
-                </ion-item-option>
-                <ion-item-option
-                  color="danger"
-                  (click)="confirmarExcluirCategoria(cat, $event)"
-                >
-                  <ion-icon slot="icon-only" name="trash-outline"></ion-icon>
-                </ion-item-option>
-              </ion-item-options>
+              <!-- Ações Deslizantes da Categoria (somente categorias do usuário) -->
+              @if (!isPadrao(cat)) {
+                <ion-item-options side="end">
+                  <ion-item-option
+                    color="warning"
+                    [attr.aria-label]="'Editar categoria ' + cat.nome"
+                    (click)="abrirEditarCategoria(cat, $event)"
+                  >
+                    <ion-icon slot="icon-only" name="pencil-outline" aria-hidden="true"></ion-icon>
+                  </ion-item-option>
+                  <ion-item-option
+                    color="danger"
+                    [attr.aria-label]="'Excluir categoria ' + cat.nome"
+                    (click)="confirmarExcluirCategoria(cat, $event)"
+                  >
+                    <ion-icon slot="icon-only" name="trash-outline" aria-hidden="true"></ion-icon>
+                  </ion-item-option>
+                </ion-item-options>
+              }
             </ion-item-sliding>
 
             <!-- Conteúdo Interno: Subcategorias vinculadas -->
@@ -97,15 +111,26 @@
               <div class="category-actions-bar">
                 <span class="section-title">Subcategorias</span>
                 <div class="btn-group">
-                  <ion-button
-                    fill="clear"
-                    size="small"
-                    color="primary"
-                    (click)="abrirEditarCategoria(cat, $event)"
-                  >
-                    <ion-icon name="pencil-outline" slot="start"></ion-icon>
-                    Editar
-                  </ion-button>
+                  @if (!isPadrao(cat)) {
+                    <ion-button
+                      fill="clear"
+                      size="small"
+                      color="primary"
+                      (click)="abrirEditarCategoria(cat, $event)"
+                    >
+                      <ion-icon name="pencil-outline" slot="start"></ion-icon>
+                      Editar
+                    </ion-button>
+                    <ion-button
+                      fill="clear"
+                      size="small"
+                      color="danger"
+                      (click)="confirmarExcluirCategoria(cat, $event)"
+                    >
+                      <ion-icon name="trash-outline" slot="start"></ion-icon>
+                      Excluir
+                    </ion-button>
+                  }
                   <ion-button
                     fill="clear"
                     size="small"
@@ -132,28 +157,49 @@
                       <ion-label>
                         <h3>{{ sub.nome }}</h3>
                       </ion-label>
+                      @if (isPadrao(sub)) {
+                        <ion-note slot="end">Padrão</ion-note>
+                      } @else {
+                        <ion-button
+                          slot="end"
+                          fill="clear"
+                          size="small"
+                          [attr.aria-label]="'Editar subcategoria ' + sub.nome"
+                          (click)="abrirEditarSubcategoria(sub)"
+                        >
+                          <ion-icon slot="icon-only" name="pencil-outline" aria-hidden="true"></ion-icon>
+                        </ion-button>
+                        <ion-button
+                          slot="end"
+                          fill="clear"
+                          size="small"
+                          color="danger"
+                          [attr.aria-label]="'Excluir subcategoria ' + sub.nome"
+                          (click)="confirmarExcluirSubcategoria(sub)"
+                        >
+                          <ion-icon slot="icon-only" name="trash-outline" aria-hidden="true"></ion-icon>
+                        </ion-button>
+                      }
                     </ion-item>
 
-                    <ion-item-options side="end">
-                      <ion-item-option
-                        color="warning"
-                        (click)="abrirEditarSubcategoria(sub)"
-                      >
-                        <ion-icon
-                          slot="icon-only"
-                          name="pencil-outline"
-                        ></ion-icon>
-                      </ion-item-option>
-                      <ion-item-option
-                        color="danger"
-                        (click)="confirmarExcluirSubcategoria(sub)"
-                      >
-                        <ion-icon
-                          slot="icon-only"
-                          name="trash-outline"
-                        ></ion-icon>
-                      </ion-item-option>
-                    </ion-item-options>
+                    @if (!isPadrao(sub)) {
+                      <ion-item-options side="end">
+                        <ion-item-option
+                          color="warning"
+                          [attr.aria-label]="'Editar subcategoria ' + sub.nome"
+                          (click)="abrirEditarSubcategoria(sub)"
+                        >
+                          <ion-icon slot="icon-only" name="pencil-outline" aria-hidden="true"></ion-icon>
+                        </ion-item-option>
+                        <ion-item-option
+                          color="danger"
+                          [attr.aria-label]="'Excluir subcategoria ' + sub.nome"
+                          (click)="confirmarExcluirSubcategoria(sub)"
+                        >
+                          <ion-icon slot="icon-only" name="trash-outline" aria-hidden="true"></ion-icon>
+                        </ion-item-option>
+                      </ion-item-options>
+                    }
                   </ion-item-sliding>
                 } @empty {
                   <ion-item color="dark" class="empty-sub-item">
@@ -170,8 +216,8 @@
 
   <!-- Botão Flutuante de Adicionar -->
   <ion-fab vertical="bottom" horizontal="end" slot="fixed">
-    <ion-fab-button (click)="abrirNovaCategoria()">
-      <ion-icon name="add-outline"></ion-icon>
+    <ion-fab-button aria-label="Nova categoria" (click)="abrirNovaCategoria()">
+      <ion-icon name="add-outline" aria-hidden="true"></ion-icon>
     </ion-fab-button>
   </ion-fab>
 
@@ -188,8 +234,8 @@
             {{ categoriaEmEdicao() ? 'Editar Categoria' : 'Nova Categoria' }}
           </ion-title>
           <ion-buttons slot="end">
-            <ion-button (click)="fecharModalCategoria()">
-              <ion-icon name="close-outline"></ion-icon>
+            <ion-button aria-label="Fechar" (click)="fecharModalCategoria()">
+              <ion-icon slot="icon-only" name="close-outline" aria-hidden="true"></ion-icon>
             </ion-button>
           </ion-buttons>
         </ion-toolbar>
@@ -239,6 +285,10 @@
           ></ion-input>
         </div>
 
+        @if (erroFormulario()) {
+          <p class="form-error" role="alert">{{ erroFormulario() }}</p>
+        }
+
         <div class="modal-buttons">
           <ion-button
             fill="outline"
@@ -272,8 +322,8 @@
             {{ subcategoriaEmEdicao() ? 'Editar Subcategoria' : 'Nova Subcategoria' }}
           </ion-title>
           <ion-buttons slot="end">
-            <ion-button (click)="fecharModalSubcategoria()">
-              <ion-icon name="close-outline"></ion-icon>
+            <ion-button aria-label="Fechar" (click)="fecharModalSubcategoria()">
+              <ion-icon slot="icon-only" name="close-outline" aria-hidden="true"></ion-icon>
             </ion-button>
           </ion-buttons>
         </ion-toolbar>
@@ -309,6 +359,10 @@
             [(ngModel)]="formSubcategoriaIcone"
           ></ion-input>
         </div>
+
+        @if (erroFormulario()) {
+          <p class="form-error" role="alert">{{ erroFormulario() }}</p>
+        }
 
         <div class="modal-buttons">
           <ion-button

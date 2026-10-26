@@ -45,6 +45,7 @@ import {
 } from 'ionicons/icons';
 import { LoginCredentials } from '@contabilidade/models';
 import { AuthService } from '../../core/services/auth.service';
+import { mensagemErroHttp } from '../../core/utils/http-error';
 
 export interface LoginForm {
   username: FormControl<string>;
@@ -198,10 +199,8 @@ export class LoginPage {
         this.router.navigate(['/dashboard']);
       },
       error: (err) => {
-        const message =
-          err?.error?.erro ||
-          err?.error?.error ||
-          'Credenciais inválidas. Verifique seu usuário e senha.';
+        // Sem conexão vira "Sem conexão…" em vez de "credenciais inválidas".
+        const message = mensagemErroHttp(err, 'Credenciais inválidas. Verifique seu usuário e senha.');
         this.errorMessage.set(message);
       },
     });

@@ -18,26 +18,29 @@
         <span></span>
         <span></span>
       </span>
-      <span class="mobile-header__notification-dot"></span>
+      <span class="mobile-header__notification-dot" aria-hidden="true"></span>
     </button>
   </div>
 
-  <!-- Régua horizontal de seleção de meses -->
-  <div class="mobile-header__months" role="tablist">
-    @for (month of months; track month.id) {
-      <button
-        type="button"
-        class="mobile-header__month-pill"
-        [class.mobile-header__month-pill--active]="month.id === selectedMonthId()"
-        (click)="selectMonth(month.id)"
-        role="tab"
-        [attr.aria-selected]="month.id === selectedMonthId()"
-      >
-        <span>{{ month.label }}</span>
-        @if (month.id === selectedMonthId()) {
-          <ion-icon name="checkmark-outline" class="mobile-header__check-icon"></ion-icon>
-        }
-      </button>
-    }
-  </div>
+  <!-- Régua horizontal de seleção de meses (só em telas mensais) -->
+  @if (showMonthSelector()) {
+    <div class="mobile-header__months" role="tablist" aria-label="Mês de referência">
+      @for (month of months; track month.id) {
+        <button
+          type="button"
+          class="mobile-header__month-pill"
+          [attr.data-month]="month.id"
+          [class.mobile-header__month-pill--active]="month.id === selectedMonthId()"
+          (click)="selectMonth(month.id)"
+          role="tab"
+          [attr.aria-selected]="month.id === selectedMonthId()"
+        >
+          <span>{{ month.label }}</span>
+          @if (month.id === selectedMonthId()) {
+            <ion-icon name="checkmark-outline" class="mobile-header__check-icon" aria-hidden="true"></ion-icon>
+          }
+        </button>
+      }
+    </div>
+  }
 </ion-header>

@@ -1,4 +1,5 @@
 import { inject, Injectable, InjectionToken, signal } from '@angular/core';
+import { mensagemErroHttp } from '../utils/http-error';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, tap, catchError, throwError, finalize } from 'rxjs';
 import {
@@ -40,7 +41,7 @@ export class CategoriaService {
         this.categorias.set(data);
       }),
       catchError((err: HttpErrorResponse) => {
-        this.error.set(err.error?.erro || err.message || 'Erro ao carregar categorias.');
+        this.error.set(mensagemErroHttp(err, 'Erro ao carregar categorias.'));
         return throwError(() => err);
       }),
       finalize(() => {
@@ -61,7 +62,7 @@ export class CategoriaService {
         this.categorias.update((lista) => [...lista, novaCategoria]);
       }),
       catchError((err: HttpErrorResponse) => {
-        this.error.set(err.error?.erro || err.message || 'Erro ao criar categoria.');
+        this.error.set(mensagemErroHttp(err, 'Erro ao criar categoria.'));
         return throwError(() => err);
       }),
       finalize(() => {
@@ -95,7 +96,7 @@ export class CategoriaService {
           );
         }),
         catchError((err: HttpErrorResponse) => {
-          this.error.set(err.error?.erro || err.message || 'Erro ao atualizar categoria.');
+          this.error.set(mensagemErroHttp(err, 'Erro ao atualizar categoria.'));
           return throwError(() => err);
         }),
         finalize(() => {
@@ -123,7 +124,7 @@ export class CategoriaService {
         );
       }),
       catchError((err: HttpErrorResponse) => {
-        this.error.set(err.error?.erro || err.message || 'Erro ao remover categoria.');
+        this.error.set(mensagemErroHttp(err, 'Erro ao remover categoria.'));
         return throwError(() => err);
       }),
       finalize(() => {
@@ -146,7 +147,7 @@ export class CategoriaService {
           this.subcategorias.set(data);
         }),
         catchError((err: HttpErrorResponse) => {
-          this.error.set(err.error?.erro || err.message || 'Erro ao carregar subcategorias.');
+          this.error.set(mensagemErroHttp(err, 'Erro ao carregar subcategorias.'));
           return throwError(() => err);
         }),
         finalize(() => {
@@ -169,7 +170,7 @@ export class CategoriaService {
           this.subcategorias.update((lista) => [...lista, novaSub]);
         }),
         catchError((err: HttpErrorResponse) => {
-          this.error.set(err.error?.erro || err.message || 'Erro ao criar subcategoria.');
+          this.error.set(mensagemErroHttp(err, 'Erro ao criar subcategoria.'));
           return throwError(() => err);
         }),
         finalize(() => {
@@ -203,7 +204,7 @@ export class CategoriaService {
           );
         }),
         catchError((err: HttpErrorResponse) => {
-          this.error.set(err.error?.erro || err.message || 'Erro ao atualizar subcategoria.');
+          this.error.set(mensagemErroHttp(err, 'Erro ao atualizar subcategoria.'));
           return throwError(() => err);
         }),
         finalize(() => {
@@ -228,7 +229,7 @@ export class CategoriaService {
         );
       }),
       catchError((err: HttpErrorResponse) => {
-        this.error.set(err.error?.erro || err.message || 'Erro ao remover subcategoria.');
+        this.error.set(mensagemErroHttp(err, 'Erro ao remover subcategoria.'));
         return throwError(() => err);
       }),
       finalize(() => {

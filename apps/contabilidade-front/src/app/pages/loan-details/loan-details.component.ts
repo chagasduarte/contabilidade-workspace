@@ -58,7 +58,6 @@ import {
 } from 'ionicons/icons';
 import {
   LoanInstallment,
-  LoanSummary,
   PaymentPayload,
 } from './loan.model';
 import { LoanService } from './loan.service';

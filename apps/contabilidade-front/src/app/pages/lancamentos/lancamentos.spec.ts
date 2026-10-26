@@ -8,7 +8,7 @@ import { DashboardService } from '../../core/services/dashboard.service';
 import { CategoriaService } from '../../core/services/categoria.service';
 import { CartaoService } from '../../core/services/cartao.service';
 import { HeaderStateService } from '@org/shared-ui-navigation';
-import { Categoria, Cartao, Transacao } from '@contabilidade/models';
+import { Categoria, Cartao, ExtratoPaginado, Transacao } from '@contabilidade/models';
 
 describe('Lancamentos', () => {
   let component: Lancamentos;
@@ -58,7 +58,11 @@ describe('Lancamentos', () => {
     extrato: ReturnType<typeof signal<Transacao[]>>;
     loading: ReturnType<typeof signal<boolean>>;
     error: ReturnType<typeof signal<string | null>>;
+    nextCursor: ReturnType<typeof signal<string | null>>;
+    carregandoMais: ReturnType<typeof signal<boolean>>;
+    totaisExtrato: ReturnType<typeof signal<ExtratoPaginado['totais']>>;
     carregarExtrato: ReturnType<typeof vi.fn>;
+    carregarExtratoPaginado: ReturnType<typeof vi.fn>;
     criarTransacao: ReturnType<typeof vi.fn>;
     criarTransacoesParceladas: ReturnType<typeof vi.fn>;
   };
@@ -83,7 +87,13 @@ describe('Lancamentos', () => {
       extrato: signal<Transacao[]>(mockExtrato),
       loading: signal(false),
       error: signal<string | null>(null),
+      nextCursor: signal<string | null>(null),
+      carregandoMais: signal(false),
+      totaisExtrato: signal<ExtratoPaginado['totais']>(null),
       carregarExtrato: vi.fn().mockReturnValue(of(mockExtrato)),
+      carregarExtratoPaginado: vi
+        .fn()
+        .mockReturnValue(of({ items: mockExtrato, next_cursor: null })),
       criarTransacao: vi.fn().mockReturnValue(of(mockExtrato[0])),
       criarTransacoesParceladas: vi.fn().mockReturnValue(of([mockExtrato[0]])),
     };
@@ -123,7 +133,7 @@ describe('Lancamentos', () => {
 
   it('should create and fetch transactions from API', () => {
     expect(component).toBeTruthy();
-    expect(transacaoServiceStub.carregarExtrato).toHaveBeenCalledWith(10, 2026, 0);
+    expect(transacaoServiceStub.carregarExtratoPaginado).toHaveBeenCalledWith(10, 2026);
   });
 
   it('should show the monthly summary and recent transactions from API', () => {
@@ -163,13 +173,13 @@ describe('Lancamentos', () => {
     fixture.detectChanges();
 
     expect(dashboardServiceStub.ano()).toBe(2027);
-    expect(transacaoServiceStub.carregarExtrato).toHaveBeenCalledWith(10, 2027, 0);
+    expect(transacaoServiceStub.carregarExtratoPaginado).toHaveBeenCalledWith(10, 2027);
   });
 
   it('should select month directly and reload transactions', () => {
     component.selecionarMes(7);
     expect(dashboardServiceStub.mes()).toBe(7);
-    expect(transacaoServiceStub.carregarExtrato).toHaveBeenCalledWith(7, 2026, 0);
+    expect(transacaoServiceStub.carregarExtratoPaginado).toHaveBeenCalledWith(7, 2026);
   });
 
   it('should toggle transaction modal visibility', () => {
@@ -184,6 +194,51 @@ describe('Lancamentos', () => {
 
   it('should reload transactions when a transaction is created from modal', () => {
     component.onTransacaoCriada();
-    expect(transacaoServiceStub.carregarExtrato).toHaveBeenCalled();
+    expect(transacaoServiceStub.carregarExtratoPaginado).toHaveBeenCalled();
+  });
+
+  it('não deve recalcular os totais do mês ao buscar', () => {
+    headerState.setSearchTerm('aluguel');
+    fixture.detectChanges();
+
+    expect(component.monthlyIncome()).toBe(8000);
+    expect(component.monthlyExpenses()).toBe(2289.9);
+  });
+
+  it('deve carregar a próxima página com o next_cursor e concluir o infinite scroll', () => {
+    transacaoServiceStub.nextCursor.set('2026-10-01_9');
+    const complete = vi.fn();
+
+    component.carregarMais({ target: { complete } } as unknown as Event);
+
+    expect(transacaoServiceStub.carregarExtratoPaginado).toHaveBeenLastCalledWith(
+      10,
+      2026,
+      '2026-10-01_9'
+    );
+    expect(complete).toHaveBeenCalled();
+  });
+
+  it('deve marcar os totais como parciais enquanto houver mais páginas', () => {
+    transacaoServiceStub.nextCursor.set('abc');
+    fixture.detectChanges();
+
+    expect(component.totaisParciais()).toBe(true);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Totais parciais');
+
+    transacaoServiceStub.totaisExtrato.set({ entradas: 10, saidas: 5, pendentes: 0 });
+    fixture.detectChanges();
+    expect(component.totaisParciais()).toBe(false);
+    expect(component.monthlyIncome()).toBe(10);
+  });
+
+  it('não deve pedir nova página sem cursor', () => {
+    const chamadas = transacaoServiceStub.carregarExtratoPaginado.mock.calls.length;
+    const complete = vi.fn();
+
+    component.carregarMais({ target: { complete } } as unknown as Event);
+
+    expect(transacaoServiceStub.carregarExtratoPaginado.mock.calls.length).toBe(chamadas);
+    expect(complete).toHaveBeenCalled();
   });
 });
