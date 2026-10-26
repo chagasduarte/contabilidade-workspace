@@ -13,6 +13,15 @@ import { PlannedTransactionEntity } from './planned-transaction.entity';
 import { CreatePlannedTransactionDto } from './planned-transaction.dto';
 import { CategoriaBusiness } from '../categoria/categoria.business';
 
+// Testes herméticos: nunca conectar em um Postgres real (ex.: túnel local em 5432).
+// connect rejeita na hora = caminho "sem banco" (client undefined) que o business já trata.
+vi.mock('../../core/config/database', () => ({
+  pool: {
+    connect: vi.fn().mockRejectedValue(new Error('sem banco nos testes')),
+    query: vi.fn().mockRejectedValue(new Error('sem banco nos testes')),
+  },
+}));
+
 vi.mock('../categoria/categoria.business', () => ({
   CategoriaBusiness: {
     categoriaVisivel: vi.fn().mockResolvedValue(true),

@@ -84,6 +84,25 @@ export const ObjetivosRepository = {
     return result.rows[0] ? mapear(result.rows[0]) : undefined;
   },
 
+  /**
+   * Aporte atômico: soma no próprio UPDATE (sem ler antes), então aportes simultâneos
+   * (ex.: app em dois aparelhos) não se sobrescrevem. undefined = inexistente/de outro usuário.
+   */
+  async aportar(
+    objetivoid: number | string,
+    valor: number,
+    userid: number
+  ): Promise<ObjetivoEntity | undefined> {
+    const result = await pool.query(
+      `UPDATE objetivos
+       SET valor_acumulado = valor_acumulado + $1
+       WHERE id = $2 AND usuario_id = $3
+       RETURNING ${COLUNAS}`,
+      [valor, objetivoid, userid]
+    );
+    return result.rows[0] ? mapear(result.rows[0]) : undefined;
+  },
+
   async deletar(objetivoid: number | string, userid: number): Promise<boolean> {
     const result = await pool.query('DELETE FROM objetivos WHERE id = $1 AND usuario_id = $2', [
       objetivoid,

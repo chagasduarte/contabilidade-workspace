@@ -10,6 +10,7 @@ vi.mock('./objetivos.repository', () => ({
     buscar: vi.fn(),
     atualizar: vi.fn(),
     deletar: vi.fn(),
+    aportar: vi.fn(),
   },
 }));
 
@@ -83,6 +84,43 @@ describe('ObjetivosBusiness', () => {
     it('id não numérico não chega ao banco', async () => {
       await expect(ObjetivosBusiness.buscar('abc', 7)).rejects.toBeInstanceOf(ObjetivoNotFoundError);
       expect(ObjetivosRepository.buscar).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('aportar (POST /objetivos/:id/aportes)', () => {
+    it('soma no banco (sem ler antes) e devolve o objetivo com progresso', async () => {
+      vi.mocked(ObjetivosRepository.aportar).mockResolvedValueOnce({ ...base, valor_acumulado: 3250.5 });
+
+      const r = await ObjetivosBusiness.aportar('1', { valor: '250.50' }, 7);
+
+      expect(ObjetivosRepository.aportar).toHaveBeenCalledWith('1', 250.5, 7);
+      expect(ObjetivosRepository.buscar).not.toHaveBeenCalled();
+      expect(r.valor_acumulado).toBe(3250.5);
+      expect(r.progresso_percentual).toBe(27.09);
+    });
+
+    it.each([
+      [{ valor: 0 }, 'valor deve ser maior que zero.'],
+      [{ valor: -10 }, 'valor deve ser maior que zero.'],
+      [{}, 'valor deve ser um número válido.'],
+      [{ valor: 'abc' }, 'valor deve ser um número válido.'],
+      [{ valor: 10.001 }, 'valor deve ter no máximo 2 casas decimais.'],
+      [{ valor: 1e11 }, 'valor acima do limite permitido.'],
+    ])('rejeita %o', async (dados, mensagem) => {
+      await expect(ObjetivosBusiness.aportar('1', dados, 7)).rejects.toThrow(mensagem);
+      expect(ObjetivosRepository.aportar).not.toHaveBeenCalled();
+    });
+
+    it('objetivo de outro usuário/inexistente -> 404', async () => {
+      vi.mocked(ObjetivosRepository.aportar).mockResolvedValueOnce(undefined);
+      await expect(ObjetivosBusiness.aportar('1', { valor: 10 }, 8)).rejects.toBeInstanceOf(ObjetivoNotFoundError);
+    });
+
+    it('soma que estoura NUMERIC(12,2) (22003) -> 400', async () => {
+      vi.mocked(ObjetivosRepository.aportar).mockRejectedValueOnce(Object.assign(new Error('overflow'), { code: '22003' }));
+      await expect(ObjetivosBusiness.aportar('1', { valor: 10 }, 7)).rejects.toThrow(
+        'O valor acumulado ultrapassaria o limite permitido.'
+      );
     });
   });
 

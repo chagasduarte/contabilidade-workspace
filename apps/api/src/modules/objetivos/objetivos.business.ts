@@ -9,6 +9,8 @@ import {
 } from './objetivos.types';
 
 const idValido = (id: number | string): boolean => /^\d+$/.test(String(id));
+/** Maior valor de NUMERIC(12,2) (coluna valor_acumulado). */
+const VALOR_MAXIMO = 9_999_999_999.99;
 const arred = (n: number): number => Math.round(n * 100) / 100;
 
 /** Aceita número ou string numérica; rejeita vazio, NaN e infinito. */
@@ -103,6 +105,31 @@ export const ObjetivosBusiness = {
     if (!idValido(objetivoid)) throw new ObjetivoNotFoundError();
     const dto = normalizar(dados ?? {}, true);
     const atualizado = await ObjetivosRepository.atualizar(objetivoid, dto, userid);
+    if (!atualizado) throw new ObjetivoNotFoundError();
+    return calcularProgresso(atualizado);
+  },
+
+  /** POST /objetivos/:id/aportes: soma `valor` ao acumulado de forma atômica. */
+  async aportar(objetivoid: number | string, dados: { valor?: unknown }, userid: number): Promise<ObjetivoResponse> {
+    if (!idValido(objetivoid)) throw new ObjetivoNotFoundError();
+
+    const valor = numero(dados?.valor, 'valor');
+    if (valor <= 0) throw new ObjetivoValidationError('valor deve ser maior que zero.');
+    if (Math.abs(valor * 100 - Math.round(valor * 100)) > 1e-6) {
+      throw new ObjetivoValidationError('valor deve ter no máximo 2 casas decimais.');
+    }
+    if (valor > VALOR_MAXIMO) throw new ObjetivoValidationError('valor acima do limite permitido.');
+
+    let atualizado: ObjetivoEntity | undefined;
+    try {
+      atualizado = await ObjetivosRepository.aportar(objetivoid, arred(valor), userid);
+    } catch (error) {
+      // numeric_value_out_of_range: a soma passaria do limite da coluna NUMERIC(12,2)
+      if ((error as { code?: string }).code === '22003') {
+        throw new ObjetivoValidationError('O valor acumulado ultrapassaria o limite permitido.');
+      }
+      throw error;
+    }
     if (!atualizado) throw new ObjetivoNotFoundError();
     return calcularProgresso(atualizado);
   },

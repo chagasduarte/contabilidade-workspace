@@ -62,6 +62,17 @@ export const ObjetivosController = {
     }
   },
 
+  /** POST /objetivos/:id/aportes { valor } — soma atômica ao valor acumulado. */
+  async aportar(req: Request, res: Response): Promise<void> {
+    try {
+      const userid = usuarioAutenticado(req, res);
+      if (!userid) return;
+      res.status(200).json(await ObjetivosBusiness.aportar(req.params.id, req.body, userid));
+    } catch (error: unknown) {
+      responderErro(res, error, 'Erro ao registrar aporte');
+    }
+  },
+
   async deletar(req: Request, res: Response): Promise<void> {
     try {
       const userid = usuarioAutenticado(req, res);

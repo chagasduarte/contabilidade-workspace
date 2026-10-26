@@ -1303,6 +1303,36 @@ Permite o controle integral de fluxo de caixa, cartões de crédito com faturas 
         },
       },
     },
+    '/objetivos/{id}/aportes': {
+      post: {
+        tags: ['Objetivos'],
+        summary: 'Registrar aporte (guardar dinheiro)',
+        description:
+          'Soma valor ao valor_acumulado de forma ATÔMICA no banco (UPDATE ... SET valor_acumulado = valor_acumulado + valor). Use no lugar de ler + PUT valor_acumulado: aportes simultâneos (vários aparelhos) não se perdem. Devolve o objetivo com o progresso recalculado.',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['valor'],
+                properties: {
+                  valor: { type: 'number', exclusiveMinimum: true, minimum: 0, multipleOf: 0.01, example: 250.5 },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: 'Objetivo atualizado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Objetivo' } } } },
+          400: { description: 'valor ausente, <= 0, com mais de 2 casas ou soma acima do limite', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErroPadrao' } } } },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
 
     // -------------------------------------------------------------------------
     // ASSISTENTE DE INTELIGÊNCIA ARTIFICIAL

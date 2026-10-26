@@ -11,6 +11,15 @@ import {
 import { SettlementRepository } from './settlement.repository';
 import { CategoriaBusiness } from '../categoria/categoria.business';
 
+// Testes herméticos: nunca conectar em um Postgres real (ex.: túnel local em 5432).
+// A janela deslizante pós-liquidação consulta o banco; aqui ela não encontra mestres.
+vi.mock('../../core/config/database', () => ({
+  pool: {
+    connect: vi.fn().mockRejectedValue(new Error('sem banco nos testes')),
+    query: vi.fn().mockResolvedValue({ rows: [], rowCount: 0 }),
+  },
+}));
+
 vi.mock('../categoria/categoria.business', () => ({
   CategoriaBusiness: {
     categoriaVisivel: vi.fn().mockResolvedValue(true),
