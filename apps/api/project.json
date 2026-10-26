@@ -10,6 +10,17 @@
     }
   },
   "targets": {
+    "e2e-local": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "metadata": {
+        "description": "E2E da API contra ambiente LOCAL (API rodando + Postgres local, porta != 5432). Não faz parte de 'test'. Ver apps/api/e2e/README.md."
+      },
+      "options": {
+        "command": "node apps/api/e2e/e2e.mjs",
+        "cwd": "{workspaceRoot}"
+      }
+    },
     "build": {
       "executor": "@nx/esbuild:esbuild",
       "outputs": ["{options.outputPath}"],
