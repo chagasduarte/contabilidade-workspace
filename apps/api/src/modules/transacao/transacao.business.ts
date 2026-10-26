@@ -18,6 +18,7 @@ import {
   ExtratoCursor,
   AgrupamentoTipoItem,
   ExtratoTotais,
+  TransacaoNotFoundError,
 } from './transacao.types';
 
 const EXTRATO_LIMIT_PADRAO = 50;
@@ -651,7 +652,7 @@ export const TransacaoBusiness = {
 
   async buscarPorId(id: number | string, userid?: number): Promise<TransacaoEntity> {
     const t = await TransacaoRepository.buscarPorId(id, userid);
-    if (!t) throw new Error('Transação não encontrada.');
+    if (!t) throw new TransacaoNotFoundError();
     return t;
   },
 
@@ -746,7 +747,7 @@ export const TransacaoBusiness = {
 
   async uptopago(id: number | string, userid: number): Promise<boolean> {
     const atualizado = await TransacaoRepository.uptopago(id, userid);
-    if (!atualizado) throw new Error('Transação não encontrada.');
+    if (!atualizado) throw new TransacaoNotFoundError();
     return atualizado;
   },
 

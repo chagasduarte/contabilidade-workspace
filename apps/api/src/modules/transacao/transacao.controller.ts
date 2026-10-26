@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { TransacaoBusiness } from './transacao.business';
+import { TransacaoNotFoundError } from './transacao.types';
 import { responderPaginado } from '../../common/utils/paginacao';
 
 export const TransacaoController = {
@@ -102,7 +103,8 @@ export const TransacaoController = {
       res.json(transacao);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Erro ao atualizar transação';
-      res.status(400).json({ erro: message, error: message });
+      // Inexistente ou de outro usuário -> 404; demais erros (validação) -> 400
+      res.status(error instanceof TransacaoNotFoundError ? 404 : 400).json({ erro: message, error: message });
     }
   },
 

@@ -134,3 +134,11 @@ export interface AgrupamentoTipoItem {
   categoria_nome: string | null;
   subcategoria_nome: string | null;
 }
+
+/** Transação inexistente ou de outro usuário (controllers respondem 404). */
+export class TransacaoNotFoundError extends Error {
+  constructor(message = 'Transação não encontrada.') {
+    super(message);
+    this.name = 'TransacaoNotFoundError';
+  }
+}

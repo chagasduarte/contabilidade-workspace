@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TransacaoBusiness } from './transacao.business';
 import { TransacaoRepository } from './transacao.repository';
+import { TransacaoNotFoundError } from './transacao.types';
 import { CardBusiness } from '../card/card.business';
 import { CategoriaBusiness } from '../categoria/categoria.business';
 import { SubcategoriaBusiness } from '../subcategoria/subcategoria.business';
@@ -383,7 +384,7 @@ describe('TransacaoBusiness', () => {
 
       await expect(
         TransacaoBusiness.atualizar(10, { descricao: 'x' }, 2)
-      ).rejects.toThrow('Transação não encontrada.');
+      ).rejects.toBeInstanceOf(TransacaoNotFoundError); // controller responde 404
       expect(TransacaoRepository.buscarPorId).toHaveBeenCalledWith(10, 2);
       expect(TransacaoRepository.atualizar).not.toHaveBeenCalled();
     });
