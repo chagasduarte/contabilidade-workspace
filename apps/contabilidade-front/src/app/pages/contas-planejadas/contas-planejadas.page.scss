@@ -78,6 +78,14 @@
   &__segment {
     margin-bottom: 14px;
     --background: #1b2028;
+
+    ion-segment-button {
+      /* contraste AA da aba não selecionada sobre o fundo escuro */
+      --color: #b6c0cb;
+      --color-checked: #8fb6ff;
+      --indicator-color: #8fb6ff;
+      min-height: 44px;
+    }
   }
 
   &__fab {
