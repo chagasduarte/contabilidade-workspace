@@ -1,5 +1,5 @@
 -- ==============================================================================
--- MANUAL - INSERE DADOS: só rodar com aprovação do Maestro ('Claude Code').
+-- MANUAL - INSERE DADOS (aprovado em 2026-10-26). OBRIGATÓRIO antes do deploy da nova API: ver RUNBOOK.md, passo 3.
 -- Aditivo (só INSERT, nada é alterado/removido). Copia para a tabela legada
 -- `cartoes` os cartões ativos de `credit_cards` que ainda não têm par (mesmo dono
 -- e mesmo nome, ignorando caixa/espaços) - a mesma regra do INSERT que hoje roda
