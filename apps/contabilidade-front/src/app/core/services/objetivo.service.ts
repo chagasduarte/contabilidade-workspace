@@ -50,6 +50,21 @@ export class ObjetivoService {
     );
   }
 
+  /**
+   * Registra um aporte com soma atômica no banco (não perde aportes feitos em outro aparelho).
+   * Para corrigir o total guardado, use `atualizar(id, { valor_acumulado })`.
+   */
+  aportar(id: number, valor: number): Observable<Objetivo> {
+    return this.http.post<Objetivo>(`${this.baseUrl}/objetivos/${id}/aportes`, { valor }).pipe(
+      tap((atualizado) =>
+        this.objetivos.update((lista) => lista.map((o) => (o.id === id ? atualizado : o)))
+      ),
+      catchError((err: unknown) =>
+        throwError(() => new Error(mensagemErroHttp(err, 'Erro ao registrar o valor guardado.')))
+      )
+    );
+  }
+
   remover(id: number): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/objetivos/${id}`).pipe(
       tap(() => this.objetivos.update((lista) => lista.filter((o) => o.id !== id))),

@@ -1,0 +1,201 @@
+<ion-content class="chat-content">
+  <section class="chat" aria-labelledby="chat-title">
+    <header class="chat__header">
+      <ion-icon name="sparkles-outline" aria-hidden="true"></ion-icon>
+      <div>
+        <h1 id="chat-title">Assistente</h1>
+        <p>Lançamentos por texto ou foto de recibo</p>
+      </div>
+    </header>
+
+    <ol class="chat__lista" aria-live="polite" aria-label="Conversa com o assistente">
+      @for (msg of mensagens(); track msg.id) {
+        <li class="msg" [class.msg--usuario]="msg.autor === 'usuario'">
+          <span class="sr-only">{{ msg.autor === 'usuario' ? 'Você:' : 'Assistente:' }}</span>
+
+          @if (msg.foto) {
+            <img class="msg__foto" [src]="msg.foto" alt="Foto enviada do recibo" />
+          }
+          @if (msg.carregando) {
+            <div class="msg__bolha msg__bolha--carregando" role="status">
+              <ion-spinner name="dots"></ion-spinner>
+              <span>Analisando...</span>
+            </div>
+          }
+          @if (msg.texto) {
+            <div class="msg__bolha">{{ msg.texto }}</div>
+          }
+          @if (msg.erro) {
+            <div class="msg__bolha msg__bolha--erro" role="alert">{{ msg.erro }}</div>
+          }
+
+          @if (msg.sugestao; as s) {
+            <form
+              class="sugestao"
+              [formGroup]="s.form"
+              (ngSubmit)="salvar(msg)"
+              novalidate
+              [attr.aria-label]="'Sugestão de lançamento ' + msg.id"
+            >
+              <fieldset class="sugestao__tipo">
+                <legend class="sr-only">Tipo</legend>
+                <label [class.ativo]="s.form.controls.tipo.value === 'saida'">
+                  <input type="radio" formControlName="tipo" value="saida" /> Despesa
+                </label>
+                <label [class.ativo]="s.form.controls.tipo.value === 'entrada'">
+                  <input type="radio" formControlName="tipo" value="entrada" /> Receita
+                </label>
+              </fieldset>
+
+              <div class="form-group">
+                <label [for]="'sug-desc-' + msg.id">Descrição</label>
+                <input [id]="'sug-desc-' + msg.id" type="text" formControlName="descricao" />
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label [for]="'sug-valor-' + msg.id">Valor (R$)</label>
+                  <input
+                    [id]="'sug-valor-' + msg.id"
+                    type="number"
+                    inputmode="decimal"
+                    min="0.01"
+                    step="0.01"
+                    formControlName="valor"
+                    [attr.aria-invalid]="s.form.controls.valor.touched && s.form.controls.valor.invalid"
+                  />
+                </div>
+                <div class="form-group">
+                  <label [for]="'sug-data-' + msg.id">Data</label>
+                  <input [id]="'sug-data-' + msg.id" type="date" formControlName="data" />
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label [for]="'sug-cat-' + msg.id">Categoria</label>
+                <select [id]="'sug-cat-' + msg.id" formControlName="idcategoria">
+                  <option [ngValue]="null">Sem categoria</option>
+                  @for (c of categoriasDoTipo(s.form.controls.tipo.value); track c.id) {
+                    <option [ngValue]="c.id">{{ c.nome }}</option>
+                  }
+                </select>
+                @if (s.categoriaSugerida && s.form.controls.idcategoria.value === null) {
+                  <small class="dica">Sugerida: "{{ s.categoriaSugerida }}" (não encontrada nas suas categorias).</small>
+                }
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label [for]="'sug-status-' + msg.id">Situação</label>
+                  <select [id]="'sug-status-' + msg.id" formControlName="status">
+                    <option value="pago">{{ s.form.controls.tipo.value === 'entrada' ? 'Recebido' : 'Pago' }}</option>
+                    <option value="pendente">Pendente</option>
+                  </select>
+                </div>
+                @if (s.form.controls.tipo.value === 'saida') {
+                  <div class="form-group form-group--check">
+                    <label>
+                      <input type="checkbox" formControlName="isCartao" />
+                      Compra no cartão
+                    </label>
+                  </div>
+                }
+              </div>
+
+              @if (s.form.controls.tipo.value === 'saida' && s.form.controls.isCartao.value) {
+                <div class="form-group">
+                  <label [for]="'sug-cartao-' + msg.id">Cartão</label>
+                  <select [id]="'sug-cartao-' + msg.id" formControlName="cartaoid">
+                    <option [ngValue]="null" disabled>Selecione</option>
+                    @for (c of cartaoService.cartoes(); track c.id) {
+                      <option [ngValue]="c.id">{{ c.nome }}</option>
+                    }
+                  </select>
+                </div>
+              }
+
+              @if (s.erroSalvar) {
+                <p class="form-error" role="alert">{{ s.erroSalvar }}</p>
+              }
+
+              @switch (s.estado) {
+                @case ('salva') {
+                  <p class="sugestao__ok" role="status">
+                    <ion-icon name="checkmark-circle-outline" aria-hidden="true"></ion-icon>
+                    Lançamento de {{ s.form.controls.valor.value | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}
+                    salvo. <a routerLink="/lancamentos">Ver em Lançamentos</a>
+                  </p>
+                }
+                @case ('descartada') {
+                  <p class="sugestao__descartada">Sugestão descartada.</p>
+                }
+                @default {
+                  <div class="sugestao__acoes">
+                    <ion-button fill="outline" color="medium" type="button" (click)="descartar(msg)">
+                      Descartar
+                    </ion-button>
+                    <ion-button type="submit" [disabled]="s.estado === 'salvando'">
+                      @if (s.estado === 'salvando') {
+                        <ion-spinner name="crescent"></ion-spinner>
+                      } @else {
+                        Salvar lançamento
+                      }
+                    </ion-button>
+                  </div>
+                }
+              }
+            </form>
+          }
+        </li>
+      }
+    </ol>
+  </section>
+</ion-content>
+
+<!-- Composer fixo acima da tabbar -->
+<form class="composer" (submit)="$event.preventDefault(); enviar()" novalidate>
+  @if (fotoPendente(); as foto) {
+    <div class="composer__anexo">
+      <img [src]="foto" alt="Foto que será enviada" />
+      <button type="button" class="composer__remover" aria-label="Remover foto" (click)="removerFoto()">
+        <ion-icon name="close-circle" aria-hidden="true"></ion-icon>
+      </button>
+    </div>
+  }
+  @if (erroComposer()) {
+    <p class="composer__erro" role="alert">{{ erroComposer() }}</p>
+  }
+  <div class="composer__linha">
+    <button
+      type="button"
+      class="composer__btn"
+      aria-label="Anexar foto do recibo"
+      [disabled]="enviando() || preparandoFoto()"
+      (click)="anexarFoto()"
+    >
+      @if (preparandoFoto()) {
+        <ion-spinner name="crescent"></ion-spinner>
+      } @else {
+        <ion-icon name="camera-outline" aria-hidden="true"></ion-icon>
+      }
+    </button>
+    <label for="chat-texto" class="sr-only">Mensagem para o assistente</label>
+    <textarea
+      #campoTexto
+      id="chat-texto"
+      rows="1"
+      [formControl]="texto"
+      [attr.maxlength]="maxMensagem"
+      placeholder="Ex.: mercado 230,50 ontem no cartão"
+      (keydown)="onTecla($event)"
+    ></textarea>
+    <button
+      type="submit"
+      class="composer__btn composer__btn--enviar"
+      aria-label="Enviar"
+      [disabled]="!podeEnviar()"
+    >
+      <ion-icon name="send-outline" aria-hidden="true"></ion-icon>
+    </button>
+  </div>
+</form>

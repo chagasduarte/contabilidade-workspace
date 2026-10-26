@@ -39,6 +39,15 @@ describe('ObjetivoService', () => {
     expect(service.objetivos().map((o) => o.id)).toEqual([1]);
   });
 
+  it('aporta via POST /objetivos/:id/aportes e atualiza o item', () => {
+    service.objetivos.set([obj]);
+    service.aportar(1, 100).subscribe();
+    const req = http.expectOne({ method: 'POST', url: `${api}/objetivos/1/aportes` });
+    expect(req.request.body).toEqual({ valor: 100 });
+    req.flush({ ...obj, valor_acumulado: 100 });
+    expect(service.objetivos()[0].valor_acumulado).toBe(100);
+  });
+
   it('registra erro amigável na listagem', () => {
     service.listar().subscribe({ error: () => undefined });
     http.expectOne(`${api}/objetivos`).flush(null, { status: 0, statusText: '' });

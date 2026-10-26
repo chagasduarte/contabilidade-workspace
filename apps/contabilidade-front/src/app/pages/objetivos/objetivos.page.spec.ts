@@ -18,6 +18,7 @@ describe('ObjetivosPage', () => {
     criar: ReturnType<typeof vi.fn>;
     atualizar: ReturnType<typeof vi.fn>;
     remover: ReturnType<typeof vi.fn>;
+    aportar: ReturnType<typeof vi.fn>;
   };
 
   const base = (o: Partial<Objetivo>): Objetivo => ({
@@ -53,6 +54,7 @@ describe('ObjetivosPage', () => {
       criar: vi.fn().mockReturnValue(of(lista[0])),
       atualizar: vi.fn().mockReturnValue(of(lista[0])),
       remover: vi.fn().mockReturnValue(of(undefined)),
+      aportar: vi.fn().mockReturnValue(of(lista[0])),
     };
     const overlay = () => ({
       present: vi.fn().mockResolvedValue(undefined),
@@ -92,10 +94,11 @@ describe('ObjetivosPage', () => {
     expect(component.totais().meta).toBe(40000);
   });
 
-  it('guardar soma o aporte ao acumulado (PUT valor_acumulado)', async () => {
+  it('guardar registra o aporte na rota atômica (POST /aportes)', async () => {
     alert.values = { valor: '250.5' };
     await component.guardar(lista[0]);
-    expect(serviceStub.atualizar).toHaveBeenCalledWith(1, { valor_acumulado: 2250.5 });
+    expect(serviceStub.aportar).toHaveBeenCalledWith(1, 250.5);
+    expect(serviceStub.atualizar).not.toHaveBeenCalled();
   });
 
   it('não guarda valor inválido nem cancelado', async () => {
@@ -103,7 +106,7 @@ describe('ObjetivosPage', () => {
     await component.guardar(lista[0]);
     alert = { role: 'cancel' };
     await component.guardar(lista[0]);
-    expect(serviceStub.atualizar).not.toHaveBeenCalled();
+    expect(serviceStub.aportar).not.toHaveBeenCalled();
   });
 
   it('cria e edita pelo formulário', () => {

@@ -60,3 +60,6 @@ vitest.config.*.timestamp*
 # Dumps do banco (contêm dados reais)
 backups/
 *.dump
+
+# Uploads gerados pela API em dev
+public/uploads/

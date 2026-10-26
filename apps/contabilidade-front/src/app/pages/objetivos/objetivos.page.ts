@@ -162,7 +162,7 @@ export class ObjetivosPage implements OnInit {
 
   // --- Ações ---
 
-  /** Registra um aporte somando ao valor já guardado (PUT valor_acumulado). */
+  /** Registra um aporte (POST /objetivos/:id/aportes). */
   async guardar(o: Objetivo): Promise<void> {
     const alert = await this.alertController.create({
       header: 'Guardar dinheiro',
@@ -193,8 +193,8 @@ export class ObjetivosPage implements OnInit {
       return;
     }
 
-    const novoTotal = Math.round((Number(o.valor_acumulado) + aporte) * 100) / 100;
-    this.service.atualizar(o.id, { valor_acumulado: novoTotal }).subscribe({
+    // Soma atômica na API: evita perder aportes feitos em outro aparelho.
+    this.service.aportar(o.id, Math.round(aporte * 100) / 100).subscribe({
       next: (atualizado) =>
         void this.avisar(
           atualizado.progresso_percentual >= 100

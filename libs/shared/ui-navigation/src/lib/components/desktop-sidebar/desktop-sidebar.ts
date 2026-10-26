@@ -18,6 +18,8 @@ import {
   logOutOutline,
   pieChartOutline,
   flagOutline,
+  sparklesOutline,
+  personCircleOutline,
 } from 'ionicons/icons';
 import { APP_NAV_ITEMS } from '../../configs/navigation.config';
 import { AUTH_NAVIGATION_HANDLER } from '../../tokens/auth-navigation.token';
@@ -62,6 +64,8 @@ export class DesktopSidebar {
       logOutOutline,
       pieChartOutline,
       flagOutline,
+      sparklesOutline,
+      personCircleOutline,
     });
   }
 
