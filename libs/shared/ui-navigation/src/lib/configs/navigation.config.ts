@@ -16,6 +16,7 @@ export const APP_NAV_ITEMS: NavItem[] = [
   { label: 'Empréstimos', route: '/emprestimos', icon: 'cash-outline' },
   { label: 'Categorias', route: '/categorias', icon: 'pricetag-outline' },
   { label: 'Planejamento', route: '/planejamento', icon: 'pie-chart-outline' },
+  { label: 'Objetivos', route: '/objetivos', icon: 'flag-outline' },
   { label: 'Contas a Pagar', route: '/contas-pagar', icon: 'card-outline' },
   { label: 'Contas a Receber', route: '/contas-receber', icon: 'arrow-down-circle-outline' },
   { label: 'Relatórios', route: '/relatorios', icon: 'bar-chart-outline' },

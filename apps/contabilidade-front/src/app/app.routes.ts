@@ -73,6 +73,11 @@ export const appRoutes: Route[] = [
         data: { monthSelector: true },
       },
       {
+        path: 'objetivos',
+        loadComponent: () =>
+          import('./pages/objetivos/objetivos.page').then((m) => m.ObjetivosPage),
+      },
+      {
         path: 'mais',
         loadComponent: () =>
           import('./pages/mais/mais.page').then((m) => m.MaisPage),

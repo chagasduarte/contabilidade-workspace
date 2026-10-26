@@ -24,6 +24,7 @@ import {
   trendingUpOutline,
   logOutOutline,
   pieChartOutline,
+  flagOutline,
 } from 'ionicons/icons';
 import { TransactionModal } from '../../components/modals/transaction-modal/transaction-modal';
 import { AuthService } from '../../core/services/auth.service';
@@ -71,6 +72,13 @@ export class MaisPage implements OnInit {
       route: '/planejamento',
       icon: 'pie-chart-outline',
       color: '#f97316',
+    },
+    {
+      title: 'Objetivos',
+      subtitle: 'Metas financeiras com progresso e quanto guardar por mês',
+      route: '/objetivos',
+      icon: 'flag-outline',
+      color: '#eab308',
     },
     {
       title: 'Cartões de Crédito',
@@ -138,6 +146,7 @@ export class MaisPage implements OnInit {
       trendingUpOutline,
       logOutOutline,
       pieChartOutline,
+      flagOutline,
     });
   }
 
