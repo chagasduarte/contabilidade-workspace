@@ -414,20 +414,26 @@
     }
   }
 
-  .invoice-empty-items {
-    text-align: center;
-    padding: 2.5rem 1rem;
-    color: #94a3b8;
+}
 
-    ion-icon {
-      font-size: 3rem;
-      margin-bottom: 0.5rem;
-    }
+// Estado vazio dos itens da fatura e do mês sem fatura (--mes, dentro do seletor)
+.invoice-empty-items {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: #94a3b8;
 
-    p {
-      font-size: 0.85rem;
-      margin: 0;
-    }
+  &--mes {
+    padding: 1.25rem 0.5rem 0.5rem;
+  }
+
+  ion-icon {
+    font-size: 3rem;
+    margin-bottom: 0.5rem;
+  }
+
+  p {
+    font-size: 0.85rem;
+    margin: 0;
   }
 }
 

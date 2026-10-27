@@ -9,6 +9,8 @@ import { CardDetailsComponent } from './card-details.component';
 import { CardService } from './card.service';
 import { CardDetailsResponseDto, CardInvoice, InvoiceDetailsResponseDto } from './card.model';
 import { CategoriaService } from '../../core/services/categoria.service';
+import { DashboardService } from '../../core/services/dashboard.service';
+import { HeaderStateService } from '@org/shared-ui-navigation';
 import { Categoria } from '@contabilidade/models';
 
 describe('CardDetailsComponent', () => {
@@ -144,6 +146,7 @@ describe('CardDetailsComponent', () => {
         provideRouter([]),
         { provide: CardService, useValue: cardServiceStub },
         { provide: CategoriaService, useValue: categoriaServiceStub },
+        { provide: DashboardService, useValue: { mes: signal(10), ano: signal(2026) } },
         {
           provide: ActivatedRoute,
           useValue: {
@@ -169,6 +172,46 @@ describe('CardDetailsComponent', () => {
     expect(component).toBeTruthy();
     expect(cardServiceStub.obterCartaoPorId).toHaveBeenCalledWith('card-1');
     expect(component.cartaoDetalhes()?.cartao.nome).toBe('Nubank Platinum');
+  });
+
+  it('mostra a fatura que vence no mês selecionado e carrega seus itens', () => {
+    expect(component.tituloFaturaAtiva()).toBe('Outubro 2026');
+    expect(component.faturaAtiva()?.id).toBe('fat-1');
+    expect(cardServiceStub.obterDetalhesFatura).toHaveBeenCalledWith('fat-1');
+    expect(component.detalhesFaturaAtiva()?.itens.length).toBe(2);
+  });
+
+  it('navega para meses sem fatura (setas sempre ativas) e não mostra itens de outra fatura', () => {
+    const header = TestBed.inject(HeaderStateService);
+
+    component.navegarMes(1);
+
+    expect(component.tituloFaturaAtiva()).toBe('Novembro 2026');
+    expect(component.faturaAtiva()).toBeNull();
+    expect(component.detalhesFaturaAtiva()).toBeNull();
+    expect(header.selectedMonth()).toBe(11);
+
+    component.navegarMes(-1);
+    expect(component.faturaAtiva()?.id).toBe('fat-1');
+  });
+
+  it('vira o ano ao navegar de janeiro para trás e de dezembro para frente', () => {
+    component.mes.set(1);
+    component.navegarMes(-1);
+    expect([component.mes(), component.ano()]).toEqual([12, 2025]);
+
+    component.navegarMes(1);
+    expect([component.mes(), component.ano()]).toEqual([1, 2026]);
+  });
+
+  it('acompanha o mês escolhido no seletor do cabeçalho', () => {
+    const header = TestBed.inject(HeaderStateService);
+
+    header.setMonth(12);
+    fixture.detectChanges();
+
+    expect(component.mes()).toBe(12);
+    expect(component.tituloFaturaAtiva()).toBe('Dezembro 2026');
   });
 
   it('deve calcular o percentual de limite consumido corretamente', () => {
