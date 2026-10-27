@@ -271,12 +271,14 @@ export const TransacaoController = {
 
   async extrato(req: Request, res: Response): Promise<void> {
     try {
-      const { limit, mes, ano, cursor, paginado } = req.query as {
+      const { limit, mes, ano, cursor, paginado, tipo, status } = req.query as {
         limit?: string;
         mes?: string;
         ano?: string;
         cursor?: string;
         paginado?: string;
+        tipo?: string;
+        status?: string;
       };
       const userid = req.usuarioId;
       if (!userid) {
@@ -287,7 +289,7 @@ export const TransacaoController = {
       // ?cursor implica paginado (mesma regra de lerPaginacao em planned-transactions e loans)
       const querPaginado = paginado === 'true' || paginado === '1' || Boolean(cursor);
       const { items, next_cursor, totais } = await TransacaoBusiness.extrato(
-        { limit, mes, ano, cursor, paginado: querPaginado },
+        { limit, mes, ano, cursor, paginado: querPaginado, tipo, status },
         userid
       );
 

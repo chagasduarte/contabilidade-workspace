@@ -838,11 +838,13 @@ Permite o controle integral de fluxo de caixa, cartões de crédito com faturas 
         tags: ['Transações'],
         summary: 'Extrato consolidado do período',
         description:
-          'Extrato por competência (cartão -> pagamento, conta -> data), ordenado por data DESC, id DESC. Inclui as parcelas de compras no cartão de crédito (invoice_items) pelo vencimento da fatura, somente leitura: id `cartao:<uuid>`, origem `CARTAO`, origem_rotulo = nome do cartão, target_id = fatura, source_id = cartão; no mesmo dia vêm depois dos lançamentos de conta. Os totais também somam essas parcelas. Paginação keyset opcional; cursor no formato YYYY-MM-DD_id ou YYYY-MM-DD_cartao:<uuid> (trate como opaco).',
+          'Extrato unificado do período, ordenado por data DESC. Mescla 4 origens (no mesmo dia, nesta ordem): lançamentos de conta (transacoes, por competência: cartão legado -> pagamento, conta -> data; id numérico); parcelas de compras no cartão (invoice_items, pelo vencimento da fatura; id `cartao:<uuid>`, origem CARTAO, somente leitura); contas planejadas PENDENTES (planned_transactions, pela data prevista; id `plan:<uuid>`, origem PLANEJADO, target_id = conta planejada); parcelas de empréstimo PENDENTES (loan_installments, pelo vencimento; id `loan:<uuid>`, origem EMPRESTIMO, target_id = parcela, source_id = empréstimo). Planejadas e parcelas já pagas aparecem como lançamento de conta (source_type PLANNED_TRANSACTION / LOAN_INSTALLMENT). Filtros opcionais `tipo` (entrada|saida) e `status` (pago|pendente) valem para a lista; os totais (1ª página paginada) são do período inteiro, separados em pagos e pendentes. Paginação keyset opcional; trate o cursor como opaco.',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'mes', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 12 } },
           { name: 'ano', in: 'query', schema: { type: 'integer' } },
+          { name: 'tipo', in: 'query', schema: { type: 'string', enum: ['entrada', 'saida'] } },
+          { name: 'status', in: 'query', schema: { type: 'string', enum: ['pago', 'pendente'] } },
           { $ref: '#/components/parameters/Paginado' },
           { $ref: '#/components/parameters/Cursor' },
           { $ref: '#/components/parameters/Limit' },

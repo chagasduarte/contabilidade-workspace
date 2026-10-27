@@ -4,7 +4,9 @@
     <div>
       <p class="transactions-page__eyebrow">{{ periodoLabel() }}</p>
       <h1 id="transactions-title">Lançamentos</h1>
-      <p class="transactions-page__intro">Acompanhe as entradas e saídas do seu mês.</p>
+      <p class="transactions-page__intro">
+        Central de entradas, saídas, recorrências, cartões e parcelas do mês.
+      </p>
     </div>
 
     <div class="transactions-page__controls">
@@ -35,25 +37,165 @@
     </div>
   </header>
 
+  <div class="transactions-filters" role="region" aria-label="Filtros de lançamentos">
+    <div class="transactions-filters__group" role="group" aria-label="Filtrar por tipo">
+      <button
+        type="button"
+        class="transactions-filters__chip"
+        [class.transactions-filters__chip--active]="filtroTipo() === 'todos'"
+        (click)="selecionarFiltroTipo('todos')"
+        data-testid="filter-tipo-todos"
+      >
+        Todos
+      </button>
+      <button
+        type="button"
+        class="transactions-filters__chip"
+        [class.transactions-filters__chip--active]="filtroTipo() === 'entrada'"
+        (click)="selecionarFiltroTipo('entrada')"
+        data-testid="filter-tipo-entrada"
+      >
+        Entradas
+      </button>
+      <button
+        type="button"
+        class="transactions-filters__chip"
+        [class.transactions-filters__chip--active]="filtroTipo() === 'saida'"
+        (click)="selecionarFiltroTipo('saida')"
+        data-testid="filter-tipo-saida"
+      >
+        Saídas
+      </button>
+    </div>
+
+    <div class="transactions-filters__group" role="group" aria-label="Filtrar por situação">
+      <button
+        type="button"
+        class="transactions-filters__chip"
+        [class.transactions-filters__chip--active]="filtroStatus() === 'todos'"
+        (click)="selecionarFiltroStatus('todos')"
+        data-testid="filter-status-todos"
+      >
+        Todas situações
+      </button>
+      <button
+        type="button"
+        class="transactions-filters__chip"
+        [class.transactions-filters__chip--active]="filtroStatus() === 'pendente'"
+        (click)="selecionarFiltroStatus('pendente')"
+        data-testid="filter-status-pendente"
+      >
+        Pendentes
+      </button>
+      <button
+        type="button"
+        class="transactions-filters__chip"
+        [class.transactions-filters__chip--active]="filtroStatus() === 'pago'"
+        (click)="selecionarFiltroStatus('pago')"
+        data-testid="filter-status-pago"
+      >
+        Pagos / Recebidos
+      </button>
+    </div>
+  </div>
+
   <div class="transactions-summary" aria-label="Resumo do mês">
     <article class="transactions-summary__card transactions-summary__card--income">
       <span>Entradas no mês</span>
       <strong>{{ monthlyIncome() | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}</strong>
+      <small class="transactions-summary__sub" data-testid="summary-income-breakdown">
+        Recebido: {{ entradasPagas() | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }} · A receber:
+        {{ entradasPendentes() | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}
+      </small>
     </article>
     <article class="transactions-summary__card transactions-summary__card--expense">
       <span>Saídas no mês</span>
       <strong>{{ monthlyExpenses() | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}</strong>
+      <small class="transactions-summary__sub" data-testid="summary-expense-breakdown">
+        Pago: {{ saidasPagas() | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }} · A pagar:
+        {{ saidasPendentes() | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}
+      </small>
     </article>
     <article class="transactions-summary__card transactions-summary__card--pending">
       <span>Lançamentos pendentes</span>
       <strong>{{ pendingCount() }}</strong>
+      <small class="transactions-summary__sub">Itens aguardando baixa no mês</small>
     </article>
   </div>
+
+  <div class="transactions-budget" data-testid="budget-summary-bar" aria-label="Orçamento planejado x executado">
+    <div class="transactions-budget__top">
+      <div class="transactions-budget__info">
+        <ion-icon name="pie-chart-outline" aria-hidden="true"></ion-icon>
+        <span>
+          Executado (saídas pagas):
+          <strong>{{ saidasPagas() | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}</strong>
+          @if (orcamentoPlanejado() > 0) {
+            de
+            <strong>{{ orcamentoPlanejado() | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}</strong>
+            planejados ({{ percentualOrcamento() | number: '1.0-0' : 'pt-BR' }}%)
+          } @else {
+            — sem orçamento definido para o mês
+          }
+        </span>
+      </div>
+      <a routerLink="/planejamento" class="transactions-budget__link" data-testid="budget-adjust-link">
+        Ajustar orçamento
+      </a>
+    </div>
+    @if (percentualOrcamento() !== null) {
+      <div class="transactions-budget__bar" role="progressbar" [attr.aria-valuenow]="percentualOrcamento()" aria-valuemin="0" aria-valuemax="100">
+        <div
+          class="transactions-budget__fill"
+          [class.transactions-budget__fill--danger]="saidasPagas() > orcamentoPlanejado()"
+          [style.width.%]="percentualOrcamento()"
+        ></div>
+      </div>
+    }
+  </div>
+
   @if (totaisParciais()) {
     <p class="transactions-summary__partial" role="status">
       Totais parciais: considerando só os {{ transacaoService.extrato().length }} lançamentos
       carregados. Role a lista para carregar o restante do mês.
     </p>
+  }
+
+  @if (faturasCartaoAbertas().length > 0) {
+    <section class="transactions-invoices" aria-label="Faturas de cartão abertas" data-testid="open-invoices-section">
+      <div class="transactions-invoices__header">
+        <span>
+          <ion-icon name="card-outline" aria-hidden="true"></ion-icon>
+          Faturas de cartão em aberto ({{ faturasCartaoAbertas().length }})
+        </span>
+        <small>As parcelas já estão incluídas na lista e nos totais do mês</small>
+      </div>
+      <div class="transactions-invoices__list">
+        @for (fatura of faturasCartaoAbertas(); track fatura.id) {
+          <div class="transactions-invoices__item" data-testid="open-invoice-item">
+            <div class="transactions-invoices__details">
+              <strong>{{ fatura.descricao }}</strong>
+              <span>
+                {{ fatura.origem_rotulo || 'Cartão' }} · Venc.
+                {{ fatura.data | date: 'dd/MM/yyyy' : 'UTC' : 'pt-BR' }}
+              </span>
+            </div>
+            <div class="transactions-invoices__right">
+              <strong>{{ fatura.valor | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}</strong>
+              <button
+                type="button"
+                class="transactions-invoices__pay-btn"
+                data-testid="pay-invoice-btn"
+                (click)="pagarFatura(fatura)"
+              >
+                <ion-icon name="card-outline" aria-hidden="true"></ion-icon>
+                Pagar fatura
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+    </section>
   }
 
   <section class="transactions-list" aria-labelledby="transactions-list-title">
@@ -86,17 +228,32 @@
         @for (transaction of transactions(); track transaction.id) {
           <article
             class="transaction"
-            [class.transaction--card]="transaction.isCard"
-            [attr.role]="transaction.isCard && transaction.cardId ? 'link' : null"
-            [attr.tabindex]="transaction.isCard && transaction.cardId ? '0' : null"
+            [class.transaction--card]="transaction.isCard || (transaction.origem === 'EMPRESTIMO' && !!transaction.loanId)"
+            [attr.role]="
+              (transaction.isCard && transaction.cardId) || (transaction.origem === 'EMPRESTIMO' && transaction.loanId)
+                ? 'link'
+                : null
+            "
+            [attr.tabindex]="
+              (transaction.isCard && transaction.cardId) || (transaction.origem === 'EMPRESTIMO' && transaction.loanId)
+                ? '0'
+                : null
+            "
             [attr.aria-label]="
               transaction.isCard && transaction.cardId
                 ? transaction.description + ' — ver cartão ' + (transaction.cardLabel || '')
+                : transaction.origem === 'EMPRESTIMO' && transaction.loanId
+                ? transaction.description + ' — ver empréstimo'
                 : null
             "
             (click)="abrirItemCartao(transaction)"
             (keydown.enter)="abrirItemCartao(transaction)"
-            (keydown.space)="transaction.isCard && transaction.cardId ? $event.preventDefault() : null; abrirItemCartao(transaction)"
+            (keydown.space)="
+              (transaction.isCard && transaction.cardId) || (transaction.origem === 'EMPRESTIMO' && transaction.loanId)
+                ? $event.preventDefault()
+                : null;
+              abrirItemCartao(transaction)
+            "
           >
             <div class="transaction__date">
               <strong>{{ transaction.date | date: 'dd' : 'UTC' : 'pt-BR' }}</strong>
@@ -110,6 +267,18 @@
                   <span class="transaction__card-badge" data-testid="transaction-card-badge">
                     <ion-icon name="card-outline" aria-hidden="true"></ion-icon>
                     {{ transaction.cardLabel || 'Cartão' }}
+                  </span>
+                } @else if (transaction.badgeLabel) {
+                  <span
+                    class="transaction__origin-badge"
+                    [class.transaction__origin-badge--planned]="transaction.origem === 'PLANEJADO'"
+                    [class.transaction__origin-badge--loan]="transaction.origem === 'EMPRESTIMO'"
+                    data-testid="transaction-origin-badge"
+                  >
+                    @if (transaction.isRecorrente) {
+                      <ion-icon name="repeat-outline" aria-hidden="true"></ion-icon>
+                    }
+                    {{ transaction.badgeLabel }}
                   </span>
                 }
               </div>
@@ -135,12 +304,62 @@
             >
               {{ transaction.status }}
             </span>
+
+            <div class="transaction__actions" (click)="$event.stopPropagation()">
+              @if (!transaction.isReadOnly) {
+                @if (transaction.status === 'Pendente') {
+                  <button
+                    type="button"
+                    class="transaction__action-btn transaction__action-btn--pay"
+                    data-testid="settle-btn"
+                    [attr.aria-label]="
+                      (transaction.type === 'Entrada' ? 'Receber ' : 'Pagar ') + transaction.description
+                    "
+                    (click)="efetivarItem(transaction, $event)"
+                  >
+                    <ion-icon name="checkmark-circle-outline" aria-hidden="true"></ion-icon>
+                    <span>{{ transaction.type === 'Entrada' ? 'Receber' : 'Pagar' }}</span>
+                  </button>
+                }
+                @if (transaction.origem === 'CONTA' || transaction.origem === 'PLANEJADO') {
+                  <button
+                    type="button"
+                    class="transaction__icon-btn"
+                    data-testid="edit-btn"
+                    [attr.aria-label]="'Editar ' + transaction.description"
+                    (click)="abrirEdicao(transaction, $event)"
+                  >
+                    <ion-icon name="create-outline" aria-hidden="true"></ion-icon>
+                  </button>
+                  <button
+                    type="button"
+                    class="transaction__icon-btn transaction__icon-btn--danger"
+                    data-testid="delete-btn"
+                    [attr.aria-label]="
+                      (transaction.origem === 'PLANEJADO' ? 'Cancelar ' : 'Excluir ') +
+                      transaction.description
+                    "
+                    (click)="excluirOuCancelar(transaction, $event)"
+                  >
+                    <ion-icon name="trash-outline" aria-hidden="true"></ion-icon>
+                  </button>
+                }
+                <button
+                  type="button"
+                  class="transaction__more-btn"
+                  data-testid="more-actions-btn"
+                  [attr.aria-label]="'Mais ações para ' + transaction.description"
+                  (click)="abrirMenuAcoes(transaction, $event)"
+                >
+                  <ion-icon name="ellipsis-vertical" aria-hidden="true"></ion-icon>
+                </button>
+              }
+            </div>
           </article>
         }
       </div>
 
       @if (temMaisPaginas()) {
-        <!-- Botão acessível como alternativa ao scroll infinito (teclado/leitor de tela) -->
         <div class="transactions-list__more">
           <ion-button
             fill="clear"
@@ -178,6 +397,7 @@
 
   <app-transaction-modal
     [isOpen]="modalNovaTransacaoAberto()"
+    [editingItem]="itemEmEdicao()"
     (closeModal)="fecharModalNovaTransacao()"
     (transactionCreated)="onTransacaoCriada()"
   ></app-transaction-modal>

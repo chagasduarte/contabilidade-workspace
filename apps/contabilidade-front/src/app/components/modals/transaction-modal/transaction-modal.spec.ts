@@ -5,11 +5,13 @@ import { TransactionModal } from './transaction-modal';
 import { TransacaoService } from '../../../core/services/transacao.service';
 import { CategoriaService } from '../../../core/services/categoria.service';
 import { CartaoService } from '../../../core/services/cartao.service';
+import { PlannedTransactionService } from '../../../core/services/planned-transaction.service';
 import {
   Cartao,
   Categoria,
   CreateParceladaDto,
   CreateTransacaoDto,
+  PlannedTransaction,
   Transacao,
 } from '@contabilidade/models';
 
@@ -30,6 +32,12 @@ describe('TransactionModal', () => {
   let transacaoServiceStub: {
     criarTransacao: ReturnType<typeof vi.fn>;
     criarTransacoesParceladas: ReturnType<typeof vi.fn>;
+    atualizarTransacao: ReturnType<typeof vi.fn>;
+  };
+
+  let plannedTransactionServiceStub: {
+    criar: ReturnType<typeof vi.fn>;
+    atualizar: ReturnType<typeof vi.fn>;
   };
 
   let categoriaServiceStub: {
@@ -75,6 +83,43 @@ describe('TransactionModal', () => {
           } as Transacao,
         ])
       ),
+      atualizarTransacao: vi.fn().mockReturnValue(
+        of({
+          id: 1,
+          descricao: 'Mercado editado',
+          tipo: 'saida',
+          valor: 180,
+          data: '2026-10-15',
+          status: 'pago',
+        } as Transacao)
+      ),
+    };
+
+    plannedTransactionServiceStub = {
+      criar: vi.fn().mockReturnValue(
+        of({
+          id: 'plan-1',
+          userid: 1,
+          descricao: 'Aluguel',
+          tipo: 'DESPESA',
+          valor: 1500,
+          data_prevista: '2026-10-05',
+          recorrencia: 'MENSAL',
+          status: 'PENDING',
+        } as PlannedTransaction)
+      ),
+      atualizar: vi.fn().mockReturnValue(
+        of({
+          id: 'plan-1',
+          userid: 1,
+          descricao: 'Aluguel reajustado',
+          tipo: 'DESPESA',
+          valor: 1600,
+          data_prevista: '2026-10-05',
+          recorrencia: 'MENSAL',
+          status: 'PENDING',
+        } as PlannedTransaction)
+      ),
     };
 
     categoriaServiceStub = {
@@ -96,6 +141,7 @@ describe('TransactionModal', () => {
         { provide: TransacaoService, useValue: transacaoServiceStub },
         { provide: CategoriaService, useValue: categoriaServiceStub },
         { provide: CartaoService, useValue: cartaoServiceStub },
+        { provide: PlannedTransactionService, useValue: plannedTransactionServiceStub },
       ],
     }).compileComponents();
 
@@ -246,6 +292,91 @@ describe('TransactionModal', () => {
 
     component.onEscape();
     expect(closed).toBe(true);
+  });
+
+  it('deve chamar PlannedTransactionService.criar quando recorrencia for MENSAL', () => {
+    component.form.patchValue({
+      tipo: 'saida',
+      descricao: 'Aluguel',
+      valor: 1500,
+      data: '2026-10-05',
+      idcategoria: 1,
+      recorrencia: 'MENSAL',
+      dataLimiteRecorrencia: '2027-10-05',
+    });
+
+    component.salvar();
+
+    expect(plannedTransactionServiceStub.criar).toHaveBeenCalledWith({
+      descricao: 'Aluguel',
+      tipo: 'DESPESA',
+      valor: 1500,
+      data_prevista: '2026-10-05',
+      idcategoria: 1,
+      recorrencia: 'MENSAL',
+      data_limite_recorrencia: '2027-10-05',
+      status: 'PENDING',
+    });
+    expect(transacaoServiceStub.criarTransacao).not.toHaveBeenCalled();
+  });
+
+  it('deve atualizar transação de conta (a) e conta planejada recorrente (c) com escopo ALL_FUTURE', () => {
+    fixture.componentRef.setInput('isOpen', false);
+    fixture.detectChanges();
+
+    fixture.componentRef.setInput('editingItem', {
+      id: 42,
+      descricao: 'Energia',
+      tipo: 'saida',
+      valor: 210,
+      data: '2026-10-12',
+      status: 'pendente',
+      idcategoria: 1,
+    } as Transacao);
+    fixture.componentRef.setInput('isOpen', true);
+    fixture.detectChanges();
+
+    component.form.patchValue({ valor: 230 });
+    component.salvar();
+
+    expect(transacaoServiceStub.atualizarTransacao).toHaveBeenCalledWith(
+      42,
+      expect.objectContaining({ descricao: 'Energia', valor: 230 })
+    );
+
+    // Agora testa edição de item (c) PLANEJADO recorrente
+    fixture.componentRef.setInput('isOpen', false);
+    fixture.detectChanges();
+
+    fixture.componentRef.setInput('editingItem', {
+      id: 'plan:uuid-123',
+      target_id: 'uuid-123',
+      source_type: 'PLANNED_TRANSACTION',
+      origem: 'PLANEJADO',
+      descricao: 'Aluguel',
+      tipo: 'saida',
+      valor: 1500,
+      data: '2026-10-05',
+      status: 'pendente',
+      idcategoria: 1,
+      recorrencia: 'MENSAL',
+      is_recorrente: true,
+    } as Transacao);
+    fixture.componentRef.setInput('isOpen', true);
+    fixture.detectChanges();
+
+    component.form.patchValue({ valor: 1600, updateMode: 'ALL_FUTURE' });
+    component.salvar();
+
+    expect(plannedTransactionServiceStub.atualizar).toHaveBeenCalledWith(
+      'uuid-123',
+      expect.objectContaining({
+        descricao: 'Aluguel',
+        tipo: 'DESPESA',
+        valor: 1600,
+        updateMode: 'ALL_FUTURE',
+      })
+    );
   });
 });
 

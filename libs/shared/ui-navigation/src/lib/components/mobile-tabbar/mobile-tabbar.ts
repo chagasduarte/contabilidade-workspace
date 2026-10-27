@@ -7,6 +7,7 @@ import {
   homeOutline,
   listOutline,
   walletOutline,
+  pieChartOutline,
   checkmarkCircleOutline,
   ellipsisHorizontal
 } from 'ionicons/icons';
@@ -28,6 +29,7 @@ export class MobileTabbar {
       homeOutline,
       listOutline,
       walletOutline,
+      pieChartOutline,
       checkmarkCircleOutline,
       ellipsisHorizontal
     });

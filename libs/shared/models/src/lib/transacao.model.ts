@@ -79,14 +79,25 @@ export interface ResumoTransacoesEntrada {
 }
 
 
+export interface ExtratoFiltros {
+  tipo?: 'entrada' | 'saida';
+  status?: 'pago' | 'pendente';
+}
+
+export interface ExtratoTotais {
+  entradas: number;
+  saidas: number;
+  pendentes: number;
+  entradas_pagas?: number;
+  entradas_pendentes?: number;
+  saidas_pagas?: number;
+  saidas_pendentes?: number;
+}
+
 /** Resposta de `GET /transacoes/extrato?paginado=true` (cursor opaco). */
 export interface ExtratoPaginado {
   items: Transacao[];
   next_cursor: string | null;
   /** Opcional: totais do mês inteiro, independentes da página (pedido ao BackEnd). */
-  totais?: {
-    entradas: number;
-    saidas: number;
-    pendentes: number;
-  } | null;
+  totais?: ExtratoTotais | null;
 }

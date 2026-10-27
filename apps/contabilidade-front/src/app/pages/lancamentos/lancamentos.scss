@@ -22,7 +22,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    margin-bottom: 24px;
+    margin-bottom: 18px;
   }
 
   &__eyebrow {
@@ -74,7 +74,6 @@
 
     &:hover {
       background: #00e67a;
-      box-shadow: 0 6px 16px rgba(0, 255, 136, 0.35);
       transform: translateY(-1px);
     }
 
@@ -83,7 +82,7 @@
     }
 
     @media (max-width: 576px) {
-      display: none; // No mobile, o botão flutuante (FAB) entra em ação
+      display: none;
     }
   }
 
@@ -95,7 +94,7 @@
       align-items: center;
       justify-content: center;
       position: fixed;
-      bottom: calc(5.25rem + env(safe-area-inset-bottom)); /* Acima da tabbar mobile */
+      bottom: calc(5.25rem + env(safe-area-inset-bottom));
       right: 1.25rem;
       width: 3.5rem;
       height: 3.5rem;
@@ -106,24 +105,46 @@
       box-shadow: 0 8px 24px rgba(0, 255, 136, 0.45);
       cursor: pointer;
       z-index: 99;
-      transition: transform 0.15s ease, box-shadow 0.15s ease;
 
       ion-icon {
         font-size: 1.8rem;
       }
-
-      &:active {
-        transform: scale(0.92);
-      }
     }
   }
+}
 
-  &__demo-label {
-    padding: 6px 10px;
-    color: #f5f6f8;
-    font-size: 0.82rem;
+.transactions-filters {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 18px;
+
+  &__group {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    background: #1b2028;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 999px;
+    padding: 4px;
+  }
+
+  &__chip {
+    padding: 6px 13px;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: #9ba8b8;
+    font-size: 0.8rem;
     font-weight: 600;
-    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    &--active {
+      background: rgba(0, 255, 136, 0.16);
+      color: #00ff88;
+    }
   }
 }
 
@@ -131,13 +152,13 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
-  margin-bottom: 22px;
+  margin-bottom: 14px;
 
   &__card {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    padding: 18px;
+    gap: 6px;
+    padding: 16px 18px;
     border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: 16px;
     background: #222933;
@@ -146,7 +167,7 @@
 
     strong {
       color: #f5f6f8;
-      font-size: clamp(1.15rem, 3vw, 1.6rem);
+      font-size: clamp(1.15rem, 3vw, 1.55rem);
       font-weight: 700;
     }
 
@@ -161,6 +182,162 @@
     &--pending strong {
       color: #f0c477;
     }
+  }
+
+  &__sub {
+    color: #8fa0b1;
+    font-size: 0.76rem;
+  }
+
+  &__partial {
+    margin: -4px 0 14px;
+    font-size: 0.8rem;
+    color: #f0c477;
+  }
+}
+
+.transactions-budget {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 13px 18px;
+  margin-bottom: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  background: #1d242e;
+
+  &__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    font-size: 0.84rem;
+    color: #cfd6e4;
+  }
+
+  &__info {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+
+    ion-icon {
+      color: #00ff88;
+      font-size: 1.05rem;
+    }
+  }
+
+  &__link {
+    color: #00ff88;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  &__bar {
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+  }
+
+  &__fill {
+    height: 100%;
+    border-radius: 999px;
+    background: #00ff88;
+    transition: width 0.25s ease;
+
+    &--danger {
+      background: #f08072;
+    }
+  }
+}
+
+.transactions-invoices {
+  margin-bottom: 18px;
+  padding: 14px 18px;
+  border: 1px solid rgba(168, 85, 247, 0.28);
+  border-radius: 16px;
+  background: rgba(168, 85, 247, 0.08);
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+    font-size: 0.86rem;
+    font-weight: 600;
+    color: #e9d5ff;
+
+    span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    small {
+      color: #b8a5d1;
+      font-weight: 400;
+      font-size: 0.76rem;
+    }
+  }
+
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(17, 22, 29, 0.65);
+  }
+
+  &__details {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    strong {
+      font-size: 0.9rem;
+    }
+
+    span {
+      color: #9ba8b8;
+      font-size: 0.76rem;
+    }
+  }
+
+  &__right {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  &__pay-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    border: none;
+    border-radius: 999px;
+    background: #a855f7;
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
   }
 }
 
@@ -215,10 +392,10 @@
 
 .transaction {
   display: grid;
-  grid-template-columns: 48px minmax(130px, 1fr) 90px minmax(120px, auto) 86px;
+  grid-template-columns: 48px minmax(130px, 1fr) 82px minmax(110px, auto) 86px auto;
   align-items: center;
-  gap: 14px;
-  padding: 16px 20px;
+  gap: 12px;
+  padding: 14px 20px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 
   &:last-child {
@@ -227,7 +404,6 @@
 
   &--card[role='link'] {
     cursor: pointer;
-    transition: background-color 0.15s ease;
 
     &:hover,
     &:focus-visible {
@@ -258,6 +434,7 @@
 
   &__details {
     gap: 3px;
+    min-width: 0;
 
     strong {
       overflow: hidden;
@@ -278,16 +455,30 @@
     gap: 6px;
   }
 
-  &__card-badge {
+  &__card-badge,
+  &__origin-badge {
     display: inline-flex;
     align-items: center;
     gap: 4px;
     padding: 2px 8px;
     border-radius: 999px;
-    background: rgba(168, 85, 247, 0.18);
-    color: #d8b4fe !important;
     font-size: 0.72rem !important;
     font-weight: 600;
+  }
+
+  &__card-badge {
+    background: rgba(168, 85, 247, 0.18);
+    color: #d8b4fe !important;
+  }
+
+  &__origin-badge {
+    background: rgba(56, 189, 248, 0.15);
+    color: #7dd3fc !important;
+
+    &--loan {
+      background: rgba(251, 146, 60, 0.16);
+      color: #fdba74 !important;
+    }
   }
 
   &__type,
@@ -319,43 +510,70 @@
     background: rgba(240, 196, 119, 0.12);
     color: #f0c477;
   }
+
+  &__actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+
+  &__action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 10px;
+    border: 1px solid rgba(0, 255, 136, 0.35);
+    border-radius: 999px;
+    background: rgba(0, 255, 136, 0.1);
+    color: #00ff88;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  &__icon-btn,
+  &__more-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #cfd6e4;
+    cursor: pointer;
+
+    &--danger {
+      color: #fca5a5;
+    }
+  }
+
+  &__more-btn {
+    display: none;
+  }
 }
 
 @media (max-width: 700px) {
   .transactions-page {
-    /* espaço para o FAB e a tabbar mobile */
     padding: 20px 14px calc(6rem + env(safe-area-inset-bottom));
 
     &__header {
       align-items: flex-start;
       flex-direction: column;
-      margin-bottom: 18px;
+      margin-bottom: 14px;
     }
   }
 
   .transactions-summary {
     grid-template-columns: 1fr;
     gap: 10px;
-    margin-bottom: 16px;
-
-    &__card {
-      flex-direction: row;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 14px;
-    }
-  }
-
-  .transactions-list {
-    &__header {
-      padding: 16px 14px;
-    }
   }
 
   .transaction {
     grid-template-columns: 36px minmax(0, 1fr) auto;
-    gap: 8px 12px;
+    gap: 6px 10px;
     padding: 14px;
 
     &__type {
@@ -374,10 +592,19 @@
       grid-row: 2;
       justify-self: end;
     }
+
+    &__actions {
+      grid-column: 2 / 4;
+      grid-row: 3;
+      justify-content: flex-end;
+    }
+
+    &__icon-btn {
+      display: none;
+    }
+
+    &__more-btn {
+      display: inline-flex;
+    }
   }
-}
-.transactions-summary__partial {
-  margin: -8px 0 16px;
-  font-size: 0.8rem;
-  color: #f0c477;
 }

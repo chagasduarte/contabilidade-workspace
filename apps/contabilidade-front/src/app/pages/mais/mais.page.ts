@@ -103,20 +103,6 @@ export class MaisPage implements OnInit {
       color: '#a78bfa',
     },
     {
-      title: 'Contas a Pagar',
-      subtitle: 'Controle datas de vencimento e parcelamentos futuros',
-      route: '/contas-pagar',
-      icon: 'card-outline',
-      color: '#f87171',
-    },
-    {
-      title: 'Contas a Receber',
-      subtitle: 'Acompanhe recebimentos previstos e valores pendentes',
-      route: '/contas-receber',
-      icon: 'checkmark-circle-outline',
-      color: '#34d399',
-    },
-    {
       title: 'Empréstimos & Financiamentos',
       subtitle: 'Controle contratos, cronograma de parcelas e amortização com desconto',
       route: '/emprestimos',
