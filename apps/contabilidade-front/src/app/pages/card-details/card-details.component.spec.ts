@@ -214,6 +214,17 @@ describe('CardDetailsComponent', () => {
     expect(component.tituloFaturaAtiva()).toBe('Dezembro 2026');
   });
 
+  it('permite escolher o mês diretamente via selecionarMes (MonthSelector)', () => {
+    const header = TestBed.inject(HeaderStateService);
+
+    component.selecionarMes(11);
+    fixture.detectChanges();
+
+    expect(component.mes()).toBe(11);
+    expect(header.selectedMonth()).toBe(11);
+    expect(component.tituloFaturaAtiva()).toBe('Novembro 2026');
+  });
+
   it('deve calcular o percentual de limite consumido corretamente', () => {
     // 1000 comprometido de 5000 total = 20% (0.2)
     expect(component.percentualLimite()).toBe(0.2);

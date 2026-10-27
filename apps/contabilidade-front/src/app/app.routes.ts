@@ -120,7 +120,6 @@ export const appRoutes: Route[] = [
         path: 'cartoes',
         loadComponent: () =>
           import('./pages/cards/cards.page').then((m) => m.CardsPage),
-        data: { monthSelector: true },
       },
       {
         path: 'cartoes/:id',
@@ -139,7 +138,6 @@ export const appRoutes: Route[] = [
         path: 'cards',
         loadComponent: () =>
           import('./pages/cards/cards.page').then((m) => m.CardsPage),
-        data: { monthSelector: true },
       },
       {
         path: 'cards/:id',

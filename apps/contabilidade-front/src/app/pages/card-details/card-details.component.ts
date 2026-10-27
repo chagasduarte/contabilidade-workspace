@@ -174,7 +174,11 @@ export class CardDetailsComponent implements OnInit {
   readonly faturaAtiva = computed<CardInvoice | null>(() => {
     const alvo = `${this.ano()}-${String(this.mes()).padStart(2, '0')}`;
     return (
-      this.faturas().find((f) => String(f.data_vencimento).substring(0, 7) === alvo) ?? null
+      this.faturas().find((f) => String(f.data_vencimento).substring(0, 7) === alvo) ??
+      this.faturas().find(
+        (f) => Number(f.ano_referencia) === this.ano() && Number(f.mes_referencia) === this.mes()
+      ) ??
+      null
     );
   });
 

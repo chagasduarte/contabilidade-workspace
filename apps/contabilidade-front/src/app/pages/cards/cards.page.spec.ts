@@ -6,7 +6,6 @@ import { LoadingController, ToastController } from '@ionic/angular';
 import { CardsPage } from './cards.page';
 import { CardService } from '../card-details/card.service';
 import { CardDetailsResponseDto, CreditCard } from '../card-details/card.model';
-import { DashboardService } from '../../core/services/dashboard.service';
 
 describe('CardsPage', () => {
   let component: CardsPage;
@@ -43,17 +42,8 @@ describe('CardsPage', () => {
 
   let toastSpy: { present: ReturnType<typeof vi.fn> };
   let loadingSpy: { present: ReturnType<typeof vi.fn>; dismiss: ReturnType<typeof vi.fn> };
-  let dashboardServiceStub: {
-    mes: ReturnType<typeof signal<number>>;
-    ano: ReturnType<typeof signal<number>>;
-  };
 
   beforeEach(async () => {
-    dashboardServiceStub = {
-      mes: signal(10),
-      ano: signal(2026),
-    };
-
     cardServiceStub = {
       cartoes: signal([mockCartaoDetalhes]),
       loading: signal(false),
@@ -80,7 +70,6 @@ describe('CardsPage', () => {
       providers: [
         provideRouter([]),
         { provide: CardService, useValue: cardServiceStub },
-        { provide: DashboardService, useValue: dashboardServiceStub },
         { provide: ToastController, useValue: toastCtrlStub },
         { provide: LoadingController, useValue: loadingCtrlStub },
       ],
@@ -190,20 +179,6 @@ describe('CardsPage', () => {
     component.handleRefresh(event);
     expect(cardServiceStub.listarCartoes).toHaveBeenCalled();
     expect(completeSpy).toHaveBeenCalled();
-  });
-
-  it('should change month and wrap year on mesAnterior / proximoMes / selecionarMes', () => {
-    component.selecionarMes(1);
-    expect(component.mes()).toBe(1);
-    expect(component.ano()).toBe(2026);
-
-    component.mesAnterior();
-    expect(component.mes()).toBe(12);
-    expect(component.ano()).toBe(2025);
-
-    component.proximoMes();
-    expect(component.mes()).toBe(1);
-    expect(component.ano()).toBe(2026);
   });
 });
 
