@@ -22,8 +22,14 @@
           [class.transaction-modal__icon--expense]="tipoAtual() === 'saida'"
         ></ion-icon>
         <div>
-          <h2 id="modal-title">Nova Transação</h2>
-          <p>Adicione receita, despesa à vista ou parcelada no cartão</p>
+          <h2 id="modal-title">{{ emEdicao() ? 'Editar Lançamento' : 'Nova Transação' }}</h2>
+          <p>
+            {{
+              emEdicao()
+                ? 'Atualize os dados do lançamento selecionado'
+                : 'Adicione receita, despesa à vista, parcelada ou recorrente'
+            }}
+          </p>
         </div>
       </div>
       <button
@@ -154,24 +160,69 @@
 
         <div class="transaction-modal__row">
           <!-- Status -->
+          @if (!isEdicaoPlanejada() && recorrenciaAtual() !== 'MENSAL') {
+            <div class="transaction-modal__field">
+              <label for="modal-tx-status">Situação</label>
+              <div class="transaction-modal__input-wrapper">
+                <ion-icon name="checkmark-circle-outline"></ion-icon>
+                <select id="modal-tx-status" formControlName="status">
+                  <option value="pendente">
+                    {{ tipoAtual() === 'entrada' ? 'Pendente / A receber' : 'Pendente / A pagar' }}
+                  </option>
+                  <option value="pago">
+                    {{ tipoAtual() === 'entrada' ? 'Recebido / Concluído' : 'Pago / Concluído' }}
+                  </option>
+                </select>
+              </div>
+            </div>
+          }
+
+          <!-- Repetição (apenas na criação) -->
+          @if (!emEdicao()) {
+            <div class="transaction-modal__field">
+              <label for="modal-tx-recorrencia">Repetição</label>
+              <div class="transaction-modal__input-wrapper">
+                <ion-icon name="repeat-outline"></ion-icon>
+                <select id="modal-tx-recorrencia" formControlName="recorrencia">
+                  <option value="NONE">Não repete</option>
+                  <option value="MENSAL">Mensal (fixo)</option>
+                </select>
+              </div>
+            </div>
+          }
+        </div>
+
+        @if (!emEdicao() && recorrenciaAtual() === 'MENSAL') {
+          <div class="transaction-modal__row">
+            <div class="transaction-modal__field">
+              <label for="modal-tx-limite-recorrencia">Repetir até (opcional)</label>
+              <div class="transaction-modal__input-wrapper">
+                <ion-icon name="calendar-outline"></ion-icon>
+                <input
+                  id="modal-tx-limite-recorrencia"
+                  type="date"
+                  formControlName="dataLimiteRecorrencia"
+                />
+              </div>
+            </div>
+          </div>
+        }
+
+        @if (isEdicaoRecorrente()) {
           <div class="transaction-modal__field">
-            <label for="modal-tx-status">Situação</label>
+            <label for="modal-tx-update-mode">Aplicar alteração em</label>
             <div class="transaction-modal__input-wrapper">
-              <ion-icon name="checkmark-circle-outline"></ion-icon>
-              <select id="modal-tx-status" formControlName="status">
-                <option value="pendente">
-                  {{ tipoAtual() === 'entrada' ? 'Pendente / A receber' : 'Pendente / A pagar' }}
-                </option>
-                <option value="pago">
-                  {{ tipoAtual() === 'entrada' ? 'Recebido / Concluído' : 'Pago / Concluído' }}
-                </option>
+              <ion-icon name="repeat-outline"></ion-icon>
+              <select id="modal-tx-update-mode" formControlName="updateMode">
+                <option value="SINGLE">Somente esta ocorrência</option>
+                <option value="ALL_FUTURE">Esta e todas as próximas</option>
               </select>
             </div>
           </div>
-        </div>
+        }
 
-        <!-- Seções exclusivas para Saídas (Despesas) -->
-        @if (tipoAtual() === 'saida') {
+        <!-- Seções exclusivas para Saídas (Despesas) na criação não-recorrente -->
+        @if (tipoAtual() === 'saida' && !emEdicao() && recorrenciaAtual() !== 'MENSAL') {
           <div class="transaction-modal__advanced-section">
             <!-- Opção: Pago com cartão -->
             <label class="transaction-modal__checkbox-label">
@@ -276,7 +327,7 @@
             @if (salvando()) {
               <span>Salvando...</span>
             } @else {
-              <span>Salvar Transação</span>
+              <span>{{ emEdicao() ? 'Salvar Alterações' : 'Salvar Transação' }}</span>
             }
           </button>
         </footer>

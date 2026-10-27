@@ -23,8 +23,12 @@ export interface TransacaoEntity {
   origem?: string | null;
   /** Nome do cartão, nas parcelas de cartão. */
   origem_rotulo?: string | null;
-  /** Id da fatura, nas parcelas de cartão. */
+  /** Id da fatura (cartão), da conta planejada ou da parcela de empréstimo: alvo das ações. */
   target_id?: string | null;
+  /** Contas planejadas no extrato. */
+  recorrencia?: string | null;
+  parent_recurrence_id?: string | null;
+  is_recorrente?: boolean;
   criado_em?: string | Date | null;
   created_at?: string | Date | null;
 }
@@ -114,14 +118,27 @@ export interface TransacaoLoteItem extends CreateTransacaoDto {
   parcela_total?: number | null;
 }
 
-/** Totais do período inteiro do extrato (independem do cursor/página). */
+/**
+ * Totais do período inteiro do extrato (independem do cursor/página e dos filtros), somando
+ * lançamentos de conta, parcelas de cartão, contas planejadas pendentes e parcelas de empréstimo pendentes.
+ */
 export interface ExtratoTotais {
-  /** Soma dos valores com tipo 'entrada'. */
+  /** Entradas pagas + pendentes. */
   entradas: number;
-  /** Soma dos valores dos demais tipos ('saida', 'cartao'...), como a tela de Lançamentos classifica. */
+  /** Saídas pagas + pendentes (tipos 'saida', 'cartao'...). */
   saidas: number;
-  /** QUANTIDADE de lançamentos com status 'pendente' (não é soma de valores). */
+  /** QUANTIDADE de itens pendentes (não é soma de valores). */
   pendentes: number;
+  entradas_pagas: number;
+  entradas_pendentes: number;
+  saidas_pagas: number;
+  saidas_pendentes: number;
+}
+
+/** Filtros opcionais da lista do extrato (`?tipo=` e `?status=`). */
+export interface ExtratoFiltros {
+  tipo: 'entrada' | 'saida' | null;
+  status: 'pago' | 'pendente' | null;
 }
 
 /** Cursor keyset do extrato: última (data, id) da página anterior. */
@@ -131,8 +148,9 @@ export interface ExtratoCursor {
 }
 
 /**
- * Cursor keyset das parcelas de cartão no extrato: (data da compra, id do invoice_item como texto).
- * No mesmo dia, lançamentos de conta vêm antes das parcelas de cartão.
+ * Cursor keyset das origens com id uuid no extrato (parcelas de cartão, contas planejadas,
+ * parcelas de empréstimo): (data, id como texto). No mesmo dia a ordem das origens é
+ * conta, cartão, planejada, empréstimo.
  */
 export interface ExtratoCartaoCursor {
   data: string; // YYYY-MM-DD
