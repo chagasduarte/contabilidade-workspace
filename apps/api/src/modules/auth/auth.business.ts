@@ -14,6 +14,7 @@ export const AuthBusiness = {
 
     // Mensagem única para usuário inexistente ou senha errada (evita enumeração de usuários)
     const usuario = await UserRepository.buscaPorNomeOuEmail(identificador);
+    console.log('Usuario encontrado:', usuario);
     if (!usuario) {
       throw new Error(CREDENCIAIS_INVALIDAS);
     }

@@ -7,7 +7,7 @@ import {
   CardNotFoundError,
   InvoiceNotFoundError,
 } from './card.business';
-import { CreateCardDto, CreateTransactionDto, PayInvoiceDto } from './card.dto';
+import { CreateCardDto, UpdateCardDto, CreateTransactionDto, PayInvoiceDto } from './card.dto';
 
 export const CardController = {
   /**
@@ -92,6 +92,44 @@ export const CardController = {
         return;
       }
       const message = error instanceof Error ? error.message : 'Erro ao buscar cartão.';
+      res.status(500).json({ erro: message, error: message });
+    }
+  },
+
+  /**
+   * PUT /cards/:id
+   * Edita os dados do cartão (nome, bandeira, limite, dias de fechamento/vencimento e cor).
+   */
+  async atualizar(req: Request, res: Response): Promise<void> {
+    try {
+      const usuarioId = req.usuarioId;
+      if (!usuarioId) {
+        res.status(401).json({ erro: 'Usuário não autenticado.' });
+        return;
+      }
+
+      const { id } = req.params;
+      const dto: UpdateCardDto = {
+        nome: req.body.nome,
+        bandeira: req.body.bandeira,
+        limite_total: Number(req.body.limite_total),
+        dia_fechamento: Number(req.body.dia_fechamento),
+        dia_vencimento: Number(req.body.dia_vencimento),
+        cor_identificacao: req.body.cor_identificacao,
+      };
+
+      const resultado = await CardBusiness.atualizarCartao(id, dto, usuarioId);
+      res.status(200).json(resultado);
+    } catch (error: unknown) {
+      if (error instanceof CardValidationError) {
+        res.status(400).json({ erro: error.message, error: error.message });
+        return;
+      }
+      if (error instanceof CardNotFoundError) {
+        res.status(404).json({ erro: error.message, error: error.message });
+        return;
+      }
+      const message = error instanceof Error ? error.message : 'Erro ao atualizar cartão.';
       res.status(500).json({ erro: message, error: message });
     }
   },

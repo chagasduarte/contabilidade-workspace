@@ -9,7 +9,7 @@ import {
   InvoiceItemEntity,
   InvoiceStatus,
 } from './card.entity';
-import { CreateCardDto } from './card.dto';
+import { CreateCardDto, UpdateCardDto } from './card.dto';
 
 export function mapCreditCardEntity(row: Record<string, unknown>): CreditCardEntity {
   return {
@@ -134,6 +134,71 @@ export const CardRepository = {
     }
 
     return mapCreditCardEntity(result.rows[0]);
+  },
+
+  /**
+   * Atualiza os dados editáveis de um cartão do usuário.
+   * Retorna undefined se o cartão não existir ou pertencer a outro usuário.
+   */
+  async atualizarCartao(
+    cartaoId: string,
+    dto: UpdateCardDto,
+    usuarioId: number,
+    client?: PoolClient
+  ): Promise<CreditCardEntity | undefined> {
+    const runner = client ?? pool;
+    const query = `
+      UPDATE credit_cards
+      SET nome = $1,
+          bandeira = $2,
+          limite_total = $3,
+          dia_fechamento = $4,
+          dia_vencimento = $5,
+          cor_identificacao = $6,
+          atualizado_em = clock_timestamp()
+      WHERE id = $7 AND usuario_id = $8
+      RETURNING *
+    `;
+
+    const result = await runner.query(query, [
+      dto.nome.trim(),
+      dto.bandeira?.trim() || null,
+      dto.limite_total,
+      dto.dia_fechamento,
+      dto.dia_vencimento,
+      dto.cor_identificacao?.trim() || '#6c757d',
+      cartaoId,
+      usuarioId,
+    ]);
+    if (!result.rows[0]) return undefined;
+    return mapCreditCardEntity(result.rows[0]);
+  },
+
+  /**
+   * Replica a edição na tabela legada `cartoes`, localizando o registro pelo nome anterior.
+   */
+  async sincronizarCartaoLegado(
+    nomeAnterior: string,
+    dto: UpdateCardDto,
+    usuarioId: number
+  ): Promise<void> {
+    try {
+      await pool.query(
+        `UPDATE cartoes
+         SET nome = $1, dia_fatura = $2, dia_vencimento = $3, limite = $4
+         WHERE userid = $5 AND LOWER(TRIM(nome)) = LOWER(TRIM($6))`,
+        [
+          dto.nome.trim(),
+          dto.dia_fechamento,
+          dto.dia_vencimento,
+          dto.limite_total,
+          usuarioId,
+          nomeAnterior,
+        ]
+      );
+    } catch {
+      // Ignora falha de sincronização secundária
+    }
   },
 
   /**
@@ -343,6 +408,26 @@ export const CardRepository = {
     ]);
     if (!result.rows[0]) return undefined;
     return mapInvoiceEntity(result.rows[0]);
+  },
+
+  /**
+   * Atualiza as datas de fechamento e vencimento de uma fatura.
+   */
+  async atualizarDatasFatura(
+    faturaId: string,
+    dataFechamento: Date,
+    dataVencimento: Date,
+    client?: PoolClient
+  ): Promise<void> {
+    const runner = client ?? pool;
+    await runner.query(
+      `UPDATE card_invoices
+       SET data_fechamento = $1,
+           data_vencimento = $2,
+           atualizado_em = clock_timestamp()
+       WHERE id = $3`,
+      [dataFechamento, dataVencimento, faturaId]
+    );
   },
 
   /**

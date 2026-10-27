@@ -10,7 +10,7 @@ import {
   signal,
 } from '@angular/core';
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import {
   IonBackButton,
@@ -56,6 +56,7 @@ import {
   receiptOutline,
   closeOutline,
   checkmarkOutline,
+  createOutline,
 } from 'ionicons/icons';
 import { CardInvoice, CreateTransactionDto } from './card.model';
 import { CardService } from './card.service';
@@ -82,6 +83,7 @@ const MESES_NOME = [
     CommonModule,
     FormsModule,
     ReactiveFormsModule,
+    RouterLink,
     CurrencyPipe,
     DatePipe,
     IonHeader,
@@ -187,6 +189,7 @@ export class CardDetailsComponent implements OnInit {
       receiptOutline,
       closeOutline,
       checkmarkOutline,
+      createOutline,
     });
 
     this.inicializarFormCompra();

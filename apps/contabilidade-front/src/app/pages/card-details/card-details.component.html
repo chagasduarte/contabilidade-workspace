@@ -5,6 +5,11 @@
     </ion-buttons>
     <ion-title>Gestão do Cartão</ion-title>
     <ion-buttons slot="end">
+      @if (cardId(); as id) {
+        <ion-button [routerLink]="['/cartoes', id, 'editar']" aria-label="Editar Cartão">
+          <ion-icon slot="icon-only" name="create-outline"></ion-icon>
+        </ion-button>
+      }
       <ion-button (click)="abrirModalNovaCompra()" aria-label="Nova Compra">
         <ion-icon slot="icon-only" name="add-outline"></ion-icon>
       </ion-button>

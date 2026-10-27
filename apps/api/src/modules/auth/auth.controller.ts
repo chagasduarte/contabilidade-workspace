@@ -16,8 +16,12 @@ export const AuthController = {
       res.status(200).json(resultado);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Erro na autenticação';
+      const isCredenciaisInvalidas = message === 'Usuário ou senha inválidos';
+      const statusCode =
+        (error as { statusCode?: number })?.statusCode ||
+        (isCredenciaisInvalidas ? 401 : 500);
       console.error('[AuthController.login]:', message);
-      res.status(401).json({ error: message, erro: message });
+      res.status(statusCode).json({ error: message, erro: message });
     }
   },
 

@@ -9,6 +9,7 @@ import {
   CardTransaction,
   InvoiceItem,
   CreateCardDto,
+  UpdateCardDto,
   CreateTransactionDto,
   PayInvoiceDto,
   CardDetailsResponseDto,
@@ -86,6 +87,30 @@ export class CardService {
     return this.http.post<CreditCard>(`${this.baseUrl}/cards`, payload).pipe(
       catchError((err: unknown) => {
         const msg = mensagemErroHttp(err, 'Erro ao cadastrar cartão.');
+        this.error.set(msg);
+        return throwError(() => new Error(msg));
+      }),
+      finalize(() => {
+        this.loading.set(false);
+      })
+    );
+  }
+
+  /**
+   * Edita os dados de um cartão de crédito.
+   */
+  atualizarCartao(id: string, payload: UpdateCardDto): Observable<CreditCard> {
+    this.loading.set(true);
+    this.error.set(null);
+
+    return this.http.put<CreditCard>(`${this.baseUrl}/cards/${id}`, payload).pipe(
+      tap((cartao) => {
+        this.cartaoSelecionado.update((prev) =>
+          prev?.cartao.id === id ? { ...prev, cartao, limite_total: cartao.limite_total } : prev
+        );
+      }),
+      catchError((err: unknown) => {
+        const msg = mensagemErroHttp(err, 'Erro ao atualizar cartão.');
         this.error.set(msg);
         return throwError(() => new Error(msg));
       }),

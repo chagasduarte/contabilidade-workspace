@@ -1,5 +1,7 @@
 import {
   ApplicationConfig,
+  DEFAULT_CURRENCY_CODE,
+  LOCALE_ID,
   provideBrowserGlobalErrorListeners,
   provideZoneChangeDetection,
 } from '@angular/core';
@@ -27,6 +29,9 @@ export const appConfig: ApplicationConfig = {
     provideRouter(appRoutes),
     provideHttpClient(withFetch(), withInterceptors([tokenInterceptor])),
     provideIonicAngular(),
+    // Telas que usam `currency`/`number`/`date` sem locale explícito formatavam em en-US ("R$2,446.21").
+    { provide: LOCALE_ID, useValue: 'pt-BR' },
+    { provide: DEFAULT_CURRENCY_CODE, useValue: 'BRL' },
     { provide: AUTH_NAVIGATION_HANDLER, useExisting: AuthService },
   ],
 };

@@ -1,0 +1,169 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-back-button
+        [defaultHref]="cardId() ? '/cartoes/' + cardId() : '/cartoes'"
+        text=""
+        aria-label="Voltar"
+      ></ion-back-button>
+    </ion-buttons>
+    <ion-title>Editar Cartão</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="card-edit-content ion-padding">
+  @if (carregando()) {
+    <div class="card-edit__state">
+      <ion-spinner name="crescent" color="primary"></ion-spinner>
+      <p>Carregando dados do cartão...</p>
+    </div>
+  } @else if (erroCarregamento()) {
+    <div class="card-edit__state card-edit__state--error" role="alert">
+      <ion-icon name="alert-circle-outline" color="danger" aria-hidden="true"></ion-icon>
+      <h2>Não foi possível carregar o cartão</h2>
+      <p>{{ erroCarregamento() }}</p>
+      <ion-button fill="outline" color="primary" (click)="carregar()">Tentar novamente</ion-button>
+    </div>
+  } @else {
+    <div class="card-edit">
+      <!-- Prévia do cartão com os valores do formulário -->
+      <div
+        class="card-preview"
+        aria-hidden="true"
+        [style.background]="'linear-gradient(135deg, ' + form.controls.cor_identificacao.value + ' 0%, #0f172a 100%)'"
+      >
+        <div class="card-preview__top">
+          <ion-icon name="card-outline"></ion-icon>
+          <span>{{ form.controls.bandeira.value || 'Crédito' }}</span>
+        </div>
+        <h3>{{ form.controls.nome.value || 'Nome do cartão' }}</h3>
+        <span class="card-preview__hint">
+          Fecha dia {{ form.controls.dia_fechamento.value || '–' }} • Vence dia
+          {{ form.controls.dia_vencimento.value || '–' }}
+        </span>
+        <span class="card-preview__limite">
+          Limite: {{ (form.controls.limite_total.value || 0) | currency:'BRL':'symbol':'1.2-2' }}
+        </span>
+      </div>
+
+      <form class="card-edit-form" [formGroup]="form" (ngSubmit)="salvar()" novalidate>
+        <div class="form-field">
+          <label for="edit-nome">Nome do Cartão</label>
+          <input
+            id="edit-nome"
+            type="text"
+            formControlName="nome"
+            placeholder="Ex: Nubank Ultravioleta, Itaú Click"
+            [attr.aria-invalid]="campoInvalido('nome')"
+          />
+          @if (campoInvalido('nome')) {
+            <small class="erro">O nome precisa ter pelo menos 2 caracteres.</small>
+          }
+        </div>
+
+        <div class="form-row">
+          <div class="form-field">
+            <label for="edit-bandeira">Bandeira</label>
+            <select id="edit-bandeira" formControlName="bandeira">
+              @for (b of bandeiras(); track b) {
+                <option [value]="b">{{ b }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="form-field">
+            <label for="edit-limite">Limite Total (R$)</label>
+            <input
+              id="edit-limite"
+              type="number"
+              inputmode="decimal"
+              step="0.01"
+              min="0.01"
+              formControlName="limite_total"
+              [attr.aria-invalid]="campoInvalido('limite_total')"
+            />
+            @if (campoInvalido('limite_total')) {
+              <small class="erro">Informe um limite maior que zero.</small>
+            }
+          </div>
+        </div>
+
+        @if (limiteAbaixoDoComprometido()) {
+          <p class="aviso" role="status">
+            <ion-icon name="alert-circle-outline" aria-hidden="true"></ion-icon>
+            O novo limite é menor que o valor já comprometido
+            ({{ detalhes()?.limite_comprometido | currency:'BRL':'symbol':'1.2-2' }}). O cartão ficará
+            sem limite disponível para novas compras até as faturas serem pagas.
+          </p>
+        }
+
+        <div class="form-row">
+          <div class="form-field">
+            <label for="edit-fechamento">Dia Fechamento</label>
+            <input
+              id="edit-fechamento"
+              type="number"
+              inputmode="numeric"
+              min="1"
+              max="31"
+              formControlName="dia_fechamento"
+              [attr.aria-invalid]="campoInvalido('dia_fechamento')"
+            />
+            @if (campoInvalido('dia_fechamento')) {
+              <small class="erro">Entre 1 e 31.</small>
+            }
+          </div>
+
+          <div class="form-field">
+            <label for="edit-vencimento">Dia Vencimento</label>
+            <input
+              id="edit-vencimento"
+              type="number"
+              inputmode="numeric"
+              min="1"
+              max="31"
+              formControlName="dia_vencimento"
+              [attr.aria-invalid]="campoInvalido('dia_vencimento')"
+            />
+            @if (campoInvalido('dia_vencimento')) {
+              <small class="erro">Entre 1 e 31.</small>
+            }
+          </div>
+        </div>
+
+        @if (diasAlterados()) {
+          <p class="aviso aviso--info" role="status">
+            <ion-icon name="information-circle-outline" aria-hidden="true"></ion-icon>
+            As faturas ainda não pagas terão as datas de fechamento e vencimento recalculadas. As compras
+            já lançadas continuam nas mesmas faturas.
+          </p>
+        }
+
+        <div class="form-field">
+          <label for="edit-cor">Cor do Cartão</label>
+          <div class="color-options">
+            <input id="edit-cor" type="color" formControlName="cor_identificacao" />
+            <span class="color-hint">A prévia acima mostra como o cartão vai ficar.</span>
+          </div>
+        </div>
+
+        @if (erroFormulario()) {
+          <p class="form-error" role="alert">{{ erroFormulario() }}</p>
+        }
+
+        <ion-button
+          type="submit"
+          expand="block"
+          color="primary"
+          [disabled]="salvando() || form.pristine || form.invalid"
+        >
+          @if (salvando()) {
+            <ion-spinner name="crescent"></ion-spinner>
+          } @else {
+            Salvar alterações
+          }
+        </ion-button>
+      </form>
+    </div>
+  }
+</ion-content>

@@ -63,3 +63,6 @@ backups/
 
 # Uploads gerados pela API em dev
 public/uploads/
+
+# Instaladores e pacotes binários
+*.deb

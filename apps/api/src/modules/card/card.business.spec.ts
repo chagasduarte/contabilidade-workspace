@@ -19,9 +19,13 @@ vi.mock('../categoria/categoria.business', () => ({
   },
 }));
 
-vi.mock('./card.repository', () => ({
+vi.mock('./card.repository', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./card.repository')>()),
   CardRepository: {
     criarCartao: vi.fn(),
+    atualizarCartao: vi.fn(),
+    sincronizarCartaoLegado: vi.fn(),
+    atualizarDatasFatura: vi.fn(),
     listarCartoesPorUsuario: vi.fn(),
     buscarCartaoPorId: vi.fn(),
     obterLimiteComprometido: vi.fn(),
@@ -136,6 +140,94 @@ describe('CardBusiness', () => {
       expect(res.id).toBe('card-1');
       expect(res.limite_total).toBe(5000);
       expect(CardRepository.criarCartao).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('atualizarCartao', () => {
+    const linhaCartao = {
+      id: 'card-1',
+      usuario_id: 1,
+      nome: 'Nubank',
+      bandeira: 'Mastercard',
+      limite_total: '5000.00',
+      dia_fechamento: 20,
+      dia_vencimento: 28,
+      cor_identificacao: '#820AD1',
+      ativo: true,
+    };
+    const dtoBase = {
+      nome: 'Nubank Ultravioleta',
+      bandeira: 'Visa',
+      limite_total: 8000,
+      dia_fechamento: 20,
+      dia_vencimento: 28,
+      cor_identificacao: '#000000',
+    };
+
+    function mockTransacao(linhaLock: Record<string, unknown> | undefined) {
+      const mockClient = {
+        query: vi.fn(async (sql: string) =>
+          String(sql).includes('FOR UPDATE') ? { rows: linhaLock ? [linhaLock] : [] } : { rows: [] }
+        ),
+        release: vi.fn(),
+      };
+      vi.mocked(pool.connect).mockResolvedValue(mockClient as any);
+      return mockClient;
+    }
+
+    it('deve validar os dados antes de abrir transação', async () => {
+      await expect(
+        CardBusiness.atualizarCartao('card-1', { ...dtoBase, dia_fechamento: 32 }, 1)
+      ).rejects.toThrow(CardValidationError);
+      expect(pool.connect).not.toHaveBeenCalled();
+    });
+
+    it('deve responder não encontrado para cartão de outro usuário', async () => {
+      const mockClient = mockTransacao(undefined);
+
+      await expect(CardBusiness.atualizarCartao('card-1', dtoBase, 2)).rejects.toThrow(
+        CardNotFoundError
+      );
+
+      const sqls = mockClient.query.mock.calls.map(([sql]) => String(sql));
+      expect(sqls).toContain('ROLLBACK');
+      expect(CardRepository.atualizarCartao).not.toHaveBeenCalled();
+      expect(mockClient.release).toHaveBeenCalled();
+    });
+
+    it('deve atualizar o cartão sem mexer nas faturas quando os dias não mudam', async () => {
+      const mockClient = mockTransacao(linhaCartao);
+      const atualizado = { ...linhaCartao, ...dtoBase };
+      vi.mocked(CardRepository.atualizarCartao).mockResolvedValue(atualizado as any);
+
+      const res = await CardBusiness.atualizarCartao('card-1', dtoBase, 1);
+
+      expect(res.nome).toBe('Nubank Ultravioleta');
+      expect(CardRepository.atualizarCartao).toHaveBeenCalledWith('card-1', dtoBase, 1, mockClient);
+      expect(CardRepository.listarFaturas).not.toHaveBeenCalled();
+      expect(CardRepository.sincronizarCartaoLegado).toHaveBeenCalledWith('Nubank', dtoBase, 1);
+      expect(mockClient.query.mock.calls.map(([sql]) => String(sql))).toContain('COMMIT');
+    });
+
+    it('deve recalcular as datas só das faturas não pagas quando os dias mudam', async () => {
+      const mockClient = mockTransacao(linhaCartao);
+      const dto = { ...dtoBase, dia_fechamento: 5, dia_vencimento: 15 };
+      vi.mocked(CardRepository.atualizarCartao).mockResolvedValue({ ...linhaCartao, ...dto } as any);
+      vi.mocked(CardRepository.listarFaturas).mockResolvedValue([
+        { id: 'f-paga', status: 'PAID', mes_referencia: 9, ano_referencia: 2026 },
+        { id: 'f-aberta', status: 'OPEN', mes_referencia: 10, ano_referencia: 2026 },
+      ] as any);
+
+      await CardBusiness.atualizarCartao('card-1', dto, 1);
+
+      expect(CardRepository.listarFaturas).toHaveBeenCalledWith('card-1', undefined, mockClient);
+      expect(CardRepository.atualizarDatasFatura).toHaveBeenCalledTimes(1);
+      const [faturaId, fechamento, vencimento, client] = vi.mocked(CardRepository.atualizarDatasFatura)
+        .mock.calls[0];
+      expect(faturaId).toBe('f-aberta');
+      expect(fechamento.toISOString().substring(0, 10)).toBe('2026-10-05');
+      expect(vencimento.toISOString().substring(0, 10)).toBe('2026-10-15');
+      expect(client).toBe(mockClient);
     });
   });
 

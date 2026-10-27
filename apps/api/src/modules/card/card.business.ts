@@ -10,12 +10,13 @@ import {
 } from './card.entity';
 import {
   CreateCardDto,
+  UpdateCardDto,
   CreateTransactionDto,
   PayInvoiceDto,
   CardDetailsResponseDto,
   InvoiceDetailsResponseDto,
 } from './card.dto';
-import { CardRepository } from './card.repository';
+import { CardRepository, mapCreditCardEntity } from './card.repository';
 import { CategoriaBusiness } from '../categoria/categoria.business';
 
 export class CardValidationError extends Error {
@@ -127,6 +128,37 @@ export function calcularMesAnoPrimeiraFatura(
   return { mesInicial, anoInicial };
 }
 
+/**
+ * Valida os dados de cadastro/edição do cartão e devolve os campos numéricos normalizados.
+ */
+function validarDadosCartao(dto: CreateCardDto, usuarioId: number): CreateCardDto {
+  if (!usuarioId || usuarioId <= 0) {
+    throw new CardValidationError('Usuário não autenticado.');
+  }
+  if (!dto.nome || dto.nome.trim().length === 0) {
+    throw new CardValidationError('Nome do cartão é obrigatório.');
+  }
+  const limiteTotal = Number(dto.limite_total);
+  if (isNaN(limiteTotal) || limiteTotal <= 0) {
+    throw new CardValidationError('O limite total deve ser maior que zero.');
+  }
+  const diaFechamento = Number(dto.dia_fechamento);
+  if (!Number.isInteger(diaFechamento) || diaFechamento < 1 || diaFechamento > 31) {
+    throw new CardValidationError('Dia de fechamento deve estar entre 1 e 31.');
+  }
+  const diaVencimento = Number(dto.dia_vencimento);
+  if (!Number.isInteger(diaVencimento) || diaVencimento < 1 || diaVencimento > 31) {
+    throw new CardValidationError('Dia de vencimento deve estar entre 1 e 31.');
+  }
+
+  return {
+    ...dto,
+    limite_total: limiteTotal,
+    dia_fechamento: diaFechamento,
+    dia_vencimento: diaVencimento,
+  };
+}
+
 export const CardBusiness = {
   /**
    * Cria um novo cartão de crédito validando os dados fornecidos.
@@ -135,34 +167,66 @@ export const CardBusiness = {
     dto: CreateCardDto,
     usuarioId: number
   ): Promise<CreditCardEntity> {
-    if (!usuarioId || usuarioId <= 0) {
-      throw new CardValidationError('Usuário não autenticado.');
-    }
-    if (!dto.nome || dto.nome.trim().length === 0) {
-      throw new CardValidationError('Nome do cartão é obrigatório.');
-    }
-    const limiteTotal = Number(dto.limite_total);
-    if (isNaN(limiteTotal) || limiteTotal <= 0) {
-      throw new CardValidationError('O limite total deve ser maior que zero.');
-    }
-    const diaFechamento = Number(dto.dia_fechamento);
-    if (isNaN(diaFechamento) || diaFechamento < 1 || diaFechamento > 31) {
-      throw new CardValidationError('Dia de fechamento deve estar entre 1 e 31.');
-    }
-    const diaVencimento = Number(dto.dia_vencimento);
-    if (isNaN(diaVencimento) || diaVencimento < 1 || diaVencimento > 31) {
-      throw new CardValidationError('Dia de vencimento deve estar entre 1 e 31.');
-    }
+    return await CardRepository.criarCartao(validarDadosCartao(dto, usuarioId), usuarioId);
+  },
 
-    return await CardRepository.criarCartao(
-      {
-        ...dto,
-        limite_total: limiteTotal,
-        dia_fechamento: diaFechamento,
-        dia_vencimento: diaVencimento,
-      },
-      usuarioId
-    );
+  /**
+   * Edita um cartão do usuário.
+   * Se os dias de fechamento/vencimento mudarem, recalcula as datas das faturas ainda não pagas;
+   * as compras já lançadas permanecem nas faturas em que caíram.
+   */
+  async atualizarCartao(
+    cartaoId: string,
+    dto: UpdateCardDto,
+    usuarioId: number
+  ): Promise<CreditCardEntity> {
+    const dados = validarDadosCartao(dto, usuarioId);
+
+    const client: PoolClient = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Trava o cartão para não concorrer com lançamentos que leem os dias de fechamento
+      const lock = await client.query(
+        'SELECT * FROM credit_cards WHERE id = $1 AND usuario_id = $2 FOR UPDATE',
+        [cartaoId, usuarioId]
+      );
+      if (!lock.rows[0]) {
+        throw new CardNotFoundError();
+      }
+      const anterior = mapCreditCardEntity(lock.rows[0]);
+
+      const atualizado = await CardRepository.atualizarCartao(cartaoId, dados, usuarioId, client);
+      if (!atualizado) {
+        throw new CardNotFoundError();
+      }
+
+      const diasMudaram =
+        anterior.dia_fechamento !== dados.dia_fechamento ||
+        anterior.dia_vencimento !== dados.dia_vencimento;
+      if (diasMudaram) {
+        const faturas = await CardRepository.listarFaturas(cartaoId, undefined, client);
+        for (const fatura of faturas.filter((f) => f.status !== 'PAID')) {
+          const { dataFechamento, dataVencimento } = calcularDatasFatura(
+            dados.dia_fechamento,
+            dados.dia_vencimento,
+            fatura.mes_referencia,
+            fatura.ano_referencia
+          );
+          await CardRepository.atualizarDatasFatura(fatura.id, dataFechamento, dataVencimento, client);
+        }
+      }
+
+      await client.query('COMMIT');
+
+      await CardRepository.sincronizarCartaoLegado(anterior.nome, dados, usuarioId);
+      return atualizado;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   },
 
   /**

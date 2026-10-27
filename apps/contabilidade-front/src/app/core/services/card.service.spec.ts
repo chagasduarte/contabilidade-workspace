@@ -155,6 +155,29 @@ describe('CardService', () => {
     req.flush({ ...payload, id: 'card-2', usuario_id: 1, ativo: true });
   });
 
+  it('should update card via PUT /cards/:id and refresh cartaoSelecionado', () => {
+    service.cartaoSelecionado.set(mockCartaoDetalhes);
+    const payload: CreateCardDto = {
+      nome: 'Cartão Renomeado',
+      bandeira: 'Visa',
+      limite_total: 12000,
+      dia_fechamento: 5,
+      dia_vencimento: 15,
+      cor_identificacao: '#000000',
+    };
+
+    service.atualizarCartao('card-1', payload).subscribe();
+
+    const req = httpTesting.expectOne(`${mockApiUrl}/cards/card-1`);
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual(payload);
+    req.flush({ ...mockCartao, ...payload });
+
+    expect(service.cartaoSelecionado()?.cartao.nome).toBe('Cartão Renomeado');
+    expect(service.cartaoSelecionado()?.limite_total).toBe(12000);
+    expect(service.loading()).toBe(false);
+  });
+
   it('should list invoices with optional year query param', () => {
     service.listarFaturas('card-1', 2026).subscribe((faturas) => {
       expect(faturas.length).toBe(1);
