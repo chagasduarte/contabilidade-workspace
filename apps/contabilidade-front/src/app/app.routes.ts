@@ -1,4 +1,5 @@
-import { Route } from '@angular/router';
+import { inject } from '@angular/core';
+import { Route, Router } from '@angular/router';
 import { AppLayout } from '@org/shared-ui-navigation';
 import { authGuard } from './core/guards/auth.guard';
 
@@ -51,11 +52,11 @@ export const appRoutes: Route[] = [
       },
       {
         path: 'contasPlanejadas',
-        loadComponent: () =>
-          import('./pages/contas-planejadas/contas-planejadas.page').then(
-            (m) => m.ContasPlanejadasPage
-          ),
-        data: { monthSelector: true, modo: 'todas' },
+        redirectTo: () =>
+          inject(Router).createUrlTree(['/lancamentos'], {
+            queryParams: { status: 'pendente' },
+          }),
+        pathMatch: 'full',
       },
       {
         path: 'conciliacao',
@@ -155,19 +156,19 @@ export const appRoutes: Route[] = [
       },
       {
         path: 'contas-pagar',
-        loadComponent: () =>
-          import('./pages/contas-planejadas/contas-planejadas.page').then(
-            (m) => m.ContasPlanejadasPage
-          ),
-        data: { monthSelector: true, modo: 'pagar' },
+        redirectTo: () =>
+          inject(Router).createUrlTree(['/lancamentos'], {
+            queryParams: { tipo: 'saida', status: 'pendente' },
+          }),
+        pathMatch: 'full',
       },
       {
         path: 'contas-receber',
-        loadComponent: () =>
-          import('./pages/contas-planejadas/contas-planejadas.page').then(
-            (m) => m.ContasPlanejadasPage
-          ),
-        data: { monthSelector: true, modo: 'receber' },
+        redirectTo: () =>
+          inject(Router).createUrlTree(['/lancamentos'], {
+            queryParams: { tipo: 'entrada', status: 'pendente' },
+          }),
+        pathMatch: 'full',
       },
       {
         path: 'relatorios',

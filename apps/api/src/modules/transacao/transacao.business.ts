@@ -5,6 +5,7 @@ import { CategoriaBusiness } from '../categoria/categoria.business';
 import { SubcategoriaBusiness } from '../subcategoria/subcategoria.business';
 import { pool } from '../../core/config/database';
 import { getPeriodoFatura } from '../../common/utils/periodo-fatura';
+import { PlannedTransactionBusiness } from '../planned-transaction/planned-transaction.business';
 import crypto from 'crypto';
 import {
   TransacaoEntity,
@@ -17,6 +18,7 @@ import {
   TransacaoLoteItem,
   ExtratoCursor,
   ExtratoCartaoCursor,
+  ExtratoFiltros,
   AgrupamentoTipoItem,
   ExtratoTotais,
   TransacaoNotFoundError,
@@ -25,19 +27,32 @@ import {
 const EXTRATO_LIMIT_PADRAO = 50;
 const EXTRATO_LIMIT_MAX = 200;
 
+/** Ordem das origens no mesmo dia do extrato (e prefixo do id/cursor de cada uma). */
+const ORIGENS_EXTRATO = [
+  { origem: undefined, prefixo: '' },
+  { origem: 'CARTAO', prefixo: 'cartao' },
+  { origem: 'PLANEJADO', prefixo: 'plan' },
+  { origem: 'EMPRESTIMO', prefixo: 'loan' },
+] as const;
+
+function rankOrigem(item: TransacaoEntity): number {
+  const idx = ORIGENS_EXTRATO.findIndex((o) => o.origem === (item.origem ?? undefined));
+  return idx === -1 ? 0 : idx;
+}
+
 /**
- * Ordem do extrato: data desc; no mesmo dia, conta (id numérico desc) antes de cartão
- * (id `cartao:<uuid>` desc, comparação byte a byte como o COLLATE "C" da consulta).
+ * Ordem do extrato: data desc; no mesmo dia, conta (id numérico desc), cartão, planejada e
+ * empréstimo (id `<prefixo>:<uuid>` desc, comparação byte a byte como o COLLATE "C" das consultas).
  */
 function compararItensExtrato(a: TransacaoEntity, b: TransacaoEntity): number {
   const dataA = String(a.data);
   const dataB = String(b.data);
   if (dataA !== dataB) return dataA < dataB ? 1 : -1;
 
-  const cartaoA = a.origem === 'CARTAO';
-  const cartaoB = b.origem === 'CARTAO';
-  if (cartaoA !== cartaoB) return cartaoA ? 1 : -1;
-  if (!cartaoA) return Number(b.id) - Number(a.id);
+  const rankA = rankOrigem(a);
+  const rankB = rankOrigem(b);
+  if (rankA !== rankB) return rankA - rankB;
+  if (rankA === 0) return Number(b.id) - Number(a.id);
 
   const idA = String(a.id);
   const idB = String(b.id);
@@ -810,9 +825,21 @@ export const TransacaoBusiness = {
       ano?: number | string | null;
       cursor?: string | null;
       paginado?: boolean;
+      tipo?: string | null;
+      status?: string | null;
     },
     userid: number
   ): Promise<{ items: TransacaoEntity[]; next_cursor: string | null; totais?: ExtratoTotais }> {
+    const tipo = params.tipo || null;
+    if (tipo !== null && tipo !== 'entrada' && tipo !== 'saida') {
+      throw new Error("Tipo inválido. Use 'entrada' ou 'saida'.");
+    }
+    const status = params.status || null;
+    if (status !== null && status !== 'pago' && status !== 'pendente') {
+      throw new Error("Status inválido. Use 'pago' ou 'pendente'.");
+    }
+    const filtros: ExtratoFiltros = { tipo, status };
+
     const mes = params.mes ? Number(params.mes) : null;
     const ano = params.ano ? Number(params.ano) : null;
     if (mes !== null && (!Number.isInteger(mes) || mes < 1 || mes > 12)) {
@@ -834,23 +861,22 @@ export const TransacaoBusiness = {
       }
     }
 
-    // Ordem no mesmo dia: lançamentos de conta (id desc) e depois parcelas de cartão (id desc).
-    // O cursor aponta para o último item, seja `YYYY-MM-DD_<id>` ou `YYYY-MM-DD_cartao:<uuid>`.
+    // O cursor aponta para o último item exibido: `YYYY-MM-DD_<id>` (conta) ou
+    // `YYYY-MM-DD_<cartao|plan|loan>:<uuid>`. Para cada origem, conforme sua posição no dia em
+    // relação à do cursor: antes -> só dias anteriores; a mesma -> após o id; depois -> o dia inteiro.
     let cursor: ExtratoCursor | null = null;
-    let cursorCartao: ExtratoCartaoCursor | null = null;
+    let cursoresUuid: (ExtratoCartaoCursor | null)[] = [null, null, null, null];
     if (params.cursor) {
-      const match = /^(\d{4}-\d{2}-\d{2})_(?:(\d+)|cartao:([0-9a-f-]{36}))$/i.exec(params.cursor);
+      const match = /^(\d{4}-\d{2}-\d{2})_(?:(\d+)|(cartao|plan|loan):([0-9a-f-]{36}))$/i.exec(params.cursor);
       if (!match) throw new Error("Cursor inválido. Formato esperado: 'YYYY-MM-DD_id'.");
-      const [, data, idConta, idCartao] = match;
-      if (idConta) {
-        cursor = { data, id: Number(idConta) };
-        // Parcelas de cartão do mesmo dia ainda não foram exibidas: 'g' é maior que qualquer uuid em hex
-        cursorCartao = { data, chave: 'g' };
-      } else {
-        // Todos os lançamentos de conta do dia já foram exibidos (ids > 0)
-        cursor = { data, id: 0 };
-        cursorCartao = { data, chave: idCartao.toLowerCase() };
-      }
+      const [, data, idConta, prefixo, uuid] = match;
+      const rankCursor = idConta ? 0 : ORIGENS_EXTRATO.findIndex((o) => o.prefixo === prefixo.toLowerCase());
+      cursor = { data, id: idConta ? Number(idConta) : 0 };
+      // '' é menor que qualquer uuid (só dias anteriores); 'g' é maior que qualquer uuid em hex (dia inteiro)
+      cursoresUuid = ORIGENS_EXTRATO.map((_, rank) => ({
+        data,
+        chave: rank < rankCursor ? '' : rank === rankCursor ? (uuid ?? '').toLowerCase() : 'g',
+      }));
     }
 
     const paginado = Boolean(params.paginado || cursor);
@@ -861,13 +887,35 @@ export const TransacaoBusiness = {
 
     // Totais do período inteiro só na 1ª página paginada: o scroll infinito mostra o resumo do mês
     // sem depender das páginas já carregadas
-    const [itensConta, itensCartao, totais] = await Promise.all([
-      TransacaoRepository.extrato(userid, inicio, fimExclusivo, cursor, limit),
-      TransacaoRepository.extratoCartao(userid, inicio, fimExclusivo, cursorCartao, limit),
+    // Materializa as recorrências antes da 1ª página (como GET /planned-transactions)
+    if (!cursor) {
+      try {
+        await PlannedTransactionBusiness.ensureRollingWindow(userid, 3);
+      } catch (err) {
+        console.warn('[TransacaoBusiness] Aviso ao executar ensureRollingWindow no extrato:', err);
+      }
+    }
+
+    // Origens que não podem atender ao filtro nem são consultadas
+    const semEntradas = filtros.tipo === 'entrada';
+    const somentePagos = filtros.status === 'pago';
+    const [itensConta, itensCartao, itensPlanejados, itensEmprestimo, totais] = await Promise.all([
+      TransacaoRepository.extrato(userid, inicio, fimExclusivo, cursor, limit, filtros),
+      semEntradas
+        ? []
+        : TransacaoRepository.extratoCartao(userid, inicio, fimExclusivo, cursoresUuid[1], limit, filtros.status),
+      somentePagos
+        ? []
+        : TransacaoRepository.extratoPlanejadas(userid, inicio, fimExclusivo, cursoresUuid[2], limit, filtros.tipo),
+      semEntradas || somentePagos
+        ? []
+        : TransacaoRepository.extratoEmprestimos(userid, inicio, fimExclusivo, cursoresUuid[3], limit),
       paginado && !cursor ? TransacaoRepository.extratoTotais(userid, inicio, fimExclusivo) : undefined,
     ]);
 
-    const mesclados = [...itensConta, ...itensCartao].sort(compararItensExtrato);
+    const mesclados = [...itensConta, ...itensCartao, ...itensPlanejados, ...itensEmprestimo].sort(
+      compararItensExtrato
+    );
     const items = limit ? mesclados.slice(0, limit) : mesclados;
 
     const ultimo = items[items.length - 1];

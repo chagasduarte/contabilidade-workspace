@@ -114,6 +114,55 @@ describe('TransacaoService', () => {
     expect(service.nextCursor()).toBeNull();
   });
 
+  it('deve repassar filtros de tipo e status em carregarExtratoPaginado', () => {
+    service
+      .carregarExtratoPaginado(10, 2026, null, 50, {
+        tipo: 'saida',
+        status: 'pendente',
+      })
+      .subscribe();
+
+    const req = httpMock.expectOne(
+      `${mockApiUrl}/transacoes/extrato?paginado=true&limit=50&mes=10&ano=2026&tipo=saida&status=pendente`
+    );
+    expect(req.request.method).toBe('GET');
+    req.flush({
+      items: [mockTransacoes[0]],
+      next_cursor: null,
+      totais: {
+        entradas: 4500,
+        saidas: 2000,
+        pendentes: 1,
+        entradas_pagas: 0,
+        entradas_pendentes: 4500,
+        saidas_pagas: 2000,
+        saidas_pendentes: 0,
+      },
+    });
+
+    expect(service.totaisExtrato()?.saidas_pagas).toBe(2000);
+    expect(service.totaisExtrato()?.entradas_pendentes).toBe(4500);
+  });
+
+  it('deve atualizar uma transação via PUT e refletir no signal extrato', () => {
+    service.extrato.set(mockTransacoes);
+
+    service
+      .atualizarTransacao(2, { descricao: 'Aluguel atualizado', valor: 2100 })
+      .subscribe();
+
+    const req = httpMock.expectOne(`${mockApiUrl}/transacoes/2`);
+    expect(req.request.method).toBe('PUT');
+    req.flush({
+      ...mockTransacoes[1],
+      descricao: 'Aluguel atualizado',
+      valor: 2100,
+    });
+
+    expect(service.extrato()[1].descricao).toBe('Aluguel atualizado');
+    expect(service.extrato()[1].valor).toBe(2100);
+  });
+
   it('deve marcar uma transação como paga e atualizar seu status no signal', () => {
     service.extrato.set(mockTransacoes);
 

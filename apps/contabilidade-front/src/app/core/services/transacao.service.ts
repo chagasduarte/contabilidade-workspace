@@ -5,6 +5,7 @@ import { Observable, tap, catchError, throwError, finalize, map } from 'rxjs';
 import {
   CreateParceladaDto,
   CreateTransacaoDto,
+  ExtratoFiltros,
   ResumoTransacoesEntrada,
   ResumoTransacoesSaida,
   Transacao,
@@ -76,7 +77,8 @@ export class TransacaoService {
     mes: number,
     ano: number,
     cursor: string | null = null,
-    limit = 50
+    limit = 50,
+    filtros?: ExtratoFiltros
   ): Observable<ExtratoPaginado> {
     const proximaPagina = cursor != null;
     if (proximaPagina) {
@@ -93,6 +95,12 @@ export class TransacaoService {
       .set('limit', String(limit))
       .set('mes', String(mes))
       .set('ano', String(ano));
+    if (filtros?.tipo) {
+      params = params.set('tipo', filtros.tipo);
+    }
+    if (filtros?.status) {
+      params = params.set('status', filtros.status);
+    }
     if (cursor) {
       params = params.set('cursor', cursor);
     }
@@ -172,6 +180,37 @@ export class TransacaoService {
         }),
         catchError((err: Error) => {
           this.error.set(mensagemErroHttp(err, 'Erro ao criar transações parceladas.'));
+          return throwError(() => err);
+        }),
+        finalize(() => {
+          this.loading.set(false);
+        })
+      );
+  }
+
+  /**
+   * Atualiza uma transação existente via PUT /transacoes/:id e sincroniza o signal `extrato`.
+   */
+  atualizarTransacao(
+    id: number | string,
+    dto: Partial<CreateTransacaoDto>
+  ): Observable<Transacao> {
+    this.loading.set(true);
+    this.error.set(null);
+
+    return this.http
+      .put<Transacao>(`${this.baseUrl}/transacoes/${id}`, dto)
+      .pipe(
+        tap((atualizada) => {
+          // A API devolve a linha atualizada: ela é a fonte da verdade (o dto de entrada tem
+          // tipos de formulário, ex.: cartaoid string, que não cabem em Transacao)
+          if (!atualizada) return;
+          this.extrato.update((lista) =>
+            lista.map((item) => (item.id === id ? { ...item, ...atualizada } : item))
+          );
+        }),
+        catchError((err: Error) => {
+          this.error.set(mensagemErroHttp(err, 'Erro ao atualizar transação.'));
           return throwError(() => err);
         }),
         finalize(() => {

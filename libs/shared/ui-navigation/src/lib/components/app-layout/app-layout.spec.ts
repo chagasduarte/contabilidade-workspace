@@ -17,7 +17,7 @@ describe('AppLayout', () => {
     await TestBed.configureTestingModule({
       imports: [AppLayout],
       providers: [
-        provideRouter([{ path: 'contas-pagar', component: TestRouteComponent }]),
+        provideRouter([{ path: 'cartoes', component: TestRouteComponent }]),
       ],
     }).compileComponents();
 
@@ -40,7 +40,7 @@ describe('AppLayout', () => {
     fixture.detectChanges();
 
     const menuLink = fixture.nativeElement.querySelector(
-      '.layout-shell__mobile-menu-item[href="/contas-pagar"]',
+      '.layout-shell__mobile-menu-item[href="/cartoes"]',
     ) as HTMLAnchorElement | null;
     expect(menuLink).toBeTruthy();
     expect(menuButton.getAttribute('aria-expanded')).toBe('true');
@@ -49,7 +49,7 @@ describe('AppLayout', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(router.url).toBe('/contas-pagar');
+    expect(router.url).toBe('/cartoes');
     expect(
       fixture.nativeElement.querySelector('.layout-shell__mobile-menu'),
     ).toBeNull();

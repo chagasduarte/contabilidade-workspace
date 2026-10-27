@@ -50,9 +50,21 @@ export function mapPaymentEntity(row: Record<string, unknown>): LoanPaymentEntit
   };
 }
 
+/** A parcela já estava PAID ao travar o registro (pagamento concorrente/duplo clique). */
+export class ParcelaJaQuitadaError extends Error {
+  constructor() {
+    super('Esta parcela já foi quitada.');
+    this.name = 'ParcelaJaQuitadaError';
+  }
+}
+
 export interface CreatePaymentInput {
   loan_id: string;
   installment_id?: string | null;
+  /** Dono do empréstimo; recebe a despesa paga em `transacoes`. */
+  usuario_id: number;
+  /** Descrição da despesa registrada em `transacoes`. */
+  descricao_despesa: string;
   payment_date?: Date | string;
   amount_paid: number;
   discount_amount?: number;
@@ -85,6 +97,9 @@ export const LoanPaymentRepository = {
    * 2. Atualiza o status da parcela em `loan_installments` para 'PAID'
    * 3. Checa atomicamente se restam parcelas pendentes
    * 4. Se todas estiverem quitadas, atualiza o status de `loans` para 'PAID_OFF'
+   * 5. Registra a despesa paga em `transacoes` (source_type LOAN_INSTALLMENT), como a
+   *    liquidação por /loans/installments/:id/settle: enquanto pendente a parcela é planejada,
+   *    depois de paga passa a ser saída executada
    */
   async registrarPagamento(
     dados: CreatePaymentInput
@@ -130,22 +145,24 @@ export const LoanPaymentRepository = {
 
       const pagamento = mapPaymentEntity(paymentResult.rows[0]);
 
-      // 2. Atualizar o status da parcela para 'PAID' se installmentId estiver presente
+      // 2. Atualizar o status da parcela para 'PAID' se installmentId estiver presente.
+      // `status <> 'PAID'` impede pagar duas vezes (e registrar a despesa em dobro).
       let parcela: LoanInstallmentEntity | undefined;
       if (installmentId) {
         const updateInstallmentQuery = `
           UPDATE loan_installments
           SET status = 'PAID'
-          WHERE id = $1 AND loan_id = $2
+          WHERE id = $1 AND loan_id = $2 AND status <> 'PAID'
           RETURNING *
         `;
         const installmentResult = await client.query(updateInstallmentQuery, [
           installmentId,
           loanId,
         ]);
-        if (installmentResult.rows[0]) {
-          parcela = mapInstallmentEntity(installmentResult.rows[0]);
+        if (!installmentResult.rows[0]) {
+          throw new ParcelaJaQuitadaError();
         }
+        parcela = mapInstallmentEntity(installmentResult.rows[0]);
       }
 
       // 3. Checar atomicamente se restam parcelas pendentes
@@ -171,6 +188,13 @@ export const LoanPaymentRepository = {
           emprestimoAtualizado = mapLoanEntity(loanResult.rows[0]);
         }
       }
+
+      // 5. Despesa executada na tabela contábil `transacoes`
+      await client.query(
+        `INSERT INTO transacoes (descricao, tipo, valor, data, status, userid, source_type, source_id, pagamento)
+         VALUES ($1, 'saida', $2, $3, 'pago', $4, 'LOAN_INSTALLMENT', $5, $3)`,
+        [dados.descricao_despesa, amountPaid, dataPagamento, dados.usuario_id, installmentId ?? loanId]
+      );
 
       await client.query('COMMIT');
 

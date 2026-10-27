@@ -17,6 +17,7 @@ import { codificarCursor, decodificarCursor, PaginacaoInvalidaError } from '../.
 import {
   LoanPaymentRepository,
   RegisterPaymentResult,
+  ParcelaJaQuitadaError,
 } from './loan-payment.repository';
 
 export class LoanValidationError extends Error {
@@ -249,24 +250,36 @@ export const LoanBusiness = {
       );
     }
 
-    return await LoanPaymentRepository.registrarPagamento({
-      loan_id: loanId,
-      installment_id: installmentId,
-      payment_date: paymentDate,
-      amount_paid: amountPaid,
-      discount_amount: discountAmount,
-      penalty_interest: penaltyInterest,
-      payment_method: paymentMethod,
+    const numeroParcela = parcela.installment_number ?? parcela.numero_parcela;
+    const instituicao = emprestimo.institution_name ?? emprestimo.instituicao;
 
-      // Aliases
-      emprestimo_id: loanId,
-      parcela_id: installmentId,
-      data_pagamento: paymentDate,
-      valor_pago: amountPaid,
-      valor_desconto: discountAmount,
-      multa_juros: penaltyInterest,
-      metodo_pagamento: paymentMethod,
-    });
+    try {
+      return await LoanPaymentRepository.registrarPagamento({
+        loan_id: loanId,
+        installment_id: installmentId,
+        usuario_id: Number(userId),
+        descricao_despesa: `Parcela Empréstimo #${numeroParcela}${instituicao ? ` - ${instituicao}` : ''}`,
+        payment_date: paymentDate,
+        amount_paid: amountPaid,
+        discount_amount: discountAmount,
+        penalty_interest: penaltyInterest,
+        payment_method: paymentMethod,
+
+        // Aliases
+        emprestimo_id: loanId,
+        parcela_id: installmentId,
+        data_pagamento: paymentDate,
+        valor_pago: amountPaid,
+        valor_desconto: discountAmount,
+        multa_juros: penaltyInterest,
+        metodo_pagamento: paymentMethod,
+      });
+    } catch (error) {
+      if (error instanceof ParcelaJaQuitadaError) {
+        throw new LoanValidationError(error.message);
+      }
+      throw error;
+    }
   },
 
   /**

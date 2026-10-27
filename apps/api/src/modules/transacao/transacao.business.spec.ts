@@ -24,6 +24,8 @@ vi.mock('./transacao.repository', () => ({
     criarEmLote: vi.fn(),
     extrato: vi.fn(),
     extratoCartao: vi.fn().mockResolvedValue([]),
+    extratoPlanejadas: vi.fn().mockResolvedValue([]),
+    extratoEmprestimos: vi.fn().mockResolvedValue([]),
     extratoTotais: vi.fn(),
     buscarPorId: vi.fn(),
     atualizar: vi.fn(),
@@ -33,6 +35,10 @@ vi.mock('./transacao.repository', () => ({
     listaAdicionais: vi.fn(),
     listaTransacoes: vi.fn(),
   },
+}));
+
+vi.mock('../planned-transaction/planned-transaction.business', () => ({
+  PlannedTransactionBusiness: { ensureRollingWindow: vi.fn().mockResolvedValue(undefined) },
 }));
 
 vi.mock('../cartao/cartao.repository', () => ({
@@ -342,14 +348,14 @@ describe('TransacaoBusiness', () => {
     it('sem paginação mantém o comportamento antigo (sem limite padrão)', async () => {
       vi.mocked(TransacaoRepository.extrato).mockResolvedValueOnce([]);
       const res = await TransacaoBusiness.extrato({ mes: '3', ano: '2026' }, 1);
-      expect(TransacaoRepository.extrato).toHaveBeenCalledWith(1, '2026-03-01', '2026-04-01', null, null);
+      expect(TransacaoRepository.extrato).toHaveBeenCalledWith(1, '2026-03-01', '2026-04-01', null, null, { tipo: null, status: null });
       expect(res.next_cursor).toBeNull();
     });
 
     it('dezembro termina em 1º de janeiro do ano seguinte', async () => {
       vi.mocked(TransacaoRepository.extrato).mockResolvedValueOnce([]);
       await TransacaoBusiness.extrato({ mes: '12', ano: '2026' }, 1);
-      expect(TransacaoRepository.extrato).toHaveBeenCalledWith(1, '2026-12-01', '2027-01-01', null, null);
+      expect(TransacaoRepository.extrato).toHaveBeenCalledWith(1, '2026-12-01', '2027-01-01', null, null, { tipo: null, status: null });
     });
 
     it('com cursor usa keyset, limite padrão 50 e devolve next_cursor quando a página está cheia', async () => {
@@ -365,14 +371,14 @@ describe('TransacaoBusiness', () => {
       vi.mocked(TransacaoRepository.extrato).mockResolvedValueOnce(pagina);
 
       const res = await TransacaoBusiness.extrato({ cursor: '2026-03-15_200' }, 1);
-      expect(TransacaoRepository.extrato).toHaveBeenCalledWith(1, null, null, { data: '2026-03-15', id: 200 }, 50);
+      expect(TransacaoRepository.extrato).toHaveBeenCalledWith(1, null, null, { data: '2026-03-15', id: 200 }, 50, { tipo: null, status: null });
       expect(res.next_cursor).toBe('2026-03-10_51');
     });
 
     it('limita a página a 200 e rejeita cursor/mês inválidos', async () => {
       vi.mocked(TransacaoRepository.extrato).mockResolvedValueOnce([]);
       await TransacaoBusiness.extrato({ paginado: true, limit: '1000' }, 1);
-      expect(TransacaoRepository.extrato).toHaveBeenCalledWith(1, null, null, null, 200);
+      expect(TransacaoRepository.extrato).toHaveBeenCalledWith(1, null, null, null, 200, { tipo: null, status: null });
 
       await expect(TransacaoBusiness.extrato({ cursor: 'abc' }, 1)).rejects.toThrow(/Cursor inválido/);
       await expect(TransacaoBusiness.extrato({ mes: '13', ano: '2026' }, 1)).rejects.toThrow('Mês inválido.');
@@ -414,7 +420,7 @@ describe('TransacaoBusiness', () => {
         const res = await TransacaoBusiness.extrato({ mes: '3', ano: '2026' }, 1);
 
         expect(res.items.map((i) => i.id)).toEqual([9, `cartao:${U2}`, `cartao:${U1}`, 5]);
-        expect(TransacaoRepository.extratoCartao).toHaveBeenCalledWith(1, '2026-03-01', '2026-04-01', null, null);
+        expect(TransacaoRepository.extratoCartao).toHaveBeenCalledWith(1, '2026-03-01', '2026-04-01', null, null, null);
       });
 
       it('corta a página mesclada no limite e o cursor aponta para o último item exibido', async () => {
@@ -439,7 +445,7 @@ describe('TransacaoBusiness', () => {
         await TransacaoBusiness.extrato({ cursor: '2026-03-15_200' }, 1);
 
         expect(TransacaoRepository.extratoCartao).toHaveBeenCalledWith(
-          1, null, null, { data: '2026-03-15', chave: 'g' }, 50
+          1, null, null, { data: '2026-03-15', chave: 'g' }, 50, null
         );
       });
 
@@ -448,10 +454,92 @@ describe('TransacaoBusiness', () => {
 
         await TransacaoBusiness.extrato({ cursor: `2026-03-15_cartao:${U1}` }, 1);
 
-        expect(TransacaoRepository.extrato).toHaveBeenCalledWith(1, null, null, { data: '2026-03-15', id: 0 }, 50);
+        expect(TransacaoRepository.extrato).toHaveBeenCalledWith(1, null, null, { data: '2026-03-15', id: 0 }, 50, { tipo: null, status: null });
         expect(TransacaoRepository.extratoCartao).toHaveBeenCalledWith(
-          1, null, null, { data: '2026-03-15', chave: U1 }, 50
+          1, null, null, { data: '2026-03-15', chave: U1 }, 50, null
         );
+      });
+    });
+
+    describe('contas planejadas e parcelas de empréstimo pendentes', () => {
+      const U3 = '33333333-3333-3333-3333-333333333333';
+      const U4 = '44444444-4444-4444-4444-444444444444';
+      const item = (id: number | string, data: string, origem?: string) => ({
+        id,
+        tipo: 'saida' as const,
+        descricao: String(id),
+        valor: 1,
+        data,
+        status: 'pendente' as const,
+        userid: 1,
+        origem,
+      });
+
+      it('no mesmo dia ordena conta, cartão, planejada e empréstimo', async () => {
+        vi.mocked(TransacaoRepository.extrato).mockResolvedValueOnce([item(7, '2026-03-10')]);
+        vi.mocked(TransacaoRepository.extratoCartao).mockResolvedValueOnce([
+          item('cartao:11111111-1111-1111-1111-111111111111', '2026-03-10', 'CARTAO'),
+        ]);
+        vi.mocked(TransacaoRepository.extratoPlanejadas).mockResolvedValueOnce([
+          item(`plan:${U3}`, '2026-03-10', 'PLANEJADO'),
+        ]);
+        vi.mocked(TransacaoRepository.extratoEmprestimos).mockResolvedValueOnce([
+          item(`loan:${U4}`, '2026-03-12', 'EMPRESTIMO'),
+          item(`loan:${U3}`, '2026-03-10', 'EMPRESTIMO'),
+        ]);
+
+        const res = await TransacaoBusiness.extrato({ mes: '3', ano: '2026' }, 1);
+
+        expect(res.items.map((i) => i.id)).toEqual([
+          `loan:${U4}`,
+          7,
+          'cartao:11111111-1111-1111-1111-111111111111',
+          `plan:${U3}`,
+          `loan:${U3}`,
+        ]);
+      });
+
+      it('cursor de planejada: conta e cartão só dias anteriores, planejada após o uuid, empréstimo o dia inteiro', async () => {
+        vi.mocked(TransacaoRepository.extrato).mockResolvedValueOnce([]);
+
+        await TransacaoBusiness.extrato({ cursor: `2026-03-15_plan:${U3}` }, 1);
+
+        expect(TransacaoRepository.extrato).toHaveBeenCalledWith(
+          1, null, null, { data: '2026-03-15', id: 0 }, 50, { tipo: null, status: null }
+        );
+        expect(TransacaoRepository.extratoCartao).toHaveBeenCalledWith(
+          1, null, null, { data: '2026-03-15', chave: '' }, 50, null
+        );
+        expect(TransacaoRepository.extratoPlanejadas).toHaveBeenCalledWith(
+          1, null, null, { data: '2026-03-15', chave: U3 }, 50, null
+        );
+        expect(TransacaoRepository.extratoEmprestimos).toHaveBeenCalledWith(
+          1, null, null, { data: '2026-03-15', chave: 'g' }, 50
+        );
+      });
+
+      it('filtro de entradas não consulta cartão nem empréstimo; filtro de pagos não consulta pendentes', async () => {
+        vi.mocked(TransacaoRepository.extrato).mockResolvedValue([]);
+
+        await TransacaoBusiness.extrato({ mes: '3', ano: '2026', tipo: 'entrada' }, 1);
+        expect(TransacaoRepository.extratoCartao).not.toHaveBeenCalled();
+        expect(TransacaoRepository.extratoEmprestimos).not.toHaveBeenCalled();
+        expect(TransacaoRepository.extratoPlanejadas).toHaveBeenCalledWith(
+          1, '2026-03-01', '2026-04-01', null, null, 'entrada'
+        );
+
+        vi.mocked(TransacaoRepository.extratoPlanejadas).mockClear();
+        await TransacaoBusiness.extrato({ mes: '3', ano: '2026', status: 'pago' }, 1);
+        expect(TransacaoRepository.extratoPlanejadas).not.toHaveBeenCalled();
+        expect(TransacaoRepository.extratoEmprestimos).not.toHaveBeenCalled();
+        expect(TransacaoRepository.extratoCartao).toHaveBeenCalledWith(
+          1, '2026-03-01', '2026-04-01', null, null, 'pago'
+        );
+      });
+
+      it('rejeita tipo/status inválidos', async () => {
+        await expect(TransacaoBusiness.extrato({ tipo: 'x' }, 1)).rejects.toThrow(/Tipo inválido/);
+        await expect(TransacaoBusiness.extrato({ status: 'x' }, 1)).rejects.toThrow(/Status inválido/);
       });
     });
   });

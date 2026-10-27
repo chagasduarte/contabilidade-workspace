@@ -114,6 +114,7 @@ sed 's/^ROLLBACK; -- trocar por COMMIT.*/COMMIT;/' docker/postgres/manual/sync_c
 |---|---|---|
 | 4.1 | `manual/backfill_parcelas.sql` | `linhas_com_grupo` e `grupos` fazem sentido. Limitação: a mesma descrição no mesmo cartão vira um grupo só. |
 | 4.2 | `manual/backfill_loans_usuario.sql` | `sem_dono = 0` e `orfaos = 0`. Se não der, **não** dê COMMIT e **não** faça o deploy: a nova API filtra empréstimos por `usuario_id`. |
+| 4.3 | `manual/backfill_despesas_emprestimo.sql` | Rodar **depois** do 4.2. `sem_dono_ignoradas = 0`, `dono_inexistente_ignoradas = 0` e `parcelas_pagas_ainda_sem_despesa = 0`. `valor_a_registrar` é o total que passa a contar como saída paga nos meses dos pagamentos. |
 
 Os dois são idempotentes. Parcelas criadas pela API antiga durante a janela ficam sem grupo. Rode o 4.1 de novo depois do passo 5; ele só preenche o que estiver NULL.
 
