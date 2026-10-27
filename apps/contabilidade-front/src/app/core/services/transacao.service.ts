@@ -202,10 +202,11 @@ export class TransacaoService {
       .put<Transacao>(`${this.baseUrl}/transacoes/${id}`, dto)
       .pipe(
         tap((atualizada) => {
+          // A API devolve a linha atualizada: ela é a fonte da verdade (o dto de entrada tem
+          // tipos de formulário, ex.: cartaoid string, que não cabem em Transacao)
+          if (!atualizada) return;
           this.extrato.update((lista) =>
-            lista.map((item) =>
-              item.id === id ? { ...item, ...dto, ...(atualizada || {}) } : item
-            )
+            lista.map((item) => (item.id === id ? { ...item, ...atualizada } : item))
           );
         }),
         catchError((err: Error) => {
