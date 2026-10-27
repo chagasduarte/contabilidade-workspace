@@ -4,6 +4,13 @@
   --background: #f8fafc;
 }
 
+.cards-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
 .cards__loading,
 .cards__error-card {
   display: flex;
@@ -83,6 +90,48 @@
       font-size: 0.75rem;
       color: rgba(255, 255, 255, 0.7);
       font-weight: 500;
+    }
+
+    .invoice-month-summary {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 0.65rem;
+      padding: 0.45rem 0.65rem;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.12);
+      font-size: 0.78rem;
+      color: rgba(255, 255, 255, 0.92);
+
+      strong {
+        color: #ffffff;
+        font-weight: 800;
+      }
+
+      &--empty {
+        color: rgba(255, 255, 255, 0.65);
+        font-size: 0.74rem;
+      }
+
+      .invoice-status-pill {
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        padding: 0.15rem 0.5rem;
+        border-radius: 9999px;
+        background: rgba(255, 255, 255, 0.2);
+        color: #ffffff;
+
+        &[data-status='PAID'] {
+          background: rgba(34, 197, 94, 0.25);
+          color: #86efac;
+        }
+
+        &[data-status='OVERDUE'] {
+          background: rgba(239, 68, 68, 0.25);
+          color: #fca5a5;
+        }
+      }
     }
   }
 

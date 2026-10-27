@@ -65,6 +65,7 @@ import { CardService } from './card.service';
 import { CategoriaService } from '../../core/services/categoria.service';
 import { DashboardService } from '../../core/services/dashboard.service';
 import { HeaderStateService } from '@org/shared-ui-navigation';
+import { MonthSelector } from '../../components/selectors/month-selector/month-selector';
 
 const MESES_NOME = [
   'Janeiro',
@@ -111,6 +112,7 @@ const MESES_NOME = [
     IonSpinner,
     IonFab,
     IonFabButton,
+    MonthSelector,
   ],
   templateUrl: './card-details.component.html',
   styleUrl: './card-details.component.scss',
@@ -290,6 +292,14 @@ export class CardDetailsComponent implements OnInit {
         (event.target as HTMLIonRefresherElement).complete();
       },
     });
+  }
+
+  /** Seleciona diretamente um mês (1..12) pelo componente MonthSelector. */
+  selecionarMes(novoMes: number): void {
+    if (novoMes < 1 || novoMes > 12) return;
+    this.mes.set(novoMes);
+    this.headerState.setMonth(novoMes);
+    this.carregarDetalhesFaturaAtual();
   }
 
   /** Avança ou volta um mês, mantendo o seletor do cabeçalho sincronizado. */

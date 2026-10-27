@@ -17,6 +17,16 @@
     <ion-refresher-content pullingText="Puxe para atualizar" refreshingSpinner="crescent"></ion-refresher-content>
   </ion-refresher>
 
+  <div class="cards-toolbar">
+    <app-month-selector
+      [mes]="mes()"
+      [ano]="ano()"
+      (mesChange)="selecionarMes($event)"
+      (mesAnterior)="mesAnterior()"
+      (proximoMes)="proximoMes()"
+    ></app-month-selector>
+  </div>
+
   @if (loading() && cartoes().length === 0) {
     <div class="cards__loading">
       <ion-spinner name="crescent" color="primary"></ion-spinner>
@@ -64,6 +74,21 @@
             <span class="dates-hint">
               Fecha dia {{ c.cartao.dia_fechamento }} • Vence dia {{ c.cartao.dia_vencimento }}
             </span>
+            @if (obterFaturaDoMes(c); as faturaMes) {
+              <div class="invoice-month-summary">
+                <span>
+                  Fatura ({{ periodoFormatado() }}):
+                  <strong>{{ (faturaMes.total_fatura || 0) | currency:'BRL':'symbol':'1.2-2' }}</strong>
+                </span>
+                <span class="invoice-status-pill" [attr.data-status]="faturaMes.status">
+                  {{ obterLabelStatusFatura(faturaMes.status) }}
+                </span>
+              </div>
+            } @else {
+              <div class="invoice-month-summary invoice-month-summary--empty">
+                <span>Sem fatura em {{ periodoFormatado() }}</span>
+              </div>
+            }
           </div>
 
           <div class="card-tile__bottom">

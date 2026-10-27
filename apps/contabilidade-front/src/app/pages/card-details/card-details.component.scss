@@ -8,6 +8,13 @@
   --background: #f8fafc;
 }
 
+.card-details-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
 .card-details__loading,
 .card-details__error-card {
   display: flex;

@@ -4,8 +4,11 @@ import {
   ChangeDetectionStrategy,
   Component,
   OnInit,
+  computed,
+  effect,
   inject,
   signal,
+  untracked,
 } from '@angular/core';
 import { CommonModule, CurrencyPipe } from '@angular/common';
 import { Router } from '@angular/router';
@@ -40,8 +43,11 @@ import {
   closeOutline,
   walletOutline,
 } from 'ionicons/icons';
-import { CardDetailsResponseDto, CreateCardDto } from '../card-details/card.model';
+import { HeaderStateService } from '@org/shared-ui-navigation';
+import { CardDetailsResponseDto, CardInvoice, CreateCardDto } from '../card-details/card.model';
 import { CardService } from '../card-details/card.service';
+import { DashboardService } from '../../core/services/dashboard.service';
+import { MonthSelector } from '../../components/selectors/month-selector/month-selector';
 
 @Component({
   selector: 'app-cards',
@@ -67,6 +73,7 @@ import { CardService } from '../card-details/card.service';
     IonSpinner,
     IonFab,
     IonFabButton,
+    MonthSelector,
   ],
   templateUrl: './cards.page.html',
   styleUrl: './cards.page.scss',
@@ -74,6 +81,8 @@ import { CardService } from '../card-details/card.service';
 })
 export class CardsPage implements OnInit {
   readonly cardService = inject(CardService);
+  readonly dashboardService = inject(DashboardService);
+  private readonly headerState = inject(HeaderStateService);
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
   private readonly toastController = inject(ToastController);
@@ -82,6 +91,11 @@ export class CardsPage implements OnInit {
   readonly cartoes = this.cardService.cartoes;
   readonly loading = this.cardService.loading;
   readonly error = this.cardService.error;
+  readonly mes = this.dashboardService.mes;
+  readonly ano = this.dashboardService.ano;
+  readonly periodoFormatado = computed(
+    () => `${String(this.mes()).padStart(2, '0')}/${this.ano()}`
+  );
 
   readonly modalNovoCartaoAberto = signal<boolean>(false);
   readonly salvando = signal<boolean>(false);
@@ -99,10 +113,71 @@ export class CardsPage implements OnInit {
     });
 
     this.inicializarForm();
+
+    effect(() => {
+      const ano = this.headerState.selectedYear();
+      const mes = this.headerState.selectedMonth();
+      untracked(() => {
+        if (ano !== this.ano() || mes !== this.mes()) {
+          this.ano.set(ano);
+          this.mes.set(mes);
+        }
+      });
+    });
   }
 
   ngOnInit(): void {
+    this.headerState.setYear(this.ano());
+    this.headerState.setMonth(this.mes());
     this.carregar();
+  }
+
+  selecionarMes(mes: number): void {
+    this.mes.set(mes);
+    this.headerState.setMonth(mes);
+  }
+
+  mesAnterior(): void {
+    this.deslocarMes(-1);
+  }
+
+  proximoMes(): void {
+    this.deslocarMes(1);
+  }
+
+  private deslocarMes(delta: number): void {
+    const d = new Date(this.ano(), this.mes() - 1 + delta, 1);
+    const novoAno = d.getFullYear();
+    const novoMes = d.getMonth() + 1;
+    this.ano.set(novoAno);
+    this.mes.set(novoMes);
+    this.headerState.setYear(novoAno);
+    this.headerState.setMonth(novoMes);
+  }
+
+  obterFaturaDoMes(c: CardDetailsResponseDto): CardInvoice | null {
+    const alvo = `${this.ano()}-${String(this.mes()).padStart(2, '0')}`;
+    const faturas = c.faturas ?? [];
+    return (
+      faturas.find((f) => String(f.data_vencimento).substring(0, 7) === alvo) ??
+      faturas.find((f) => f.mes_referencia === this.mes() && f.ano_referencia === this.ano()) ??
+      null
+    );
+  }
+
+  obterLabelStatusFatura(status: string): string {
+    switch (status) {
+      case 'PAID':
+        return 'Paga';
+      case 'OPEN':
+        return 'Aberta';
+      case 'CLOSED':
+        return 'Fechada';
+      case 'OVERDUE':
+        return 'Vencida';
+      default:
+        return status;
+    }
   }
 
   ionViewWillEnter(): void {

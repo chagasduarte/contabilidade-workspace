@@ -22,6 +22,16 @@
     <ion-refresher-content pullingText="Puxe para atualizar" refreshingSpinner="crescent"></ion-refresher-content>
   </ion-refresher>
 
+  <div class="card-details-toolbar">
+    <app-month-selector
+      [mes]="mes()"
+      [ano]="ano()"
+      (mesChange)="selecionarMes($event)"
+      (mesAnterior)="navegarMes(-1)"
+      (proximoMes)="navegarMes(1)"
+    ></app-month-selector>
+  </div>
+
   <!-- Estado de Carregamento -->
   @if (loading() && !cartaoDetalhes()) {
     <div class="card-details__loading">
