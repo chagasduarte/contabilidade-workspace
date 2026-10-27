@@ -11,10 +11,18 @@ jobs:
 
     steps:
       - name: Sincronizar repositório e reiniciar containers
+        env:
+          # Segredo de assinatura dos tokens; o docker-compose.yml exige (${JWT_SECRET:?}).
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
         run: |
           set -e
           cd ~/apps/contabilidade-workspace
-          
+
+          if [ -z "$JWT_SECRET" ]; then
+            echo "::error::Secret JWT_SECRET não configurado em Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
           echo "==> Baixando as últimas alterações..."
           git fetch origin main
           git reset --hard origin/main
