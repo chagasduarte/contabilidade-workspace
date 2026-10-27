@@ -58,8 +58,9 @@ import {
   checkmarkOutline,
   createOutline,
 } from 'ionicons/icons';
-import { CardInvoice, CreateTransactionDto } from './card.model';
+import { CardInvoice, CreateTransactionDto, InvoiceItem } from './card.model';
 import { CardService } from './card.service';
+import { CategoriaService } from '../../core/services/categoria.service';
 
 const MESES_NOME = [
   'Janeiro',
@@ -116,12 +117,23 @@ export class CardDetailsComponent implements OnInit {
 
   private readonly route = inject(ActivatedRoute);
   readonly cardService = inject(CardService);
+  readonly categoriaService = inject(CategoriaService);
   private readonly fb = inject(FormBuilder);
   private readonly alertController = inject(AlertController);
   private readonly toastController = inject(ToastController);
   private readonly loadingController = inject(LoadingController);
 
   readonly cardId = signal<string | null>(null);
+
+  readonly categoriasDespesa = computed(() =>
+    this.categoriaService
+      .categorias()
+      .filter((c) => (c.tipo ?? 'despesa') === 'despesa')
+  );
+
+  private readonly nomesCategorias = computed(
+    () => new Map(this.categoriaService.categorias().map((c) => [c.id, c.nome]))
+  );
 
   // Re-exporta signals do serviço
   readonly cartaoDetalhes = this.cardService.cartaoSelecionado;
@@ -201,6 +213,9 @@ export class CardDetailsComponent implements OnInit {
       this.cardId.set(targetId);
       this.carregarDados(targetId);
     }
+    if (this.categoriaService.categorias().length === 0) {
+      this.categoriaService.listarCategorias().subscribe({ error: () => undefined });
+    }
   }
 
   private inicializarFormCompra(): void {
@@ -210,6 +225,7 @@ export class CardDetailsComponent implements OnInit {
       valor_total: [null, [Validators.required, Validators.min(0.01)]],
       quantidade_parcelas: [1, [Validators.required, Validators.min(1), Validators.max(36)]],
       data_compra: [hojeIso, [Validators.required]],
+      categoria_id: [null],
     });
   }
 
@@ -282,11 +298,15 @@ export class CardDetailsComponent implements OnInit {
 
   // --- Ações de Nova Compra ---
   abrirModalNovaCompra(): void {
+    if (this.categoriaService.categorias().length === 0) {
+      this.categoriaService.listarCategorias().subscribe({ error: () => undefined });
+    }
     this.compraForm.reset({
       descricao: '',
       valor_total: null,
       quantidade_parcelas: 1,
       data_compra: new Date().toISOString().substring(0, 10),
+      categoria_id: null,
     });
     this.modalNovaCompraAberto.set(true);
   }
@@ -326,12 +346,18 @@ export class CardDetailsComponent implements OnInit {
     });
     await loading.present();
 
+    const categoriaId =
+      val.categoria_id != null && val.categoria_id !== ''
+        ? Number(val.categoria_id)
+        : null;
+
     const payload: CreateTransactionDto = {
       cartao_id: cId,
       descricao: val.descricao.trim(),
       valor_total: valor,
       quantidade_parcelas: parcelas,
       data_compra: val.data_compra,
+      categoria_id: categoriaId,
     };
 
     this.cardService.lancarTransacao(payload).subscribe({
@@ -428,6 +454,14 @@ export class CardDetailsComponent implements OnInit {
         await toast.present();
       },
     });
+  }
+
+  obterNomeCategoria(item: InvoiceItem): string | null {
+    if (item.categoria_nome) return item.categoria_nome;
+    if (item.categoria_id != null) {
+      return this.nomesCategorias().get(Number(item.categoria_id)) ?? null;
+    }
+    return null;
   }
 
   obterCorStatus(status: string): string {

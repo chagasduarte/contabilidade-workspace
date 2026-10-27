@@ -215,8 +215,8 @@
                       } @else {
                         <span class="item-single-tag">À vista</span>
                       }
-                      @if (item.categoria_nome) {
-                        <span class="item-category-name">• {{ item.categoria_nome }}</span>
+                      @if (obterNomeCategoria(item); as catNome) {
+                        <span class="item-category-name">• {{ catNome }}</span>
                       }
                     </div>
                   </div>
@@ -318,6 +318,16 @@
           formControlName="data_compra"
           required
         />
+      </div>
+
+      <div class="form-field">
+        <label for="compra-categoria">Categoria (opcional)</label>
+        <select id="compra-categoria" formControlName="categoria_id">
+          <option [ngValue]="null">Sem categoria</option>
+          @for (cat of categoriasDespesa(); track cat.id) {
+            <option [ngValue]="cat.id">{{ cat.nome }}</option>
+          }
+        </select>
       </div>
 
       <p class="modal-hint">

@@ -19,6 +19,12 @@ export interface TransacaoEntity {
   subcategoria_nome?: string | null;
   source_type?: string | null;
   source_id?: string | null;
+  /** 'CARTAO' nas parcelas de compras no cartão incluídas no extrato (somente leitura). */
+  origem?: string | null;
+  /** Nome do cartão, nas parcelas de cartão. */
+  origem_rotulo?: string | null;
+  /** Id da fatura, nas parcelas de cartão. */
+  target_id?: string | null;
   criado_em?: string | Date | null;
   created_at?: string | Date | null;
 }
@@ -122,6 +128,15 @@ export interface ExtratoTotais {
 export interface ExtratoCursor {
   data: string; // YYYY-MM-DD
   id: number;
+}
+
+/**
+ * Cursor keyset das parcelas de cartão no extrato: (data da compra, id do invoice_item como texto).
+ * No mesmo dia, lançamentos de conta vêm antes das parcelas de cartão.
+ */
+export interface ExtratoCartaoCursor {
+  data: string; // YYYY-MM-DD
+  chave: string;
 }
 
 /** Linha de GET /transacoes/agrupadaPorTipos. Nomes são null quando não houver. */

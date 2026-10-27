@@ -38,6 +38,7 @@ import {
   alertCircleOutline,
   arrowDownCircleOutline,
   arrowUpCircleOutline,
+  cardOutline,
   checkmarkCircleOutline,
   closeOutline,
   ellipsisVertical,
@@ -45,6 +46,7 @@ import {
   walletOutline,
 } from 'ionicons/icons';
 import {
+  DashboardDespesaItem,
   PlannedTransaction,
   PlannedTransactionFiltros,
   PlannedTransactionStatus,
@@ -55,6 +57,7 @@ import { HeaderStateService } from '@org/shared-ui-navigation';
 import { PlannedTransactionService } from '../../core/services/planned-transaction.service';
 import { DashboardService } from '../../core/services/dashboard.service';
 import { CategoriaService } from '../../core/services/categoria.service';
+import { mensagemErroHttp } from '../../core/utils/http-error';
 import { MonthSelector } from '../../components/selectors/month-selector/month-selector';
 
 /** `todas` = visão geral; `pagar` = DESPESA PENDING; `receber` = RECEITA PENDING. */
@@ -133,6 +136,29 @@ export class ContasPlanejadasPage implements OnInit {
   readonly temMaisPaginas = computed(() => this.service.nextCursor() != null);
   readonly hoje = isoDate(new Date());
 
+  /** Faturas de cartão não pagas do mês (apenas em 'todas' não-SETTLED e 'pagar'). */
+  readonly faturasCartaoVisiveis = computed<DashboardDespesaItem[]>(() => {
+    if (this.modo === 'receber') return [];
+    if (this.modo === 'todas' && this.filtroStatus() === 'SETTLED') return [];
+    const lista = this.dashboardService.despesas?.() ?? [];
+    const vistas = new Set<string>();
+    const resultado: DashboardDespesaItem[] = [];
+    for (const item of lista) {
+      if (item.origem === 'CARTAO' && item.status === 'pendente') {
+        const chave = String(item.target_id || item.id);
+        if (!vistas.has(chave)) {
+          vistas.add(chave);
+          resultado.push(item);
+        }
+      }
+    }
+    return resultado;
+  });
+
+  readonly totalItensVisiveis = computed(
+    () => this.itens().length + this.faturasCartaoVisiveis().length
+  );
+
   readonly totalPagar = computed(() => this.somar('DESPESA'));
   readonly totalReceber = computed(() => this.somar('RECEITA'));
   readonly saldoPrevisto = computed(() => this.totalReceber() - this.totalPagar());
@@ -170,6 +196,7 @@ export class ContasPlanejadasPage implements OnInit {
       alertCircleOutline,
       arrowDownCircleOutline,
       arrowUpCircleOutline,
+      cardOutline,
       checkmarkCircleOutline,
       closeOutline,
       ellipsisVertical,
@@ -231,9 +258,19 @@ export class ContasPlanejadasPage implements OnInit {
 
   carregar(): void {
     this.service.listarPagina(this.filtros()).subscribe({ error: () => undefined });
+    if (this.modo !== 'receber') {
+      this.dashboardService
+        .carregarResumo?.(this.dashboardService.mes(), this.dashboardService.ano())
+        .subscribe({ error: () => undefined });
+    }
   }
 
   recarregar(event: Event): void {
+    if (this.modo !== 'receber') {
+      this.dashboardService
+        .carregarResumo?.(this.dashboardService.mes(), this.dashboardService.ano())
+        .subscribe({ error: () => undefined });
+    }
     this.service.listarPagina(this.filtros()).subscribe({
       next: () => (event.target as HTMLIonRefresherElement).complete(),
       error: () => (event.target as HTMLIonRefresherElement).complete(),
@@ -288,13 +325,56 @@ export class ContasPlanejadasPage implements OnInit {
     return item.status === 'PENDING' && String(item.data_prevista).slice(0, 10) < this.hoje;
   }
 
+  isDataVencida(data: string): boolean {
+    return String(data).slice(0, 10) < this.hoje;
+  }
+
   private somar(tipo: PlannedTransactionType): number {
-    return this.itens()
+    const planejadas = this.itens()
       .filter((t) => t.tipo === tipo && t.status === 'PENDING')
       .reduce((acc, t) => acc + Number(t.valor || 0), 0);
+    if (tipo !== 'DESPESA' || this.modo === 'receber') {
+      return planejadas;
+    }
+    const faturas = this.faturasCartaoVisiveis().reduce(
+      (acc, f) => acc + Number(f.valor || 0),
+      0
+    );
+    return planejadas + faturas;
   }
 
   // --- Ações ---
+
+  async pagarFatura(fatura: DashboardDespesaItem): Promise<void> {
+    const valorFormatado = new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(Number(fatura.valor || 0));
+
+    const alert = await this.alertController.create({
+      header: 'Pagar fatura',
+      subHeader: `${fatura.descricao} — ${valorFormatado}`,
+      message: 'Deseja confirmar o pagamento desta fatura de cartão?',
+      buttons: [
+        { text: 'Cancelar', role: 'cancel' },
+        { text: 'Confirmar', role: 'confirm' },
+      ],
+    });
+    await alert.present();
+    const { role } = await alert.onDidDismiss();
+    if (role !== 'confirm') return;
+
+    const faturaId = String(fatura.target_id || String(fatura.id).replace(/^card-/, ''));
+    this.dashboardService.pagarFaturaCartao(faturaId, Number(fatura.valor)).subscribe({
+      next: () => {
+        void this.avisar('Fatura paga com sucesso.', 'success');
+        this.carregar();
+      },
+      error: (err: unknown) => {
+        void this.avisar(mensagemErroHttp(err, 'Erro ao pagar fatura.'));
+      },
+    });
+  }
 
   async abrirAcoes(item: PlannedTransaction): Promise<void> {
     if (item.status !== 'PENDING') return;

@@ -261,7 +261,7 @@ export class Dashboard implements OnInit {
           return validB - validA;
         }
 
-        return Number(b.id ?? 0) - Number(a.id ?? 0);
+        return (Number(b.id) || 0) - (Number(a.id) || 0);
       })
       .slice(0, 10);
   });

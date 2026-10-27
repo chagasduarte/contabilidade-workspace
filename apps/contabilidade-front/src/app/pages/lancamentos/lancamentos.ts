@@ -16,6 +16,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
+import { Router } from '@angular/router';
 import {
   IonButton,
   IonContent,
@@ -30,6 +31,7 @@ import {
   chevronForwardOutline,
   refreshOutline,
   addOutline,
+  cardOutline,
 } from 'ionicons/icons';
 import { TransacaoService } from '../../core/services/transacao.service';
 import { DashboardService } from '../../core/services/dashboard.service';
@@ -49,6 +51,9 @@ export interface TransactionViewItem {
   type: 'Entrada' | 'Saída';
   amount: number;
   status: 'Recebido' | 'Pago' | 'Pendente';
+  isCard?: boolean;
+  cardLabel?: string;
+  cardId?: string;
 }
 
 const MESES_PT: readonly string[] = [
@@ -86,6 +91,7 @@ const MESES_PT: readonly string[] = [
 })
 export class Lancamentos implements OnInit {
   private readonly platformId = inject(PLATFORM_ID);
+  private readonly router = inject(Router);
   readonly transacaoService = inject(TransacaoService);
   readonly dashboardService = inject(DashboardService);
   readonly headerState = inject(HeaderStateService);
@@ -109,6 +115,10 @@ export class Lancamentos implements OnInit {
     return this.transacaoService.extrato().map((item) => {
       const isIncome = item.tipo === 'entrada';
       const isPending = item.status === 'pendente';
+      const isCard =
+        item.origem === 'CARTAO' ||
+        item.source_type === 'CREDIT_CARD_ITEM' ||
+        item.tipo === 'cartao';
 
       return {
         id: item.id,
@@ -121,6 +131,9 @@ export class Lancamentos implements OnInit {
           | 'Recebido'
           | 'Pago'
           | 'Pendente',
+        isCard,
+        cardLabel: isCard ? item.origem_rotulo || 'Cartão' : undefined,
+        cardId: isCard && item.source_id ? String(item.source_id) : undefined,
       };
     });
   });
@@ -136,7 +149,8 @@ export class Lancamentos implements OnInit {
     return raw.filter(
       (t) =>
         t.description.toLowerCase().includes(term) ||
-        t.category.toLowerCase().includes(term)
+        t.category.toLowerCase().includes(term) ||
+        (t.cardLabel?.toLowerCase().includes(term) ?? false)
     );
   });
 
@@ -178,6 +192,7 @@ export class Lancamentos implements OnInit {
       chevronForwardOutline,
       refreshOutline,
       addOutline,
+      cardOutline,
     });
 
     effect(() => {
@@ -291,5 +306,11 @@ export class Lancamentos implements OnInit {
 
   onTransacaoCriada(): void {
     this.carregarExtrato();
+  }
+
+  abrirItemCartao(transaction: TransactionViewItem): void {
+    if (transaction.isCard && transaction.cardId) {
+      void this.router.navigate(['/cartoes', transaction.cardId]);
+    }
   }
 }
