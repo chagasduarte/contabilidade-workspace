@@ -11,6 +11,9 @@ export interface CreateCardDto {
   cor_identificacao?: string;
 }
 
+/** PUT /cards/:id substitui todos os dados editáveis do cartão. */
+export type UpdateCardDto = CreateCardDto;
+
 export interface CreateTransactionDto {
   cartao_id: string;
   descricao: string;

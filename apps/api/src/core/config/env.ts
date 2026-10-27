@@ -5,13 +5,18 @@ import fs from 'fs';
 const candidatePaths = [
   path.resolve(process.cwd(), '.env'),
   path.resolve(process.cwd(), '../../.env'),
+  path.resolve(process.cwd(), '../../../.env'),
   path.resolve(__dirname, '../../../.env'),
   path.resolve(__dirname, '../../../../.env'),
+  path.resolve(__dirname, '../../../../../../../.env'),
 ];
 
 for (const envPath of candidatePaths) {
   if (fs.existsSync(envPath)) {
-    dotenv.config({ path: envPath });
+    dotenv.config({
+      path: envPath,
+      override: process.env.NODE_ENV !== 'production',
+    });
     break;
   }
 }

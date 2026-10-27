@@ -20,6 +20,7 @@ export const UserRepository = {
 
   async buscaPorNomeOuEmail(identificador: string): Promise<UserEntity | undefined> {
     const trimmed = identificador.trim().toLowerCase();
+    console.log("chegou aqui", trimmed)
     const result = await pool.query<UserEntity>(
       `SELECT * FROM usuarios 
        WHERE LOWER(TRIM(nome)) = $1 
@@ -27,6 +28,7 @@ export const UserRepository = {
        LIMIT 1`,
       [trimmed]
     );
+    console.log("Resultado da busca por nome ou email:", result.rows[0]);
     return result.rows[0];
   },
 

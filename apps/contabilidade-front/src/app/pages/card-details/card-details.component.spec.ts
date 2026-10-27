@@ -3,7 +3,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { of } from 'rxjs';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, provideRouter } from '@angular/router';
 import { AlertController, LoadingController, ToastController } from '@ionic/angular';
 import { CardDetailsComponent } from './card-details.component';
 import { CardService } from './card.service';
@@ -126,6 +126,7 @@ describe('CardDetailsComponent', () => {
     await TestBed.configureTestingModule({
       imports: [CardDetailsComponent],
       providers: [
+        provideRouter([]),
         { provide: CardService, useValue: cardServiceStub },
         {
           provide: ActivatedRoute,

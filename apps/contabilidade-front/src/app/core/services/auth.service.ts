@@ -187,6 +187,7 @@ export class AuthService {
       .pipe(
         tap({
           next: (response) => {
+            console.log('Login successful:', response);
             if (typeof window !== 'undefined' && window.localStorage) {
               localStorage.setItem(this.TOKEN_KEY, response.token);
               localStorage.setItem(this.USER_KEY, JSON.stringify(response.usuario));
@@ -196,7 +197,8 @@ export class AuthService {
             this.scheduleExpirationTimer(response.token);
             this.loading.set(false);
           },
-          error: () => {
+          error: (err) => {
+            console.log('Login failed:', err);
             this.loading.set(false);
           },
         })

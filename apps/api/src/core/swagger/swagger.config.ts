@@ -363,6 +363,36 @@ Permite o controle integral de fluxo de caixa, cartões de crédito com faturas 
           404: { description: 'Cartão não encontrado' },
         },
       },
+      put: {
+        tags: ['Cartões de Crédito'],
+        summary: 'Editar cartão de crédito',
+        description:
+          'Substitui nome, bandeira, limite, dias de fechamento/vencimento e cor. Se os dias mudarem, as datas das faturas ainda não pagas são recalculadas; compras já lançadas continuam nas mesmas faturas.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/CreateCardDto' },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Cartão atualizado',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/CreditCard' },
+              },
+            },
+          },
+          400: { description: 'Dados inválidos' },
+          404: { description: 'Cartão não encontrado' },
+        },
+      },
     },
     '/cards/transacoes': {
       post: {

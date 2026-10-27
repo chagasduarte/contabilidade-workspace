@@ -30,5 +30,8 @@ router.get('/:id/faturas', CardController.listarFaturas);
 // GET /cards/:id - Detalhes de um cartão específico
 router.get('/:id', CardController.obterPorId);
 
+// PUT /cards/:id - Editar dados do cartão
+router.put('/:id', CardController.atualizar);
+
 export default router;
 

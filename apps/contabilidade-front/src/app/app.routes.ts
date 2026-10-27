@@ -128,6 +128,11 @@ export const appRoutes: Route[] = [
           ),
       },
       {
+        path: 'cartoes/:id/editar',
+        loadComponent: () =>
+          import('./pages/card-edit/card-edit.page').then((m) => m.CardEditPage),
+      },
+      {
         path: 'cards',
         loadComponent: () =>
           import('./pages/cards/cards.page').then((m) => m.CardsPage),
@@ -138,6 +143,11 @@ export const appRoutes: Route[] = [
           import('./pages/card-details/card-details.component').then(
             (m) => m.CardDetailsComponent
           ),
+      },
+      {
+        path: 'cards/:id/editar',
+        loadComponent: () =>
+          import('./pages/card-edit/card-edit.page').then((m) => m.CardEditPage),
       },
       {
         path: 'contas-pagar',
