@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { LoanBusiness, LoanValidationError, LoanNotFoundError } from './loan.business';
 import { LoanRepository } from './loan.repository';
 import { codificarCursor, decodificarCursor, PaginacaoInvalidaError } from '../../common/utils/paginacao';
-import { LoanPaymentRepository } from './loan-payment.repository';
+import { LoanPaymentRepository, ParcelaJaQuitadaError } from './loan-payment.repository';
 import { LoanEntity, LoanInstallmentEntity, LoanPaymentEntity } from './loan.entity';
 
 vi.mock('./loan.repository', async (importOriginal) => {
@@ -21,7 +21,8 @@ vi.mock('./loan.repository', async (importOriginal) => {
   };
 });
 
-vi.mock('./loan-payment.repository', () => ({
+vi.mock('./loan-payment.repository', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./loan-payment.repository')>()),
   LoanPaymentRepository: {
     registrarPagamento: vi.fn(),
     buscarPorId: vi.fn(),
@@ -276,6 +277,37 @@ describe('LoanBusiness', () => {
       expect(LoanRepository.buscarPorId).toHaveBeenCalledWith('loan-1', 1);
       expect(res.pagamento.amount_paid).toBe(450);
       expect(res.parcela?.status).toBe('PAID');
+    });
+
+    it('envia dono e descrição da despesa executada que será gravada em transacoes', async () => {
+      vi.mocked(LoanRepository.buscarPorId).mockResolvedValue(mockLoan);
+      vi.mocked(LoanRepository.buscarParcelaPorId).mockResolvedValue(mockParcela);
+      vi.mocked(LoanPaymentRepository.registrarPagamento).mockResolvedValue({} as any);
+
+      await LoanBusiness.registrarPagamento(
+        { loan_id: 'loan-1', installment_id: 'inst-1', amount_paid: 500, payment_method: 'PIX' },
+        7
+      );
+
+      expect(LoanPaymentRepository.registrarPagamento).toHaveBeenCalledWith(
+        expect.objectContaining({
+          usuario_id: 7,
+          descricao_despesa: 'Parcela Empréstimo #1 - Nubank',
+        })
+      );
+    });
+
+    it('pagamento concorrente da mesma parcela vira erro de validação (sem despesa em dobro)', async () => {
+      vi.mocked(LoanRepository.buscarPorId).mockResolvedValue(mockLoan);
+      vi.mocked(LoanRepository.buscarParcelaPorId).mockResolvedValue(mockParcela);
+      vi.mocked(LoanPaymentRepository.registrarPagamento).mockRejectedValue(new ParcelaJaQuitadaError());
+
+      await expect(
+        LoanBusiness.registrarPagamento(
+          { loan_id: 'loan-1', installment_id: 'inst-1', amount_paid: 500, payment_method: 'PIX' },
+          1
+        )
+      ).rejects.toThrow(LoanValidationError);
     });
   });
 
