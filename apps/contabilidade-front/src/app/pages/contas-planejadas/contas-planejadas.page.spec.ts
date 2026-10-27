@@ -3,7 +3,7 @@ import { signal } from '@angular/core';
 import { ActivatedRoute, provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { AlertController, ActionSheetController, ToastController } from '@ionic/angular';
-import { Categoria, PlannedTransaction } from '@contabilidade/models';
+import { Categoria, DashboardDespesaItem, PlannedTransaction } from '@contabilidade/models';
 import { HeaderStateService } from '@org/shared-ui-navigation';
 import { ContasPlanejadasPage, ModoContas } from './contas-planejadas.page';
 import { PlannedTransactionService } from '../../core/services/planned-transaction.service';
@@ -14,6 +14,7 @@ describe('ContasPlanejadasPage', () => {
   let fixture: ComponentFixture<ContasPlanejadasPage>;
   let component: ContasPlanejadasPage;
   let serviceStub: ReturnType<typeof criarServiceStub>;
+  let dashboardServiceStub: ReturnType<typeof criarDashboardStub>;
   let alertRole: string;
   let alertValues: unknown;
 
@@ -59,8 +60,22 @@ describe('ContasPlanejadasPage', () => {
     };
   }
 
-  async function montar(modo: ModoContas): Promise<void> {
+  function criarDashboardStub(despesasIniciais: DashboardDespesaItem[] = []) {
+    return {
+      mes: signal(10),
+      ano: signal(2026),
+      despesas: signal<DashboardDespesaItem[]>(despesasIniciais),
+      carregarResumo: vi.fn().mockReturnValue(of({ despesas_mes: despesasIniciais })),
+      pagarFaturaCartao: vi.fn().mockReturnValue(of({ success: true })),
+    };
+  }
+
+  async function montar(
+    modo: ModoContas,
+    despesasIniciais: DashboardDespesaItem[] = []
+  ): Promise<void> {
     serviceStub = criarServiceStub();
+    dashboardServiceStub = criarDashboardStub(despesasIniciais);
     alertRole = 'confirm';
     alertValues = undefined;
     const overlay = () => ({
@@ -77,7 +92,7 @@ describe('ContasPlanejadasPage', () => {
         HeaderStateService,
         { provide: ActivatedRoute, useValue: { snapshot: { data: { modo } } } },
         { provide: PlannedTransactionService, useValue: serviceStub },
-        { provide: DashboardService, useValue: { mes: signal(10), ano: signal(2026) } },
+        { provide: DashboardService, useValue: dashboardServiceStub },
         {
           provide: CategoriaService,
           useValue: {
@@ -210,5 +225,39 @@ describe('ContasPlanejadasPage', () => {
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('[role="alert"]')?.textContent).toContain('Sem conexão');
+  });
+
+  it('exibe faturas de cartão pendentes em contas-pagar e contasPlanejadas (não em contas-receber) e soma no totalPagar', async () => {
+    const faturaCartao: DashboardDespesaItem = {
+      id: 'card-fat-1',
+      descricao: 'Fatura Nubank (10/2026)',
+      tipo: 'cartao',
+      valor: 800,
+      categoria: 'Cartão de Crédito',
+      data: '2026-10-28',
+      status: 'pendente',
+      origem: 'CARTAO',
+      origem_rotulo: 'Cartão',
+      target_id: 'fat-1',
+      detalhes: {
+        cartao_nome: 'Nubank',
+        mes_referencia: 10,
+        ano_referencia: 2026,
+      },
+    };
+
+    await montar('pagar', [faturaCartao]);
+    expect(component.faturasCartaoVisiveis()).toHaveLength(1);
+    expect(component.totalPagar()).toBe(1500 + 800);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Fatura Nubank (10/2026)');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Pagar fatura');
+
+    await component.pagarFatura(faturaCartao);
+    expect(dashboardServiceStub.pagarFaturaCartao).toHaveBeenCalledWith('fat-1', 800);
+
+    TestBed.resetTestingModule();
+    await montar('receber', [faturaCartao]);
+    expect(component.faturasCartaoVisiveis()).toHaveLength(0);
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Fatura Nubank');
   });
 });

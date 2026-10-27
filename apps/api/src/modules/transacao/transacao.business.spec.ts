@@ -23,6 +23,7 @@ vi.mock('./transacao.repository', () => ({
     criar: vi.fn(),
     criarEmLote: vi.fn(),
     extrato: vi.fn(),
+    extratoCartao: vi.fn().mockResolvedValue([]),
     extratoTotais: vi.fn(),
     buscarPorId: vi.fn(),
     atualizar: vi.fn(),
@@ -375,6 +376,83 @@ describe('TransacaoBusiness', () => {
 
       await expect(TransacaoBusiness.extrato({ cursor: 'abc' }, 1)).rejects.toThrow(/Cursor inválido/);
       await expect(TransacaoBusiness.extrato({ mes: '13', ano: '2026' }, 1)).rejects.toThrow('Mês inválido.');
+    });
+
+    describe('parcelas de cartão', () => {
+      const conta = (id: number, data: string) => ({
+        id,
+        tipo: 'saida' as const,
+        descricao: `conta ${id}`,
+        valor: 10,
+        data,
+        status: 'pago' as const,
+        userid: 1,
+      });
+      const cartao = (uuid: string, data: string) => ({
+        id: `cartao:${uuid}`,
+        tipo: 'saida' as const,
+        descricao: `cartão ${uuid}`,
+        valor: 20,
+        data,
+        status: 'pendente' as const,
+        userid: 1,
+        origem: 'CARTAO',
+      });
+      const U1 = '11111111-1111-1111-1111-111111111111';
+      const U2 = '22222222-2222-2222-2222-222222222222';
+
+      it('mescla conta e cartão por data desc; no mesmo dia, conta antes de cartão', async () => {
+        vi.mocked(TransacaoRepository.extrato).mockResolvedValueOnce([
+          conta(9, '2026-03-20'),
+          conta(5, '2026-03-10'),
+        ]);
+        vi.mocked(TransacaoRepository.extratoCartao).mockResolvedValueOnce([
+          cartao(U2, '2026-03-20'),
+          cartao(U1, '2026-03-15'),
+        ]);
+
+        const res = await TransacaoBusiness.extrato({ mes: '3', ano: '2026' }, 1);
+
+        expect(res.items.map((i) => i.id)).toEqual([9, `cartao:${U2}`, `cartao:${U1}`, 5]);
+        expect(TransacaoRepository.extratoCartao).toHaveBeenCalledWith(1, '2026-03-01', '2026-04-01', null, null);
+      });
+
+      it('corta a página mesclada no limite e o cursor aponta para o último item exibido', async () => {
+        vi.mocked(TransacaoRepository.extrato).mockResolvedValueOnce([
+          conta(9, '2026-03-20'),
+          conta(5, '2026-03-10'),
+        ]);
+        vi.mocked(TransacaoRepository.extratoCartao).mockResolvedValueOnce([
+          cartao(U2, '2026-03-20'),
+          cartao(U1, '2026-03-15'),
+        ]);
+
+        const res = await TransacaoBusiness.extrato({ paginado: true, limit: '2', mes: '3', ano: '2026' }, 1);
+
+        expect(res.items.map((i) => i.id)).toEqual([9, `cartao:${U2}`]);
+        expect(res.next_cursor).toBe(`2026-03-20_cartao:${U2}`);
+      });
+
+      it('cursor de conta: cartão inclui o dia inteiro do cursor', async () => {
+        vi.mocked(TransacaoRepository.extrato).mockResolvedValueOnce([]);
+
+        await TransacaoBusiness.extrato({ cursor: '2026-03-15_200' }, 1);
+
+        expect(TransacaoRepository.extratoCartao).toHaveBeenCalledWith(
+          1, null, null, { data: '2026-03-15', chave: 'g' }, 50
+        );
+      });
+
+      it('cursor de cartão: conta só a partir do dia anterior e cartão após o uuid', async () => {
+        vi.mocked(TransacaoRepository.extrato).mockResolvedValueOnce([]);
+
+        await TransacaoBusiness.extrato({ cursor: `2026-03-15_cartao:${U1}` }, 1);
+
+        expect(TransacaoRepository.extrato).toHaveBeenCalledWith(1, null, null, { data: '2026-03-15', id: 0 }, 50);
+        expect(TransacaoRepository.extratoCartao).toHaveBeenCalledWith(
+          1, null, null, { data: '2026-03-15', chave: U1 }, 50
+        );
+      });
     });
   });
 

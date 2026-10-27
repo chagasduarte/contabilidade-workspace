@@ -7,7 +7,9 @@ import { ActivatedRoute, provideRouter } from '@angular/router';
 import { AlertController, LoadingController, ToastController } from '@ionic/angular';
 import { CardDetailsComponent } from './card-details.component';
 import { CardService } from './card.service';
-import { CardDetailsResponseDto, InvoiceDetailsResponseDto } from './card.model';
+import { CardDetailsResponseDto, CardInvoice, InvoiceDetailsResponseDto } from './card.model';
+import { CategoriaService } from '../../core/services/categoria.service';
+import { Categoria } from '@contabilidade/models';
 
 describe('CardDetailsComponent', () => {
   let component: CardDetailsComponent;
@@ -92,7 +94,20 @@ describe('CardDetailsComponent', () => {
     pagarFatura: ReturnType<typeof vi.fn>;
   };
 
+  let categoriaServiceStub: {
+    categorias: ReturnType<typeof signal<Categoria[]>>;
+    listarCategorias: ReturnType<typeof vi.fn>;
+  };
+
   beforeEach(async () => {
+    categoriaServiceStub = {
+      categorias: signal<Categoria[]>([
+        { id: 1, nome: 'Alimentação', icone: 'restaurant-outline', cor: '#ef4444', tipo: 'despesa' },
+        { id: 2, nome: 'Salário', icone: 'cash-outline', cor: '#22c55e', tipo: 'receita' },
+      ]),
+      listarCategorias: vi.fn().mockReturnValue(of([])),
+    };
+
     cardServiceStub = {
       cartaoSelecionado: signal<CardDetailsResponseDto | null>(mockCartaoDetalhes),
       faturaSelecionada: signal<InvoiceDetailsResponseDto | null>(mockFaturaDetalhes),
@@ -128,6 +143,7 @@ describe('CardDetailsComponent', () => {
       providers: [
         provideRouter([]),
         { provide: CardService, useValue: cardServiceStub },
+        { provide: CategoriaService, useValue: categoriaServiceStub },
         {
           provide: ActivatedRoute,
           useValue: {
@@ -171,6 +187,32 @@ describe('CardDetailsComponent', () => {
     expect(component.modalNovaCompraAberto()).toBe(true);
     component.fecharModalNovaCompra();
     expect(component.modalNovaCompraAberto()).toBe(false);
+  });
+
+  it('deve listar apenas categorias de despesa e enviar categoria_id ao salvar compra', async () => {
+    expect(component.categoriasDespesa().map((c) => c.nome)).toEqual(['Alimentação']);
+
+    component.abrirModalNovaCompra();
+    component.compraForm.patchValue({
+      descricao: 'Mercado',
+      valor_total: 150,
+      quantidade_parcelas: 1,
+      data_compra: '2026-10-15',
+      categoria_id: 1,
+    });
+
+    await component.salvarNovaCompra();
+
+    expect(cardServiceStub.lancarTransacao).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cartao_id: 'card-1',
+        descricao: 'Mercado',
+        valor_total: 150,
+        quantidade_parcelas: 1,
+        data_compra: '2026-10-15',
+        categoria_id: 1,
+      })
+    );
   });
 });
 

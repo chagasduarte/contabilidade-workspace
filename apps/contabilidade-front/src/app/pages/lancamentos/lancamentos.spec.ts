@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { of } from 'rxjs';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { Lancamentos } from './lancamentos';
 import { TransacaoService } from '../../core/services/transacao.service';
 import { DashboardService } from '../../core/services/dashboard.service';
@@ -240,5 +240,47 @@ describe('Lancamentos', () => {
 
     expect(transacaoServiceStub.carregarExtratoPaginado.mock.calls.length).toBe(chamadas);
     expect(complete).toHaveBeenCalled();
+  });
+
+  it('deve exibir selo de cartão para itens com origem CARTAO e navegar para /cartoes/:source_id ao tocar', () => {
+    const router = TestBed.inject(Router);
+    const navigateSpy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+
+    transacaoServiceStub.extrato.set([
+      ...mockExtrato,
+      {
+        id: 'cartao:item-uuid-1',
+        descricao: 'Notebook (2/10)',
+        tipo: 'saida',
+        valor: 350,
+        data: '2026-10-12',
+        pagamento: '2026-10-28',
+        status: 'pendente',
+        origem: 'CARTAO',
+        origem_rotulo: 'Nubank',
+        target_id: 'fat-uuid-1',
+        source_type: 'CREDIT_CARD_ITEM',
+        source_id: 'card-uuid-1',
+        idcategoria: 5,
+        categoria_nome: 'Eletrônicos',
+        cartaoid: null,
+      },
+    ]);
+    fixture.detectChanges();
+
+    const cardBadge = (fixture.nativeElement as HTMLElement).querySelector(
+      '[data-testid="transaction-card-badge"]'
+    );
+    expect(cardBadge?.textContent).toContain('Nubank');
+
+    const cardItem = component.transactions().find((t) => t.id === 'cartao:item-uuid-1');
+    expect(cardItem).toBeDefined();
+    expect(cardItem?.isCard).toBe(true);
+    expect(cardItem?.category).toBe('Eletrônicos');
+
+    if (cardItem) {
+      component.abrirItemCartao(cardItem);
+    }
+    expect(navigateSpy).toHaveBeenCalledWith(['/cartoes', 'card-uuid-1']);
   });
 });

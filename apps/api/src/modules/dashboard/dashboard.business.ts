@@ -139,11 +139,16 @@ export const DashboardBusiness = {
       });
     }
 
-    // 5. Faturas de Cartão de Crédito pendentes no período
+    // 5. Faturas de Cartão de Crédito que vencem no período. O valor já pago conta como gasto
+    // realizado (o pagamento não gera lançamento em transacoes); o restante, como pendente.
     const invoicesMes = await DashboardRepository.getCardInvoicesMes(mes, ano, userid);
     let invoices_pendente = 0;
+    let invoices_pago = 0;
 
     for (const inv of invoicesMes) {
+      invoices_pago += inv.valor_total - inv.valor_restante;
+      if (inv.valor_restante <= 0) continue;
+
       invoices_pendente += inv.valor_restante;
       despesasLista.push({
         id: `card-${inv.id}`,
@@ -182,9 +187,9 @@ export const DashboardBusiness = {
       (gastos_trans_pendente + planned_despesa_pendente + loan_despesa_pendente + invoices_pendente).toFixed(2)
     );
     const gastos_mensal_pendente = total_dividas_mes;
-    const gastos_mensal = Number((gastos_realizados + total_dividas_mes).toFixed(2));
+    const gastos_mensal = Number((gastos_realizados + invoices_pago + total_dividas_mes).toFixed(2));
 
-    const gastos_cartao = Number((gastos_cartao_trans + invoices_pendente).toFixed(2));
+    const gastos_cartao = Number((gastos_cartao_trans + invoices_pago + invoices_pendente).toFixed(2));
 
     // Saldo projetado = Saldo atual em conta corrente + Receitas previstas pendentes - Total de dívidas pendentes
     const saldo_projetado = Number((saldo_atual + receita_mensal_pendente - total_dividas_mes).toFixed(2));

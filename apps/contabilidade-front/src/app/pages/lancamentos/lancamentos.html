@@ -84,14 +84,35 @@
     } @else {
       <div class="transactions-list__items">
         @for (transaction of transactions(); track transaction.id) {
-          <article class="transaction">
+          <article
+            class="transaction"
+            [class.transaction--card]="transaction.isCard"
+            [attr.role]="transaction.isCard && transaction.cardId ? 'link' : null"
+            [attr.tabindex]="transaction.isCard && transaction.cardId ? '0' : null"
+            [attr.aria-label]="
+              transaction.isCard && transaction.cardId
+                ? transaction.description + ' — ver cartão ' + (transaction.cardLabel || '')
+                : null
+            "
+            (click)="abrirItemCartao(transaction)"
+            (keydown.enter)="abrirItemCartao(transaction)"
+            (keydown.space)="transaction.isCard && transaction.cardId ? $event.preventDefault() : null; abrirItemCartao(transaction)"
+          >
             <div class="transaction__date">
               <strong>{{ transaction.date | date: 'dd' : 'UTC' : 'pt-BR' }}</strong>
               <span>{{ transaction.date | date: 'MMM' : 'UTC' : 'pt-BR' }}</span>
             </div>
             <div class="transaction__details">
               <strong>{{ transaction.description }}</strong>
-              <span>{{ transaction.category }}</span>
+              <div class="transaction__meta">
+                <span>{{ transaction.category }}</span>
+                @if (transaction.isCard) {
+                  <span class="transaction__card-badge" data-testid="transaction-card-badge">
+                    <ion-icon name="card-outline" aria-hidden="true"></ion-icon>
+                    {{ transaction.cardLabel || 'Cartão' }}
+                  </span>
+                }
+              </div>
             </div>
             <span
               class="transaction__type"

@@ -838,7 +838,7 @@ Permite o controle integral de fluxo de caixa, cartões de crédito com faturas 
         tags: ['Transações'],
         summary: 'Extrato consolidado do período',
         description:
-          'Extrato por competência (cartão -> pagamento, conta -> data), ordenado por data DESC, id DESC. Paginação keyset opcional; cursor no formato YYYY-MM-DD_id (trate como opaco).',
+          'Extrato por competência (cartão -> pagamento, conta -> data), ordenado por data DESC, id DESC. Inclui as parcelas de compras no cartão de crédito (invoice_items) pelo vencimento da fatura, somente leitura: id `cartao:<uuid>`, origem `CARTAO`, origem_rotulo = nome do cartão, target_id = fatura, source_id = cartão; no mesmo dia vêm depois dos lançamentos de conta. Os totais também somam essas parcelas. Paginação keyset opcional; cursor no formato YYYY-MM-DD_id ou YYYY-MM-DD_cartao:<uuid> (trate como opaco).',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'mes', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 12 } },

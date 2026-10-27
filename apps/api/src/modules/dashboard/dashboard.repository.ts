@@ -30,6 +30,9 @@ export interface CardInvoiceRow {
   mes_referencia: number;
   ano_referencia: number;
   data_vencimento: string;
+  /** Soma das parcelas da fatura. */
+  valor_total: number;
+  /** Quanto falta pagar (0 para fatura PAID). */
   valor_restante: number;
 }
 
@@ -205,26 +208,28 @@ export const DashboardRepository = {
     ano: number,
     userid: number
   ): Promise<CardInvoiceRow[]> {
+    // Faturas que vencem no mês (pagas ou não): é no vencimento que o dinheiro sai.
+    // Só o vencimento: somar também o mês de referência fazia a fatura aparecer em dois meses
+    // quando o vencimento cai no mês seguinte ao fechamento.
     const query = `
-      SELECT 
+      SELECT
         ci.id,
         c.nome AS nome_cartao,
         ci.mes_referencia,
         ci.ano_referencia,
         TO_CHAR(ci.data_vencimento::date, 'YYYY-MM-DD') AS data_vencimento,
-        (COALESCE(SUM(ii.valor_parcela), 0) - COALESCE(ci.valor_pago, 0))::numeric AS valor_restante
+        COALESCE(SUM(ii.valor_parcela), 0)::numeric AS valor_total,
+        CASE WHEN ci.status = 'PAID' THEN 0
+             ELSE GREATEST(COALESCE(SUM(ii.valor_parcela), 0) - COALESCE(ci.valor_pago, 0), 0)
+        END::numeric AS valor_restante
       FROM card_invoices ci
       INNER JOIN credit_cards c ON c.id = ci.cartao_id
       LEFT JOIN invoice_items ii ON ii.fatura_id = ci.id
       WHERE c.usuario_id = $1
-        AND ci.status != 'PAID'
-        AND (
-          (ci.data_vencimento >= make_date($3::int, $2::int, 1)
-           AND ci.data_vencimento < (make_date($3::int, $2::int, 1) + interval '1 month')::date)
-          OR (ci.mes_referencia = $2 AND ci.ano_referencia = $3)
-        )
-      GROUP BY ci.id, c.nome, ci.mes_referencia, ci.ano_referencia, ci.data_vencimento, ci.valor_pago
-      HAVING (COALESCE(SUM(ii.valor_parcela), 0) - COALESCE(ci.valor_pago, 0)) > 0
+        AND ci.data_vencimento >= make_date($3::int, $2::int, 1)
+        AND ci.data_vencimento < (make_date($3::int, $2::int, 1) + interval '1 month')::date
+      GROUP BY ci.id, c.nome, ci.mes_referencia, ci.ano_referencia, ci.data_vencimento, ci.valor_pago, ci.status
+      HAVING COALESCE(SUM(ii.valor_parcela), 0) > 0
       ORDER BY ci.data_vencimento ASC
     `;
     try {
@@ -233,6 +238,7 @@ export const DashboardRepository = {
         ...r,
         mes_referencia: Number(r.mes_referencia),
         ano_referencia: Number(r.ano_referencia),
+        valor_total: Number(r.valor_total),
         valor_restante: Number(r.valor_restante),
       }));
     } catch (err) {
@@ -282,17 +288,18 @@ export const DashboardRepository = {
           AND li.due_date >= make_date($2::int, 1, 1) AND li.due_date < make_date($2::int + 1, 1, 1)
         GROUP BY EXTRACT(MONTH FROM li.due_date)
       ),
+      -- Fatura inteira no mês do vencimento, paga ou não: o pagamento não gera lançamento em
+      -- transacoes, então descontar o valor pago faria o gasto do cartão sumir do mês
       invoices_agregadas AS (
-        SELECT 
+        SELECT
           EXTRACT(MONTH FROM ci.data_vencimento)::integer AS mes,
-          COALESCE(SUM(ii.valor_parcela) - COALESCE(ci.valor_pago, 0), 0)::numeric AS desp_invoice
+          COALESCE(SUM(ii.valor_parcela), 0)::numeric AS desp_invoice
         FROM card_invoices ci
         INNER JOIN credit_cards c ON c.id = ci.cartao_id
         LEFT JOIN invoice_items ii ON ii.fatura_id = ci.id
         WHERE c.usuario_id = $1
-          AND ci.status != 'PAID'
           AND ci.data_vencimento >= make_date($2::int, 1, 1) AND ci.data_vencimento < make_date($2::int + 1, 1, 1)
-        GROUP BY EXTRACT(MONTH FROM ci.data_vencimento), ci.id, ci.valor_pago
+        GROUP BY EXTRACT(MONTH FROM ci.data_vencimento), ci.id
       ),
       invoices_por_mes AS (
         SELECT mes, COALESCE(SUM(desp_invoice), 0)::numeric AS desp_card

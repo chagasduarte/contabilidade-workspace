@@ -225,6 +225,17 @@
     border-bottom: 0;
   }
 
+  &--card[role='link'] {
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+
+    &:hover,
+    &:focus-visible {
+      background: rgba(255, 255, 255, 0.03);
+      outline: none;
+    }
+  }
+
   &__date,
   &__details {
     display: flex;
@@ -258,6 +269,25 @@
       color: #8fa0b1;
       font-size: 0.8rem;
     }
+  }
+
+  &__meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  &__card-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(168, 85, 247, 0.18);
+    color: #d8b4fe !important;
+    font-size: 0.72rem !important;
+    font-weight: 600;
   }
 
   &__type,

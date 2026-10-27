@@ -69,18 +69,18 @@
     <section class="contas-list" aria-labelledby="contas-list-title">
       <h2 id="contas-list-title" class="sr-only">Lista de contas</h2>
 
-      @if (service.loading() && itens().length === 0) {
+      @if (service.loading() && totalItensVisiveis() === 0) {
         <div class="contas-list__state">
           <ion-spinner name="crescent"></ion-spinner>
           <span>Carregando contas...</span>
         </div>
-      } @else if (service.error() && itens().length === 0) {
+      } @else if (service.error() && totalItensVisiveis() === 0) {
         <div class="contas-list__state contas-list__state--error" role="alert">
           <ion-icon name="alert-circle-outline" aria-hidden="true"></ion-icon>
           <span>Não foi possível carregar as contas. {{ service.error() }}</span>
           <ion-button fill="outline" size="small" (click)="carregar()">Tentar novamente</ion-button>
         </div>
-      } @else if (itens().length === 0) {
+      } @else if (totalItensVisiveis() === 0) {
         <div class="contas-list__state">
           <ion-icon name="wallet-outline" aria-hidden="true"></ion-icon>
           <span>Nenhuma conta {{ modo === 'todas' ? 'neste filtro' : 'pendente' }} para o mês.</span>
@@ -88,6 +88,52 @@
         </div>
       } @else {
         <ul class="contas-list__items">
+          @for (fatura of faturasCartaoVisiveis(); track fatura.id) {
+            <li class="conta conta--cartao">
+              <div class="conta__date" aria-hidden="true">
+                <strong>{{ fatura.data | date: 'dd' : 'UTC' }}</strong>
+                <span>{{ fatura.data | date: 'MMM' : 'UTC' : 'pt-BR' }}</span>
+              </div>
+
+              <div class="conta__details">
+                <strong>{{ fatura.descricao }}</strong>
+                <span class="conta__meta">
+                  <span class="conta__tag conta__tag--cartao">
+                    <ion-icon name="card-outline" aria-hidden="true"></ion-icon>
+                    {{ fatura.detalhes?.cartao_nome || fatura.origem_rotulo || 'Cartão' }}
+                  </span>
+                  <span>{{ fatura.categoria || 'Cartão de Crédito' }}</span>
+                  <span class="sr-only">
+                    Vence em {{ fatura.data | date: 'dd/MM/yyyy' : 'UTC' }}.
+                  </span>
+                </span>
+              </div>
+
+              <div class="conta__right">
+                <strong class="conta__valor">
+                  − {{ fatura.valor | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}
+                </strong>
+                @if (isDataVencida(fatura.data)) {
+                  <span class="conta__status conta__status--vencida">Vencida</span>
+                } @else {
+                  <span class="conta__status" data-status="PENDING">Pendente</span>
+                }
+              </div>
+
+              <div class="conta__actions">
+                <ion-button
+                  size="small"
+                  fill="outline"
+                  color="primary"
+                  [attr.aria-label]="'Pagar fatura ' + fatura.descricao"
+                  (click)="pagarFatura(fatura)"
+                >
+                  <ion-icon name="checkmark-circle-outline" slot="start" aria-hidden="true"></ion-icon>
+                  Pagar fatura
+                </ion-button>
+              </div>
+            </li>
+          }
           @for (item of itens(); track item.id) {
             <li
               class="conta"

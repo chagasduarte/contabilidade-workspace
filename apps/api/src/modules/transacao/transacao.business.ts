@@ -16,6 +16,7 @@ import {
   PeriodoConsulta,
   TransacaoLoteItem,
   ExtratoCursor,
+  ExtratoCartaoCursor,
   AgrupamentoTipoItem,
   ExtratoTotais,
   TransacaoNotFoundError,
@@ -23,6 +24,25 @@ import {
 
 const EXTRATO_LIMIT_PADRAO = 50;
 const EXTRATO_LIMIT_MAX = 200;
+
+/**
+ * Ordem do extrato: data desc; no mesmo dia, conta (id numérico desc) antes de cartão
+ * (id `cartao:<uuid>` desc, comparação byte a byte como o COLLATE "C" da consulta).
+ */
+function compararItensExtrato(a: TransacaoEntity, b: TransacaoEntity): number {
+  const dataA = String(a.data);
+  const dataB = String(b.data);
+  if (dataA !== dataB) return dataA < dataB ? 1 : -1;
+
+  const cartaoA = a.origem === 'CARTAO';
+  const cartaoB = b.origem === 'CARTAO';
+  if (cartaoA !== cartaoB) return cartaoA ? 1 : -1;
+  if (!cartaoA) return Number(b.id) - Number(a.id);
+
+  const idA = String(a.id);
+  const idB = String(b.id);
+  return idA === idB ? 0 : idA < idB ? 1 : -1;
+}
 
 function intervaloMes(mes: number, ano: number): { inicio: string; fim: string } {
   const mm = String(mes).padStart(2, '0');
@@ -814,11 +834,23 @@ export const TransacaoBusiness = {
       }
     }
 
+    // Ordem no mesmo dia: lançamentos de conta (id desc) e depois parcelas de cartão (id desc).
+    // O cursor aponta para o último item, seja `YYYY-MM-DD_<id>` ou `YYYY-MM-DD_cartao:<uuid>`.
     let cursor: ExtratoCursor | null = null;
+    let cursorCartao: ExtratoCartaoCursor | null = null;
     if (params.cursor) {
-      const match = /^(\d{4}-\d{2}-\d{2})_(\d+)$/.exec(params.cursor);
+      const match = /^(\d{4}-\d{2}-\d{2})_(?:(\d+)|cartao:([0-9a-f-]{36}))$/i.exec(params.cursor);
       if (!match) throw new Error("Cursor inválido. Formato esperado: 'YYYY-MM-DD_id'.");
-      cursor = { data: match[1], id: Number(match[2]) };
+      const [, data, idConta, idCartao] = match;
+      if (idConta) {
+        cursor = { data, id: Number(idConta) };
+        // Parcelas de cartão do mesmo dia ainda não foram exibidas: 'g' é maior que qualquer uuid em hex
+        cursorCartao = { data, chave: 'g' };
+      } else {
+        // Todos os lançamentos de conta do dia já foram exibidos (ids > 0)
+        cursor = { data, id: 0 };
+        cursorCartao = { data, chave: idCartao.toLowerCase() };
+      }
     }
 
     const paginado = Boolean(params.paginado || cursor);
@@ -829,10 +861,14 @@ export const TransacaoBusiness = {
 
     // Totais do período inteiro só na 1ª página paginada: o scroll infinito mostra o resumo do mês
     // sem depender das páginas já carregadas
-    const [items, totais] = await Promise.all([
+    const [itensConta, itensCartao, totais] = await Promise.all([
       TransacaoRepository.extrato(userid, inicio, fimExclusivo, cursor, limit),
+      TransacaoRepository.extratoCartao(userid, inicio, fimExclusivo, cursorCartao, limit),
       paginado && !cursor ? TransacaoRepository.extratoTotais(userid, inicio, fimExclusivo) : undefined,
     ]);
+
+    const mesclados = [...itensConta, ...itensCartao].sort(compararItensExtrato);
+    const items = limit ? mesclados.slice(0, limit) : mesclados;
 
     const ultimo = items[items.length - 1];
     const next_cursor =

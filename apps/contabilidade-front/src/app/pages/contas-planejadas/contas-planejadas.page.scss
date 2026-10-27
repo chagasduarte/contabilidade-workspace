@@ -280,6 +280,11 @@
     background: rgba(56, 128, 255, 0.15);
     color: #8fb6ff;
     font-size: 0.72rem;
+
+    &--cartao {
+      background: rgba(168, 85, 247, 0.18);
+      color: #d8b4fe;
+    }
   }
 
   &__right {

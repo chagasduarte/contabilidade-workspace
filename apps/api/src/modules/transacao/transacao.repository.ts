@@ -7,6 +7,7 @@ import {
   PeriodoConsulta,
   TransacaoLoteItem,
   ExtratoCursor,
+  ExtratoCartaoCursor,
   AgrupamentoTipoItem,
   ExtratoTotais,
 } from './transacao.types';
@@ -514,14 +515,31 @@ export const TransacaoRepository = {
     inicio: string | null,
     fimExclusivo: string | null
   ): Promise<ExtratoTotais> {
+    // Inclui as parcelas de cartão (invoice_items) pelo vencimento da fatura, como no extrato
     const result = await pool.query<{ entradas: string; saidas: string; pendentes: string }>(
-      `SELECT COALESCE(SUM(t.valor) FILTER (WHERE t.tipo = 'entrada'), 0) AS entradas,
-              COALESCE(SUM(t.valor) FILTER (WHERE t.tipo <> 'entrada'), 0) AS saidas,
-              COUNT(*) FILTER (WHERE t.status = 'pendente') AS pendentes
-       FROM transacoes t
-       WHERE t.userid = $1
-         AND ($2::date IS NULL OR (CASE WHEN t.cartaoid IS NOT NULL THEN t.pagamento ELSE t.data END) >= $2::date)
-         AND ($3::date IS NULL OR (CASE WHEN t.cartaoid IS NOT NULL THEN t.pagamento ELSE t.data END) <  $3::date)`,
+      `WITH conta AS (
+         SELECT COALESCE(SUM(t.valor) FILTER (WHERE t.tipo = 'entrada'), 0) AS entradas,
+                COALESCE(SUM(t.valor) FILTER (WHERE t.tipo <> 'entrada'), 0) AS saidas,
+                COUNT(*) FILTER (WHERE t.status = 'pendente') AS pendentes
+         FROM transacoes t
+         WHERE t.userid = $1
+           AND ($2::date IS NULL OR (CASE WHEN t.cartaoid IS NOT NULL THEN t.pagamento ELSE t.data END) >= $2::date)
+           AND ($3::date IS NULL OR (CASE WHEN t.cartaoid IS NOT NULL THEN t.pagamento ELSE t.data END) <  $3::date)
+       ),
+       cartao AS (
+         SELECT COALESCE(SUM(ii.valor_parcela), 0) AS saidas,
+                COUNT(*) FILTER (WHERE ci.status <> 'PAID') AS pendentes
+         FROM invoice_items ii
+         JOIN card_invoices ci ON ci.id = ii.fatura_id
+         JOIN credit_cards cc ON cc.id = ci.cartao_id
+         WHERE cc.usuario_id = $1
+           AND ($2::date IS NULL OR ci.data_vencimento >= $2::date)
+           AND ($3::date IS NULL OR ci.data_vencimento <  $3::date)
+       )
+       SELECT conta.entradas,
+              conta.saidas + cartao.saidas AS saidas,
+              conta.pendentes + cartao.pendentes AS pendentes
+       FROM conta, cartao`,
       [userid, inicio, fimExclusivo]
     );
     const row = result.rows[0];
@@ -561,6 +579,60 @@ export const TransacaoRepository = {
                    AND ($3::date IS NULL OR (CASE WHEN t.cartaoid IS NOT NULL THEN t.pagamento ELSE t.data END) <  $3::date)
                    AND ($4::date IS NULL OR (t.data, t.id) < ($4::date, $5::int))
                  ORDER BY t.data DESC, t.id DESC`;
+
+    if (limit && limit > 0) {
+      params.push(limit);
+      query += ` LIMIT $${params.length}`;
+    }
+
+    const result = await pool.query<TransacaoEntity>(query, params);
+    return result.rows;
+  },
+
+  /**
+   * Parcelas de compras no cartão para o extrato, no formato de TransacaoEntity (somente leitura).
+   * Competência = vencimento da fatura (como `pagamento` nos lançamentos de cartão legados);
+   * ordenação e cursor por (data da compra, id do invoice_item).
+   */
+  async extratoCartao(
+    userid: number,
+    inicio: string | null,
+    fimExclusivo: string | null,
+    cursor: ExtratoCartaoCursor | null,
+    limit: number | null
+  ): Promise<TransacaoEntity[]> {
+    const params: unknown[] = [userid, inicio, fimExclusivo, cursor?.data ?? null, cursor?.chave ?? null];
+
+    let query = `SELECT 'cartao:' || ii.id::text AS id,
+                        ct.descricao || CASE WHEN ct.quantidade_parcelas > 1
+                          THEN ' (' || ii.numero_parcela || '/' || ct.quantidade_parcelas || ')' ELSE '' END AS descricao,
+                        'saida' AS tipo,
+                        ii.valor_parcela AS valor,
+                        ct.categoria_id AS categoria,
+                        ct.categoria_id AS idcategoria,
+                        NULL::int AS idsubcategoria,
+                        cat.nome AS categoria_nome,
+                        NULL::text AS subcategoria_nome,
+                        TO_CHAR(ct.data_compra, 'YYYY-MM-DD') AS data,
+                        CASE WHEN ci.status = 'PAID' THEN 'pago' ELSE 'pendente' END AS status,
+                        cc.usuario_id AS userid,
+                        NULL::int AS cartaoid,
+                        ci.data_vencimento AS pagamento,
+                        'CARTAO' AS origem,
+                        cc.nome AS origem_rotulo,
+                        ci.id::text AS target_id,
+                        'CREDIT_CARD_ITEM' AS source_type,
+                        cc.id::text AS source_id
+                 FROM invoice_items ii
+                 JOIN card_invoices ci ON ci.id = ii.fatura_id
+                 JOIN credit_cards cc ON cc.id = ci.cartao_id
+                 JOIN card_transactions ct ON ct.id = ii.transacao_id
+                 LEFT JOIN categoria cat ON cat.id = ct.categoria_id AND (cat.userid = cc.usuario_id OR cat.userid IS NULL)
+                 WHERE cc.usuario_id = $1
+                   AND ($2::date IS NULL OR ci.data_vencimento >= $2::date)
+                   AND ($3::date IS NULL OR ci.data_vencimento <  $3::date)
+                   AND ($4::date IS NULL OR (ct.data_compra, ii.id::text COLLATE "C") < ($4::date, $5::text COLLATE "C"))
+                 ORDER BY ct.data_compra DESC, ii.id::text COLLATE "C" DESC`;
 
     if (limit && limit > 0) {
       params.push(limit);
