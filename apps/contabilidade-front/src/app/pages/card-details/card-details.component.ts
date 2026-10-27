@@ -4,10 +4,12 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   inject,
   Input,
   OnInit,
   signal,
+  untracked,
 } from '@angular/core';
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -61,6 +63,8 @@ import {
 import { CardInvoice, CreateTransactionDto, InvoiceItem } from './card.model';
 import { CardService } from './card.service';
 import { CategoriaService } from '../../core/services/categoria.service';
+import { DashboardService } from '../../core/services/dashboard.service';
+import { HeaderStateService } from '@org/shared-ui-navigation';
 
 const MESES_NOME = [
   'Janeiro',
@@ -118,6 +122,8 @@ export class CardDetailsComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   readonly cardService = inject(CardService);
   readonly categoriaService = inject(CategoriaService);
+  private readonly dashboardService = inject(DashboardService);
+  private readonly headerState = inject(HeaderStateService);
   private readonly fb = inject(FormBuilder);
   private readonly alertController = inject(AlertController);
   private readonly toastController = inject(ToastController);
@@ -141,9 +147,10 @@ export class CardDetailsComponent implements OnInit {
   readonly loading = this.cardService.loading;
   readonly error = this.cardService.error;
 
-  // Lista de faturas ordenadas e índice de navegação
+  // Faturas do cartão; o mês exibido é o mês global (o mesmo do seletor do cabeçalho)
   readonly faturas = signal<CardInvoice[]>([]);
-  readonly indiceFaturaAtual = signal<number>(0);
+  readonly mes = this.dashboardService.mes;
+  readonly ano = this.dashboardService.ano;
 
   // Modal de Nova Compra
   readonly modalNovaCompraAberto = signal<boolean>(false);
@@ -158,20 +165,28 @@ export class CardDetailsComponent implements OnInit {
     return Math.min(1, Math.max(0, ratio));
   });
 
-  // Computado: fatura ativa selecionada no carrossel
+  /**
+   * Fatura que vence no mês selecionado ("fatura de novembro" = a que vence em novembro),
+   * mesmo critério de Lançamentos, Contas a Pagar e do dashboard.
+   */
   readonly faturaAtiva = computed<CardInvoice | null>(() => {
-    const list = this.faturas();
-    const idx = this.indiceFaturaAtual();
-    return list[idx] || null;
+    const alvo = `${this.ano()}-${String(this.mes()).padStart(2, '0')}`;
+    return (
+      this.faturas().find((f) => String(f.data_vencimento).substring(0, 7) === alvo) ?? null
+    );
   });
 
-  // Computado: título do mês da fatura (ex: "Outubro 2026")
-  readonly tituloFaturaAtiva = computed(() => {
+  /** Itens só da fatura ativa: evita mostrar os da fatura anterior enquanto a nova carrega. */
+  readonly detalhesFaturaAtiva = computed(() => {
+    const det = this.faturaDetalhes();
     const fat = this.faturaAtiva();
-    if (!fat) return 'Fatura';
-    const nomeMes = MESES_NOME[fat.mes_referencia - 1] || `Mês ${fat.mes_referencia}`;
-    return `${nomeMes} ${fat.ano_referencia}`;
+    return det && fat && det.fatura.id === fat.id ? det : null;
   });
+
+  // Computado: título do mês selecionado (ex: "Outubro 2026")
+  readonly tituloFaturaAtiva = computed(
+    () => `${MESES_NOME[this.mes() - 1] ?? `Mês ${this.mes()}`} ${this.ano()}`
+  );
 
   // Computado: melhor dia de compra (dia seguinte ao fechamento)
   readonly melhorDiaCompra = computed(() => {
@@ -205,9 +220,25 @@ export class CardDetailsComponent implements OnInit {
     });
 
     this.inicializarFormCompra();
+
+    // Seletor de mês do cabeçalho
+    effect(() => {
+      const ano = this.headerState.selectedYear();
+      const mes = this.headerState.selectedMonth();
+      untracked(() => {
+        if (ano !== this.ano() || mes !== this.mes()) {
+          this.ano.set(ano);
+          this.mes.set(mes);
+          this.carregarDetalhesFaturaAtual();
+        }
+      });
+    });
   }
 
   ngOnInit(): void {
+    this.headerState.setYear(this.ano());
+    this.headerState.setMonth(this.mes());
+
     const targetId = this.id || this.route.snapshot.paramMap.get('id');
     if (targetId) {
       this.cardId.set(targetId);
@@ -235,28 +266,8 @@ export class CardDetailsComponent implements OnInit {
 
     this.cardService.obterCartaoPorId(targetId).subscribe({
       next: (detalhes) => {
-        const listaFaturas = detalhes.faturas ?? [];
-        this.faturas.set(listaFaturas);
-
-        if (listaFaturas.length > 0) {
-          // Seleciona a fatura aberta ou a do mês atual
-          const hoje = new Date();
-          const mesAtual = hoje.getMonth() + 1;
-          const anoAtual = hoje.getFullYear();
-
-          let idx = listaFaturas.findIndex(
-            (f) => f.mes_referencia === mesAtual && f.ano_referencia === anoAtual
-          );
-          if (idx === -1) {
-            idx = listaFaturas.findIndex((f) => f.status === 'OPEN');
-          }
-          if (idx === -1) {
-            idx = listaFaturas.length - 1;
-          }
-
-          this.indiceFaturaAtual.set(Math.max(0, idx));
-          this.carregarDetalhesFaturaAtual();
-        }
+        this.faturas.set(detalhes.faturas ?? []);
+        this.carregarDetalhesFaturaAtual();
       },
     });
   }
@@ -281,18 +292,28 @@ export class CardDetailsComponent implements OnInit {
     });
   }
 
-  navegarFatura(direcao: number): void {
-    const novoIdx = this.indiceFaturaAtual() + direcao;
-    if (novoIdx >= 0 && novoIdx < this.faturas().length) {
-      this.indiceFaturaAtual.set(novoIdx);
-      this.carregarDetalhesFaturaAtual();
+  /** Avança ou volta um mês, mantendo o seletor do cabeçalho sincronizado. */
+  navegarMes(direcao: 1 | -1): void {
+    let mes = this.mes() + direcao;
+    let ano = this.ano();
+    if (mes < 1) {
+      mes = 12;
+      ano -= 1;
+    } else if (mes > 12) {
+      mes = 1;
+      ano += 1;
     }
+    this.mes.set(mes);
+    this.ano.set(ano);
+    this.headerState.setYear(ano);
+    this.headerState.setMonth(mes);
+    this.carregarDetalhesFaturaAtual();
   }
 
   private carregarDetalhesFaturaAtual(): void {
     const fatura = this.faturaAtiva();
     if (fatura) {
-      this.cardService.obterDetalhesFatura(fatura.id).subscribe();
+      this.cardService.obterDetalhesFatura(fatura.id).subscribe({ error: () => undefined });
     }
   }
 

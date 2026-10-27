@@ -108,9 +108,8 @@
           <button
             type="button"
             class="nav-arrow-btn"
-            (click)="navegarFatura(-1)"
-            [disabled]="indiceFaturaAtual() <= 0"
-            aria-label="Fatura anterior"
+            (click)="navegarMes(-1)"
+            aria-label="Mês anterior"
           >
             <ion-icon name="chevron-back-outline"></ion-icon>
           </button>
@@ -127,9 +126,8 @@
           <button
             type="button"
             class="nav-arrow-btn"
-            (click)="navegarFatura(1)"
-            [disabled]="indiceFaturaAtual() >= faturas().length - 1"
-            aria-label="Próxima fatura"
+            (click)="navegarMes(1)"
+            aria-label="Próximo mês"
           >
             <ion-icon name="chevron-forward-outline"></ion-icon>
           </button>
@@ -140,7 +138,7 @@
             <div class="invoice-amount-block">
               <span class="amount-label">Total da Fatura</span>
               <span class="amount-value">
-                {{ (faturaDetalhes()?.valor_total || fat.total_fatura || 0) | currency:'BRL':'symbol':'1.2-2' }}
+                {{ (detalhesFaturaAtiva()?.valor_total || fat.total_fatura || 0) | currency:'BRL':'symbol':'1.2-2' }}
               </span>
             </div>
 
@@ -175,6 +173,11 @@
               </div>
             }
           </div>
+        } @else {
+          <div class="invoice-empty-items invoice-empty-items--mes">
+            <ion-icon name="calendar-outline"></ion-icon>
+            <p>Nenhuma fatura deste cartão vence em {{ tituloFaturaAtiva() }}.</p>
+          </div>
         }
       </ion-card-content>
     </ion-card>
@@ -188,11 +191,11 @@
         </div>
         <ion-chip color="medium" class="items-count-chip">
           <ion-icon name="receipt-outline"></ion-icon>
-          <ion-label>{{ faturaDetalhes()?.itens?.length || 0 }} itens</ion-label>
+          <ion-label>{{ detalhesFaturaAtiva()?.itens?.length || 0 }} itens</ion-label>
         </ion-chip>
       </div>
 
-      @if (faturaDetalhes(); as det) {
+      @if (detalhesFaturaAtiva(); as det) {
         @if (det.itens.length > 0) {
           <ion-list class="items-list" lines="none">
             @for (item of det.itens; track item.id) {

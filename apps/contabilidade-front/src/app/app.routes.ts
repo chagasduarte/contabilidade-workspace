@@ -126,6 +126,7 @@ export const appRoutes: Route[] = [
           import('./pages/card-details/card-details.component').then(
             (m) => m.CardDetailsComponent
           ),
+        data: { monthSelector: true },
       },
       {
         path: 'cartoes/:id/editar',
@@ -143,6 +144,7 @@ export const appRoutes: Route[] = [
           import('./pages/card-details/card-details.component').then(
             (m) => m.CardDetailsComponent
           ),
+        data: { monthSelector: true },
       },
       {
         path: 'cards/:id/editar',
