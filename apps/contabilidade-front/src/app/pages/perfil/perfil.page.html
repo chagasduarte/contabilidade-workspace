@@ -1,0 +1,95 @@
+<ion-content class="perfil-content">
+  <section class="perfil-page" aria-labelledby="perfil-title">
+    <h1 id="perfil-title">Meu perfil</h1>
+
+    @if (service.loading() && !service.perfil()) {
+      <div class="perfil-state">
+        <ion-spinner name="crescent"></ion-spinner>
+        <span>Carregando perfil...</span>
+      </div>
+    } @else if (service.error() && !service.perfil()) {
+      <div class="perfil-state perfil-state--error" role="alert">
+        <ion-icon name="alert-circle-outline" aria-hidden="true"></ion-icon>
+        <span>Não foi possível carregar seu perfil. {{ service.error() }}</span>
+        <ion-button fill="outline" size="small" (click)="carregar()">Tentar novamente</ion-button>
+      </div>
+    } @else if (service.perfil(); as perfil) {
+      <div class="perfil-card">
+        <div class="avatar">
+          @if (temFoto()) {
+            <img
+              [src]="perfil.avatarUrl"
+              [alt]="'Foto de ' + perfil.nome"
+              (error)="fotoFalhou.set(true)"
+            />
+          } @else {
+            <span class="avatar__inicial" aria-hidden="true">{{ inicial() }}</span>
+          }
+          @if (enviandoFoto()) {
+            <div class="avatar__overlay" role="status" aria-label="Enviando foto">
+              <ion-spinner name="crescent"></ion-spinner>
+            </div>
+          }
+        </div>
+        <ion-button
+          fill="outline"
+          size="small"
+          [disabled]="enviandoFoto()"
+          (click)="trocarFoto()"
+        >
+          <ion-icon name="camera-outline" slot="start" aria-hidden="true"></ion-icon>
+          {{ temFoto() ? 'Trocar foto' : 'Adicionar foto' }}
+        </ion-button>
+        <p class="dica">Câmera ou galeria. JPEG, PNG ou WEBP.</p>
+      </div>
+
+      <form class="perfil-form" [formGroup]="form" (ngSubmit)="salvar()" novalidate>
+        <div class="form-group">
+          <label for="perfil-nome">Nome</label>
+          <input
+            id="perfil-nome"
+            type="text"
+            formControlName="nome"
+            autocomplete="name"
+            [attr.aria-invalid]="form.controls.nome.touched && form.controls.nome.invalid"
+          />
+          @if (form.controls.nome.touched && form.controls.nome.invalid) {
+            <small class="erro">O nome precisa ter pelo menos 2 caracteres.</small>
+          }
+        </div>
+
+        <div class="form-group">
+          <label for="perfil-email">E-mail</label>
+          <input
+            id="perfil-email"
+            type="email"
+            inputmode="email"
+            formControlName="email"
+            autocomplete="email"
+            [attr.aria-invalid]="form.controls.email.touched && form.controls.email.invalid"
+          />
+          @if (form.controls.email.touched && form.controls.email.invalid) {
+            <small class="erro">Informe um e-mail válido.</small>
+          }
+        </div>
+
+        @if (erroFormulario()) {
+          <p class="form-error" role="alert">{{ erroFormulario() }}</p>
+        }
+
+        <ion-button type="submit" expand="block" [disabled]="salvando() || form.pristine">
+          @if (salvando()) {
+            <ion-spinner name="crescent"></ion-spinner>
+          } @else {
+            Salvar alterações
+          }
+        </ion-button>
+      </form>
+
+      <a routerLink="/assistente" class="perfil-link">
+        <ion-icon name="sparkles-outline" aria-hidden="true"></ion-icon>
+        Registrar lançamento com o assistente de IA
+      </a>
+    }
+  </section>
+</ion-content>

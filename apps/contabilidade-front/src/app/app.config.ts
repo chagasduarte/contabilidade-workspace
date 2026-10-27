@@ -14,6 +14,11 @@ import { AUTH_NAVIGATION_HANDLER } from '@org/shared-ui-navigation';
 import { appRoutes } from './app.routes';
 import { tokenInterceptor } from './core/interceptors/token.interceptor';
 import { AuthService } from './core/services/auth.service';
+import { registerLocaleData } from '@angular/common';
+import localePt from '@angular/common/locales/pt';
+
+// Pipes de data/moeda usam 'pt-BR' em todas as telas, não só nas que registravam localmente.
+registerLocaleData(localePt, 'pt-BR');
 
 export const appConfig: ApplicationConfig = {
   providers: [

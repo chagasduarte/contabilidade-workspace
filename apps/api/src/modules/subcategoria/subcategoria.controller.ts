@@ -1,47 +1,58 @@
 import { Request, Response } from 'express';
 import { SubcategoriaBusiness } from './subcategoria.business';
+import { responderErroCategoria } from '../categoria/categoria.controller';
+
+function usuarioAutenticado(req: Request, res: Response): number | undefined {
+  const userid = req.usuarioId;
+  if (!userid) {
+    res.status(401).json({ erro: 'Usuário não autenticado' });
+  }
+  return userid;
+}
 
 export const SubcategoriaController = {
   async criar(req: Request, res: Response): Promise<void> {
     try {
-      const subcategoria = req.body;
-      const response = await SubcategoriaBusiness.criar(subcategoria);
+      const userid = usuarioAutenticado(req, res);
+      if (!userid) return;
+
+      const response = await SubcategoriaBusiness.criar(req.body, userid);
       res.status(201).json(response);
     } catch (error: unknown) {
-      console.error('[SubcategoriaController]', error);
-      const message = error instanceof Error ? error.message : 'Erro ao criar subcategoria';
-      res.status(400).json({ error: message, erro: message });
+      responderErroCategoria(res, error, 'Erro ao criar subcategoria', 'SubcategoriaController');
     }
   },
 
-  async listar(_req: Request, res: Response): Promise<void> {
+  async listar(req: Request, res: Response): Promise<void> {
     try {
-      const response = await SubcategoriaBusiness.listar();
+      const userid = usuarioAutenticado(req, res);
+      if (!userid) return;
+
+      const response = await SubcategoriaBusiness.listar(userid);
       res.status(200).json(response);
     } catch (error: unknown) {
-      console.error('[SubcategoriaController]', error);
-      const message = error instanceof Error ? error.message : 'Erro ao listar subcategorias';
-      res.status(400).json({ error: message, erro: message });
+      responderErroCategoria(res, error, 'Erro ao listar subcategorias', 'SubcategoriaController');
     }
   },
 
   async listarPorCategoria(req: Request, res: Response): Promise<void> {
     try {
-      const { idcategoria } = req.params;
-      const response = await SubcategoriaBusiness.listarPorCategoria(idcategoria);
+      const userid = usuarioAutenticado(req, res);
+      if (!userid) return;
+
+      const response = await SubcategoriaBusiness.listarPorCategoria(req.params.idcategoria, userid);
       res.status(200).json(response);
     } catch (error: unknown) {
-      console.error('[SubcategoriaController]', error);
-      const message = error instanceof Error ? error.message : 'Erro ao listar subcategorias por categoria';
-      res.status(400).json({ error: message, erro: message });
+      responderErroCategoria(res, error, 'Erro ao listar subcategorias por categoria', 'SubcategoriaController');
     }
   },
 
   async buscar(req: Request, res: Response): Promise<void> {
     try {
-      const { id } = req.params;
-      const response = await SubcategoriaBusiness.buscar(id);
+      const userid = usuarioAutenticado(req, res);
+      if (!userid) return;
 
+      const response = await SubcategoriaBusiness.buscar(req.params.id, userid);
       if (!response) {
         res.status(404).json({ error: 'Subcategoria não encontrada', erro: 'Subcategoria não encontrada' });
         return;
@@ -49,47 +60,31 @@ export const SubcategoriaController = {
 
       res.status(200).json(response);
     } catch (error: unknown) {
-      console.error('[SubcategoriaController]', error);
-      const message = error instanceof Error ? error.message : 'Erro ao buscar subcategoria';
-      res.status(400).json({ error: message, erro: message });
+      responderErroCategoria(res, error, 'Erro ao buscar subcategoria', 'SubcategoriaController');
     }
   },
 
   async atualizar(req: Request, res: Response): Promise<void> {
     try {
-      const { id } = req.params;
-      const dto = req.body;
-      const response = await SubcategoriaBusiness.atualizar(id, dto);
+      const userid = usuarioAutenticado(req, res);
+      if (!userid) return;
 
-      if (!response) {
-        res.status(404).json({ error: 'Subcategoria não encontrada', erro: 'Subcategoria não encontrada' });
-        return;
-      }
-
+      const response = await SubcategoriaBusiness.atualizar(req.params.id, req.body, userid);
       res.status(200).json(response);
     } catch (error: unknown) {
-      console.error('[SubcategoriaController]', error);
-      const message = error instanceof Error ? error.message : 'Erro ao atualizar subcategoria';
-      res.status(400).json({ error: message, erro: message });
+      responderErroCategoria(res, error, 'Erro ao atualizar subcategoria', 'SubcategoriaController');
     }
   },
 
   async deletar(req: Request, res: Response): Promise<void> {
     try {
-      const { id } = req.params;
-      const response = await SubcategoriaBusiness.deletar(id);
+      const userid = usuarioAutenticado(req, res);
+      if (!userid) return;
 
-      if (!response) {
-        res.status(404).json({ error: 'Subcategoria não encontrada', erro: 'Subcategoria não encontrada' });
-        return;
-      }
-
+      const response = await SubcategoriaBusiness.deletar(req.params.id, userid);
       res.status(200).json(response);
     } catch (error: unknown) {
-      console.error('[SubcategoriaController]', error);
-      const message = error instanceof Error ? error.message : 'Erro ao deletar subcategoria';
-      res.status(400).json({ error: message, erro: message });
+      responderErroCategoria(res, error, 'Erro ao deletar subcategoria', 'SubcategoriaController');
     }
   },
 };
-

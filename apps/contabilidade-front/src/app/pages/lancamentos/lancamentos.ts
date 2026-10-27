@@ -14,8 +14,16 @@ import {
   effect,
   inject,
   signal,
+  untracked,
 } from '@angular/core';
-import { IonButton, IonIcon, IonSpinner } from '@ionic/angular';
+import {
+  IonButton,
+  IonContent,
+  IonIcon,
+  IonInfiniteScroll,
+  IonInfiniteScrollContent,
+  IonSpinner,
+} from '@ionic/angular';
 import { addIcons } from 'ionicons';
 import {
   chevronBackOutline,
@@ -25,6 +33,8 @@ import {
 } from 'ionicons/icons';
 import { TransacaoService } from '../../core/services/transacao.service';
 import { DashboardService } from '../../core/services/dashboard.service';
+import { CategoriaService } from '../../core/services/categoria.service';
+import { rotuloCategoria } from '../../core/utils/categoria-label';
 import { HeaderStateService } from '@org/shared-ui-navigation';
 import { MonthSelector } from '../../components/selectors/month-selector/month-selector';
 import { TransactionModal } from '../../components/modals/transaction-modal/transaction-modal';
@@ -62,7 +72,10 @@ const MESES_PT: readonly string[] = [
     CurrencyPipe,
     DatePipe,
     IonButton,
+    IonContent,
     IonIcon,
+    IonInfiniteScroll,
+    IonInfiniteScrollContent,
     IonSpinner,
     MonthSelector,
     TransactionModal,
@@ -76,6 +89,7 @@ export class Lancamentos implements OnInit {
   readonly transacaoService = inject(TransacaoService);
   readonly dashboardService = inject(DashboardService);
   readonly headerState = inject(HeaderStateService);
+  private readonly categoriaService = inject(CategoriaService);
 
   readonly modalNovaTransacaoAberto = signal<boolean>(false);
 
@@ -85,9 +99,14 @@ export class Lancamentos implements OnInit {
     return `${nomeMes} ${this.dashboardService.ano()}`;
   });
 
-  readonly transactions = computed<TransactionViewItem[]>(() => {
-    const term = this.headerState.searchTerm().trim().toLowerCase();
-    const raw = this.transacaoService.extrato().map((item) => {
+  private readonly nomesCategorias = computed(
+    () => new Map(this.categoriaService.categorias().map((c) => [c.id, c.nome]))
+  );
+
+  /** Todos os lançamentos carregados (sem filtro de busca). */
+  private readonly todasTransacoes = computed<TransactionViewItem[]>(() => {
+    const nomes = this.nomesCategorias();
+    return this.transacaoService.extrato().map((item) => {
       const isIncome = item.tipo === 'entrada';
       const isPending = item.status === 'pendente';
 
@@ -95,7 +114,7 @@ export class Lancamentos implements OnInit {
         id: item.id,
         date: item.data,
         description: item.descricao,
-        category: item.categoria ? String(item.categoria) : 'Geral',
+        category: rotuloCategoria(item, nomes),
         type: (isIncome ? 'Entrada' : 'Saída') as 'Entrada' | 'Saída',
         amount: Number(item.valor || 0),
         status: (isPending ? 'Pendente' : isIncome ? 'Recebido' : 'Pago') as
@@ -104,6 +123,11 @@ export class Lancamentos implements OnInit {
           | 'Pendente',
       };
     });
+  });
+
+  readonly transactions = computed<TransactionViewItem[]>(() => {
+    const term = this.headerState.searchTerm().trim().toLowerCase();
+    const raw = this.todasTransacoes();
 
     if (!term) {
       return raw;
@@ -116,20 +140,36 @@ export class Lancamentos implements OnInit {
     );
   });
 
-  readonly monthlyIncome = computed<number>(() =>
-    this.transactions()
-      .filter((t) => t.type === 'Entrada')
-      .reduce((acc, t) => acc + t.amount, 0)
+  readonly temMaisPaginas = computed<boolean>(() => this.transacaoService.nextCursor() != null);
+
+  /**
+   * Totais do mês. Usa `totais` da API quando disponível; senão soma o que já foi
+   * carregado. Nesse caso, com mais páginas pendentes, o resumo é parcial.
+   */
+  readonly totaisParciais = computed<boolean>(
+    () => !this.transacaoService.totaisExtrato() && this.temMaisPaginas()
   );
 
-  readonly monthlyExpenses = computed<number>(() =>
-    this.transactions()
-      .filter((t) => t.type === 'Saída')
-      .reduce((acc, t) => acc + t.amount, 0)
+  readonly monthlyIncome = computed<number>(
+    () =>
+      this.transacaoService.totaisExtrato()?.entradas ??
+      this.todasTransacoes()
+        .filter((t) => t.type === 'Entrada')
+        .reduce((acc, t) => acc + t.amount, 0)
+  );
+
+  readonly monthlyExpenses = computed<number>(
+    () =>
+      this.transacaoService.totaisExtrato()?.saidas ??
+      this.todasTransacoes()
+        .filter((t) => t.type === 'Saída')
+        .reduce((acc, t) => acc + t.amount, 0)
   );
 
   readonly pendingCount = computed<number>(
-    () => this.transactions().filter((t) => t.status === 'Pendente').length
+    () =>
+      this.transacaoService.totaisExtrato()?.pendentes ??
+      this.todasTransacoes().filter((t) => t.status === 'Pendente').length
   );
 
   constructor() {
@@ -149,25 +189,58 @@ export class Lancamentos implements OnInit {
         }
       }
     });
+
+    // Régua de meses do header mobile
+    effect(() => {
+      const month = this.headerState.selectedMonth();
+      if (month !== untracked(this.dashboardService.mes)) {
+        this.dashboardService.mes.set(month);
+        if (isPlatformBrowser(this.platformId)) {
+          this.carregarExtrato();
+        }
+      }
+    });
   }
 
   ngOnInit(): void {
     this.headerState.setYear(this.dashboardService.ano());
+    this.headerState.setMonth(this.dashboardService.mes());
     if (isPlatformBrowser(this.platformId)) {
       this.carregarExtrato();
+      if (this.categoriaService.categorias().length === 0) {
+        this.categoriaService.listarCategorias().subscribe({ error: () => undefined });
+      }
     }
   }
 
   carregarExtrato(): void {
     this.transacaoService
-      .carregarExtrato(
-        this.dashboardService.mes(),
-        this.dashboardService.ano(),
-        0
-      )
+      .carregarExtratoPaginado(this.dashboardService.mes(), this.dashboardService.ano())
       .subscribe({
         error: (err: unknown) => {
           console.error('Falha ao carregar extrato:', err);
+        },
+      });
+  }
+
+  /** Disparado pelo ion-infinite-scroll (ou pelo botão "Carregar mais"). */
+  carregarMais(event?: Event): void {
+    const cursor = this.transacaoService.nextCursor();
+    const concluir = () =>
+      (event?.target as HTMLIonInfiniteScrollElement | undefined)?.complete?.();
+
+    if (!cursor || this.transacaoService.carregandoMais()) {
+      concluir();
+      return;
+    }
+
+    this.transacaoService
+      .carregarExtratoPaginado(this.dashboardService.mes(), this.dashboardService.ano(), cursor)
+      .subscribe({
+        next: concluir,
+        error: (err: unknown) => {
+          console.error('Falha ao carregar mais lançamentos:', err);
+          concluir();
         },
       });
   }
@@ -182,6 +255,7 @@ export class Lancamentos implements OnInit {
     this.dashboardService.mes.set(mes);
     this.dashboardService.ano.set(ano);
     this.headerState.setYear(ano);
+    this.headerState.setMonth(mes);
     this.carregarExtrato();
   }
 
@@ -195,12 +269,14 @@ export class Lancamentos implements OnInit {
     this.dashboardService.mes.set(mes);
     this.dashboardService.ano.set(ano);
     this.headerState.setYear(ano);
+    this.headerState.setMonth(mes);
     this.carregarExtrato();
   }
 
   selecionarMes(novoMes: number): void {
     if (novoMes >= 1 && novoMes <= 12 && novoMes !== this.dashboardService.mes()) {
       this.dashboardService.mes.set(novoMes);
+      this.headerState.setMonth(novoMes);
       this.carregarExtrato();
     }
   }

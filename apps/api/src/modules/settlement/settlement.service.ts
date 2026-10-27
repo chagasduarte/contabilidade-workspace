@@ -1,6 +1,7 @@
 // settlement.service.ts
 // Casos de uso e validações para a camada de Efetivação / Liquidação
 
+import { CategoriaBusiness } from '../categoria/categoria.business';
 import {
   SettleLoanInstallmentDto,
   SettleLoanInstallmentResponseDto,
@@ -24,6 +25,14 @@ function isValidDate(val: unknown): boolean {
   if (val instanceof Date) return !isNaN(val.getTime());
   const d = new Date(String(val));
   return !isNaN(d.getTime());
+}
+
+/** A categoria informada na efetivação precisa ser visível ao usuário (dele ou global). */
+async function validarCategoria(idcategoria: number | null | undefined, userId: number): Promise<void> {
+  if (idcategoria === undefined || idcategoria === null) return;
+  if (!(await CategoriaBusiness.categoriaVisivel(idcategoria, userId))) {
+    throw new SettlementValidationError('Categoria não encontrada.');
+  }
 }
 
 export const SettlementService = {
@@ -57,6 +66,7 @@ export const SettlementService = {
     if (dto.idcategoria !== undefined && dto.idcategoria !== null && isNaN(Number(dto.idcategoria))) {
       throw new SettlementValidationError('ID da categoria deve ser um número válido.');
     }
+    await validarCategoria(dto.idcategoria, userId);
 
     const resultado = await SettlementRepository.settlePlannedTransaction(id.trim(), dto, userId);
 
@@ -100,6 +110,7 @@ export const SettlementService = {
     if (dto.idcategoria !== undefined && dto.idcategoria !== null && isNaN(Number(dto.idcategoria))) {
       throw new SettlementValidationError('ID da categoria deve ser um número válido.');
     }
+    await validarCategoria(dto.idcategoria, userId);
 
     return SettlementRepository.settleLoanInstallment(installmentId.trim(), dto, userId);
   },

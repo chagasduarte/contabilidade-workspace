@@ -34,7 +34,17 @@ export class SettlementConflictError extends Error {
   }
 }
 
-let columnsChecked = false;
+/**
+ * Traduz violação de uq_transacoes_source (migration 003) em conflito: a mesma origem
+ * (planned/parcela) já gerou uma transação contábil. Demais erros seguem inalterados.
+ */
+function mapearErroDuplicidade(error: unknown): unknown {
+  const pgErr = error as { code?: string; constraint?: string };
+  if (pgErr?.code === '23505' && pgErr.constraint === 'uq_transacoes_source') {
+    return new SettlementConflictError('Esta obrigação já foi efetivada anteriormente.');
+  }
+  return error;
+}
 
 function mapTransacaoRow(row: Record<string, unknown>): TransacaoEntity {
   return {
@@ -44,6 +54,10 @@ function mapTransacaoRow(row: Record<string, unknown>): TransacaoEntity {
     valor: Number(row['valor'] ?? 0),
     categoria: row['categoria'] !== null && row['categoria'] !== undefined ? Number(row['categoria']) : null,
     idcategoria: row['idcategoria'] !== null && row['idcategoria'] !== undefined ? Number(row['idcategoria']) : null,
+    idsubcategoria:
+      row['idsubcategoria'] !== null && row['idsubcategoria'] !== undefined ? Number(row['idsubcategoria']) : null,
+    categoria_nome: row['categoria_nome'] ? String(row['categoria_nome']) : null,
+    subcategoria_nome: row['subcategoria_nome'] ? String(row['subcategoria_nome']) : null,
     data: row['data'] instanceof Date ? row['data'] : new Date(String(row['data'])),
     status: (row['status'] as 'pendente' | 'pago') ?? 'pago',
     userid: Number(row['userid']),
@@ -59,24 +73,6 @@ function mapTransacaoRow(row: Record<string, unknown>): TransacaoEntity {
 
 export const SettlementRepository = {
   /**
-   * Garante de forma idempotente que as colunas source_type e source_id existam na tabela transacoes.
-   */
-  async ensureColumnsExist(client?: PoolClient): Promise<void> {
-    if (columnsChecked) return;
-    const runner = client ?? pool;
-    try {
-      await runner.query(`
-        ALTER TABLE transacoes ADD COLUMN IF NOT EXISTS source_type VARCHAR(30);
-        ALTER TABLE transacoes ADD COLUMN IF NOT EXISTS source_id VARCHAR(36);
-        CREATE INDEX IF NOT EXISTS idx_transacoes_source ON transacoes(source_type, source_id);
-      `);
-      columnsChecked = true;
-    } catch (err) {
-      console.warn('[SettlementRepository] Aviso ao checar colunas source_type/source_id:', err);
-    }
-  },
-
-  /**
    * Efetiva atomicamente uma transação planejada (planned_transactions -> transacoes).
    * 1. Trava o registro com FOR UPDATE para evitar concorrência.
    * 2. Valida pertencimento ao usuário e status 'PENDING'.
@@ -88,7 +84,6 @@ export const SettlementRepository = {
     dto: SettlePlannedTransactionDto,
     userId: number
   ): Promise<SettlePlannedTransactionResponseDto> {
-    await this.ensureColumnsExist();
     const client: PoolClient = await pool.connect();
 
     try {
@@ -98,9 +93,9 @@ export const SettlementRepository = {
       const selectQuery = `
         SELECT pt.*, c.nome AS categoria_nome, c.icone AS categoria_icone
         FROM planned_transactions pt
-        LEFT JOIN categoria c ON c.id = pt.idcategoria
+        LEFT JOIN categoria c ON c.id = pt.idcategoria AND (c.userid = pt.userid OR c.userid IS NULL)
         WHERE pt.id = $1 AND pt.userid = $2
-        FOR UPDATE
+        FOR UPDATE OF pt
       `;
       const selectResult = await client.query(selectQuery, [id, userId]);
 
@@ -147,24 +142,33 @@ export const SettlementRepository = {
           : null;
 
       const descricaoFinal = dto.descricao?.trim() || plannedRow.descricao;
-      const tipoFinal = plannedRow.tipo; // RECEITA ou DESPESA
+      // transacoes usa o vocabulário entrada/saida (GET /transacoes e /entradas filtram por ele)
+      const tipoFinal = plannedRow.tipo === 'RECEITA' ? 'entrada' : 'saida';
 
+      // categoria (legado) e idsubcategoria ficam NULL: a efetivação não tem subcategoria e não
+      // repete o id da categoria na coluna legada (ver PROPOSTAS_SQL.md / backfill da fase 3)
       const insertTransacaoQuery = `
-        INSERT INTO transacoes (
-          descricao,
-          tipo,
-          valor,
-          data,
-          status,
-          userid,
-          idcategoria,
-          categoria,
-          source_type,
-          source_id,
-          pagamento
+        WITH r AS (
+          INSERT INTO transacoes (
+            descricao,
+            tipo,
+            valor,
+            data,
+            status,
+            userid,
+            idcategoria,
+            categoria,
+            source_type,
+            source_id,
+            pagamento,
+            idsubcategoria
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NULL)
+          RETURNING *
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-        RETURNING *
+        SELECT r.*, cn.nome AS categoria_nome, NULL::varchar AS subcategoria_nome
+        FROM r
+        LEFT JOIN categoria cn ON cn.id = r.idcategoria AND (cn.userid = r.userid OR cn.userid IS NULL)
       `;
 
       const transacaoResult = await client.query(insertTransacaoQuery, [
@@ -175,7 +179,7 @@ export const SettlementRepository = {
         'pago',
         userId,
         idCategoriaFinal,
-        idCategoriaFinal,
+        null,
         'PLANNED',
         String(id),
         dataFinal,
@@ -191,7 +195,7 @@ export const SettlementRepository = {
       };
     } catch (error) {
       await client.query('ROLLBACK');
-      throw error;
+      throw mapearErroDuplicidade(error);
     } finally {
       client.release();
     }
@@ -211,7 +215,6 @@ export const SettlementRepository = {
     dto: SettleLoanInstallmentDto,
     userId: number
   ): Promise<SettleLoanInstallmentResponseDto> {
-    await this.ensureColumnsExist();
     const client: PoolClient = await pool.connect();
 
     try {
@@ -324,33 +327,41 @@ export const SettlementRepository = {
       }
 
       // 8. Registra a despesa na tabela contábil real transacoes
+      // categoria (legado) e idsubcategoria ficam NULL: a efetivação não tem subcategoria e não
+      // repete o id da categoria na coluna legada (ver PROPOSTAS_SQL.md / backfill da fase 3)
       const insertTransacaoQuery = `
-        INSERT INTO transacoes (
-          descricao,
-          tipo,
-          valor,
-          data,
-          status,
-          userid,
-          idcategoria,
-          categoria,
-          source_type,
-          source_id,
-          pagamento
+        WITH r AS (
+          INSERT INTO transacoes (
+            descricao,
+            tipo,
+            valor,
+            data,
+            status,
+            userid,
+            idcategoria,
+            categoria,
+            source_type,
+            source_id,
+            pagamento,
+            idsubcategoria
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NULL)
+          RETURNING *
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-        RETURNING *
+        SELECT r.*, cn.nome AS categoria_nome, NULL::varchar AS subcategoria_nome
+        FROM r
+        LEFT JOIN categoria cn ON cn.id = r.idcategoria AND (cn.userid = r.userid OR cn.userid IS NULL)
       `;
 
       const transacaoResult = await client.query(insertTransacaoQuery, [
         descricaoFinal,
-        'DESPESA',
+        'saida',
         valorFinal,
         dataFinal,
         'pago',
         userId,
         idCategoriaFinal,
-        idCategoriaFinal,
+        null,
         'LOAN_INSTALLMENT',
         String(installmentId),
         dataFinal,
@@ -367,7 +378,7 @@ export const SettlementRepository = {
       };
     } catch (error) {
       await client.query('ROLLBACK');
-      throw error;
+      throw mapearErroDuplicidade(error);
     } finally {
       client.release();
     }

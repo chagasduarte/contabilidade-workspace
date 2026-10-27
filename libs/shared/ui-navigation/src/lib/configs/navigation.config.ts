@@ -15,8 +15,12 @@ export const APP_NAV_ITEMS: NavItem[] = [
   { label: 'Cartões', route: '/cartoes', icon: 'card-outline' },
   { label: 'Empréstimos', route: '/emprestimos', icon: 'cash-outline' },
   { label: 'Categorias', route: '/categorias', icon: 'pricetag-outline' },
+  { label: 'Planejamento', route: '/planejamento', icon: 'pie-chart-outline' },
+  { label: 'Objetivos', route: '/objetivos', icon: 'flag-outline' },
+  { label: 'Assistente IA', route: '/assistente', icon: 'sparkles-outline' },
   { label: 'Contas a Pagar', route: '/contas-pagar', icon: 'card-outline' },
   { label: 'Contas a Receber', route: '/contas-receber', icon: 'arrow-down-circle-outline' },
   { label: 'Relatórios', route: '/relatorios', icon: 'bar-chart-outline' },
+  { label: 'Meu perfil', route: '/perfil', icon: 'person-circle-outline' },
   { label: 'Configurações', route: '/configuracoes', icon: 'settings-outline' },
 ];

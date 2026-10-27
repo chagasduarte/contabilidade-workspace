@@ -1,8 +1,10 @@
+// Tipo global Express.Multer.File (usado abaixo) vem de @types/multer
+/// <reference types="multer" />
 import bcrypt from 'bcryptjs';
 import path from 'path';
 import fs from 'fs';
 import { UserRepository } from './user.repository';
-import { CreateUserDto, UserResponse } from './user.types';
+import { CreateUserDto, UserEntity, UserResponse } from './user.types';
 
 export const UserBusiness = {
   async criar(
@@ -79,6 +81,61 @@ export const UserBusiness = {
 
   async getAvatar(userId: number): Promise<{ avatar: string | null } | undefined> {
     return await UserRepository.buscaAvatar(userId);
+  },
+
+  /**
+   * PUT /user/me: atualiza nome e/ou email do usuário autenticado.
+   * Duplicado (outro usuário, sem diferenciar maiúsculas) -> 409; inválido -> 400.
+   */
+  async atualizarPerfil(
+    userId: number,
+    dados: { nome?: unknown; email?: unknown }
+  ): Promise<UserResponse> {
+    const erro = (message: string, statusCode: number) => {
+      const err = new Error(message);
+      (err as unknown as { statusCode: number }).statusCode = statusCode;
+      return err;
+    };
+
+    const atualizacao: { nome?: string; email?: string } = {};
+
+    if (dados?.nome !== undefined) {
+      const nome = typeof dados.nome === 'string' ? dados.nome.trim() : '';
+      if (nome.length < 2 || nome.length > 255) {
+        throw erro('O nome deve conter entre 2 e 255 caracteres', 400);
+      }
+      const outro = await UserRepository.buscaPorNome(nome);
+      if (outro && outro.id !== userId) throw erro('Este nome de usuário já está em uso', 409);
+      atualizacao.nome = nome;
+    }
+
+    if (dados?.email !== undefined) {
+      const email = typeof dados.email === 'string' ? dados.email.trim().toLowerCase() : '';
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 255) {
+        throw erro('Informe um e-mail válido', 400);
+      }
+      const outro = await UserRepository.buscaPorEmail(email);
+      if (outro && outro.id !== userId) throw erro('Este e-mail já está cadastrado', 409);
+      atualizacao.email = email;
+    }
+
+    if (atualizacao.nome === undefined && atualizacao.email === undefined) {
+      throw erro('Informe nome e/ou email para atualizar', 400);
+    }
+
+    let user: UserEntity | undefined;
+    try {
+      user = await UserRepository.atualizarPerfil(userId, atualizacao);
+    } catch (e) {
+      // Corrida entre a checagem e o UPDATE: o índice único decide
+      if ((e as { code?: string }).code === '23505') {
+        throw erro('Nome de usuário ou e-mail já está em uso', 409);
+      }
+      throw e;
+    }
+    if (!user) throw erro('Usuário não encontrado', 404);
+
+    return { id: user.id, nome: user.nome, email: user.email, avatar: user.avatar };
   },
 
   async buscarPorId(userId: number): Promise<UserResponse | undefined> {

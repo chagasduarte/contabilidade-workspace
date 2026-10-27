@@ -1,0 +1,153 @@
+// Estilos compartilhados das telas de cadastro (ion-modal com formulário nativo).
+// Use com `@use '../../shared/styles/form-modal';` no SCSS do componente.
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.form-modal {
+  --background: #1b2028;
+  --border-radius: 16px;
+
+  ion-toolbar {
+    --background: #1b2028;
+    --color: #f5f6f8;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  ion-content {
+    --background: #12161c;
+    /* padding.css do Ionic não é global; define o espaçamento do formulário aqui */
+    --padding-top: 16px;
+    --padding-bottom: 16px;
+    --padding-start: 16px;
+    --padding-end: 16px;
+    color: #f5f6f8;
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0 12px;
+  }
+
+  .form-group {
+    margin: 0 0 16px;
+    padding: 0;
+    border: none;
+
+    label,
+    legend {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: #8fa0b1;
+    }
+
+    input,
+    select {
+      width: 100%;
+      min-height: 44px;
+      padding: 0 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      background: #1b2028;
+      color: #fff;
+      font-size: 1rem;
+      color-scheme: dark;
+
+      &:focus-visible {
+        outline: 2px solid #3880ff;
+        outline-offset: 1px;
+      }
+
+      &[aria-invalid='true'] {
+        border-color: #f08072;
+      }
+    }
+
+    .erro {
+      display: block;
+      margin-top: 4px;
+      color: #f08072;
+      font-size: 0.8rem;
+    }
+
+    .dica {
+      display: block;
+      margin-top: 4px;
+      color: #64748b;
+      font-size: 0.75rem;
+    }
+  }
+
+  .tipo-toggle {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+
+    legend {
+      grid-column: 1 / -1;
+    }
+
+    label {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 44px;
+      margin: 0;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      color: #b6c0cb;
+      cursor: pointer;
+
+      &.ativo {
+        border-color: #3880ff;
+        background: rgba(56, 128, 255, 0.12);
+        color: #fff;
+      }
+
+      &:focus-within {
+        outline: 2px solid #3880ff;
+      }
+    }
+
+    input {
+      position: absolute;
+      opacity: 0;
+      width: 1px;
+      height: 1px;
+    }
+  }
+
+  .form-error {
+    margin: 0 0 12px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: rgba(235, 68, 90, 0.12);
+    color: #f08072;
+    font-size: 0.875rem;
+  }
+
+  .modal-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 8px;
+
+    ion-button {
+      flex: 1;
+      height: 44px;
+      font-weight: 600;
+    }
+  }
+}

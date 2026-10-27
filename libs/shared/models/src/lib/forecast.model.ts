@@ -23,6 +23,9 @@ export interface ForecastTimelineEventDto {
   type: ForecastEventType;
   origin: ForecastEventOrigin;
   originId: string;
+  /** Preenchidos para PLANNED; `null` para LOAN e CREDIT_CARD. */
+  idcategoria?: number | null;
+  categoria_nome?: string | null;
 }
 
 /**

@@ -8,6 +8,20 @@ import {
 } from './loan.entity';
 
 /**
+ * Ordenação da listagem de empréstimos. COALESCE(created_at, 'infinity') em DESC reproduz o
+ * NULLS FIRST padrão do Postgres e permite comparar a tupla no keyset; id desempata.
+ */
+const ORDEM_LOANS = `contracted_at DESC, COALESCE(created_at, 'infinity'::timestamptz) DESC, id DESC`;
+
+/** Chave keyset de loans: (contracted_at, created_at, id); created_at como texto (microssegundos). */
+export interface LoanCursor {
+  contracted_at: string;
+  created_at: string;
+  id: string;
+  [k: string]: string;
+}
+
+/**
  * Converte qualquer ID de usuário (numérico ou string) em um formato UUID válido para PostgreSQL.
  */
 export function normalizeUserIdToUuid(userId: number | string): string {
@@ -274,10 +288,52 @@ export const LoanRepository = {
   async listarPorUsuario(userId: number | string): Promise<LoanEntity[]> {
     const userUuid = normalizeUserIdToUuid(userId);
     const result = await pool.query(
-      'SELECT * FROM loans WHERE user_id = $1 ORDER BY contracted_at DESC, created_at DESC',
+      `SELECT * FROM loans WHERE user_id = $1
+       ORDER BY ${ORDEM_LOANS}`,
       [userUuid]
     );
     return result.rows.map(mapLoanEntity);
+  },
+
+  /**
+   * Página da listagem de empréstimos (keyset), com a mesma ordenação de `listarPorUsuario`.
+   * Busca limit + 1 linhas para saber se existe próxima página.
+   */
+  async listarPaginaPorUsuario(
+    userId: number | string,
+    apos: LoanCursor | null,
+    limit: number
+  ): Promise<{ items: LoanEntity[]; proxima: LoanCursor | null }> {
+    const params: unknown[] = [normalizeUserIdToUuid(userId)];
+    let filtroCursor = '';
+    if (apos) {
+      params.push(apos.contracted_at, apos.created_at, apos.id);
+      filtroCursor = `AND (contracted_at, COALESCE(created_at, 'infinity'::timestamptz), id)
+                          < ($2::date, $3::timestamptz, $4::uuid)`;
+    }
+    params.push(limit + 1);
+
+    const result = await pool.query(
+      `SELECT *,
+              TO_CHAR(contracted_at, 'YYYY-MM-DD') AS cursor_contracted_at,
+              COALESCE(created_at, 'infinity'::timestamptz)::text AS cursor_created_at
+       FROM loans
+       WHERE user_id = $1 ${filtroCursor}
+       ORDER BY ${ORDEM_LOANS}
+       LIMIT $${params.length}`,
+      params
+    );
+
+    const temMais = result.rows.length > limit;
+    const rows = temMais ? result.rows.slice(0, limit) : result.rows;
+    const ultima = rows[rows.length - 1];
+    return {
+      items: rows.map(mapLoanEntity),
+      proxima:
+        temMais && ultima
+          ? { contracted_at: ultima.cursor_contracted_at, created_at: ultima.cursor_created_at, id: String(ultima.id) }
+          : null,
+    };
   },
 
   /**

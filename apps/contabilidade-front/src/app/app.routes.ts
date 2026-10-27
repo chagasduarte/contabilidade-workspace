@@ -27,11 +27,13 @@ export const appRoutes: Route[] = [
         path: 'dashboard',
         loadComponent: () =>
           import('./pages/dashboard/dashboard').then((m) => m.Dashboard),
+        data: { monthSelector: true },
       },
       {
         path: 'lancamentos',
         loadComponent: () =>
           import('./pages/lancamentos/lancamentos').then((m) => m.Lancamentos),
+        data: { monthSelector: true },
       },
       {
         path: 'categorias',
@@ -48,6 +50,14 @@ export const appRoutes: Route[] = [
         },
       },
       {
+        path: 'contasPlanejadas',
+        loadComponent: () =>
+          import('./pages/contas-planejadas/contas-planejadas.page').then(
+            (m) => m.ContasPlanejadasPage
+          ),
+        data: { monthSelector: true, modo: 'todas' },
+      },
+      {
         path: 'conciliacao',
         loadComponent: () =>
           import('./pages/navigation-info/navigation-info').then((m) => m.NavigationInfo),
@@ -55,6 +65,26 @@ export const appRoutes: Route[] = [
           title: 'Conciliação',
           description: 'Confira e concilie as movimentações das suas contas.',
         },
+      },
+      {
+        path: 'planejamento',
+        loadComponent: () =>
+          import('./pages/planejamento/planejamento.page').then((m) => m.PlanejamentoPage),
+        data: { monthSelector: true },
+      },
+      {
+        path: 'objetivos',
+        loadComponent: () =>
+          import('./pages/objetivos/objetivos.page').then((m) => m.ObjetivosPage),
+      },
+      {
+        path: 'perfil',
+        loadComponent: () => import('./pages/perfil/perfil.page').then((m) => m.PerfilPage),
+      },
+      {
+        path: 'assistente',
+        loadComponent: () =>
+          import('./pages/assistente/assistente.page').then((m) => m.AssistentePage),
       },
       {
         path: 'mais',
@@ -112,20 +142,18 @@ export const appRoutes: Route[] = [
       {
         path: 'contas-pagar',
         loadComponent: () =>
-          import('./pages/navigation-info/navigation-info').then((m) => m.NavigationInfo),
-        data: {
-          title: 'Contas a pagar',
-          description: 'Organize seus compromissos e acompanhe os próximos pagamentos.',
-        },
+          import('./pages/contas-planejadas/contas-planejadas.page').then(
+            (m) => m.ContasPlanejadasPage
+          ),
+        data: { monthSelector: true, modo: 'pagar' },
       },
       {
         path: 'contas-receber',
         loadComponent: () =>
-          import('./pages/navigation-info/navigation-info').then((m) => m.NavigationInfo),
-        data: {
-          title: 'Contas a receber',
-          description: 'Acompanhe valores previstos e recebimentos pendentes.',
-        },
+          import('./pages/contas-planejadas/contas-planejadas.page').then(
+            (m) => m.ContasPlanejadasPage
+          ),
+        data: { monthSelector: true, modo: 'receber' },
       },
       {
         path: 'relatorios',

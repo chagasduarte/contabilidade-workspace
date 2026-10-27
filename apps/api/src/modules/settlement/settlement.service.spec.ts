@@ -9,10 +9,25 @@ import {
   SettlementConflictError,
 } from './settlement.service';
 import { SettlementRepository } from './settlement.repository';
+import { CategoriaBusiness } from '../categoria/categoria.business';
+
+// Testes herméticos: nunca conectar em um Postgres real (ex.: túnel local em 5432).
+// A janela deslizante pós-liquidação consulta o banco; aqui ela não encontra mestres.
+vi.mock('../../core/config/database', () => ({
+  pool: {
+    connect: vi.fn().mockRejectedValue(new Error('sem banco nos testes')),
+    query: vi.fn().mockResolvedValue({ rows: [], rowCount: 0 }),
+  },
+}));
+
+vi.mock('../categoria/categoria.business', () => ({
+  CategoriaBusiness: {
+    categoriaVisivel: vi.fn().mockResolvedValue(true),
+  },
+}));
 
 vi.mock('./settlement.repository', () => ({
   SettlementRepository: {
-    ensureColumnsExist: vi.fn(),
     settlePlannedTransaction: vi.fn(),
     settleLoanInstallment: vi.fn(),
   },
@@ -45,6 +60,16 @@ describe('SettlementService', () => {
   });
 
   describe('settlePlannedTransaction', () => {
+    it('deve rejeitar idcategoria de categoria não visível ao usuário sem efetivar', async () => {
+      vi.mocked(CategoriaBusiness.categoriaVisivel).mockResolvedValueOnce(false);
+
+      await expect(
+        SettlementService.settlePlannedTransaction(validUuid, { idcategoria: 77 }, mockUserId)
+      ).rejects.toThrow(SettlementValidationError);
+      expect(CategoriaBusiness.categoriaVisivel).toHaveBeenCalledWith(77, mockUserId);
+      expect(SettlementRepository.settlePlannedTransaction).not.toHaveBeenCalled();
+    });
+
     it('deve rejeitar se o id não for um UUID válido', async () => {
       await expect(
         SettlementService.settlePlannedTransaction('id-invalido', {}, mockUserId)
@@ -144,6 +169,15 @@ describe('SettlementService', () => {
   });
 
   describe('settleLoanInstallment', () => {
+    it('deve rejeitar idcategoria de categoria não visível ao usuário sem liquidar', async () => {
+      vi.mocked(CategoriaBusiness.categoriaVisivel).mockResolvedValueOnce(false);
+
+      await expect(
+        SettlementService.settleLoanInstallment(validUuid, { idcategoria: 77 }, mockUserId)
+      ).rejects.toThrow('Categoria não encontrada.');
+      expect(SettlementRepository.settleLoanInstallment).not.toHaveBeenCalled();
+    });
+
     it('deve rejeitar se o installmentId não for um UUID válido', async () => {
       await expect(
         SettlementService.settleLoanInstallment('id-invalido', {}, mockUserId)

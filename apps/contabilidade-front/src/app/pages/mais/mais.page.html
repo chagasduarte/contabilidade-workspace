@@ -9,13 +9,19 @@
 
   <!-- Perfil do Usuário e Logout -->
   <article class="mais-page__user-card" aria-label="Perfil do usuário conectado">
-    <div class="mais-page__user-avatar">
-      <span>{{ userInitial() }}</span>
-    </div>
-    <div class="mais-page__user-details">
-      <h2>{{ currentUser()?.nome || 'Usuário Conectado' }}</h2>
-      <p>{{ currentUser()?.email || 'Sessão ativa no ContaPerfeita' }}</p>
-    </div>
+    <a routerLink="/perfil" class="mais-page__user-link" aria-label="Abrir meu perfil">
+      <div class="mais-page__user-avatar">
+        @if (currentUser()?.avatarUrl && !currentUser()?.avatarUrl?.endsWith('noImage.png')) {
+          <img [src]="currentUser()?.avatarUrl" alt="" />
+        } @else {
+          <span>{{ userInitial() }}</span>
+        }
+      </div>
+      <div class="mais-page__user-details">
+        <h2>{{ currentUser()?.nome || 'Usuário Conectado' }}</h2>
+        <p>{{ currentUser()?.email || 'Sessão ativa no ContaPerfeita' }}</p>
+      </div>
+    </a>
     <button
       type="button"
       class="mais-page__logout-btn"
@@ -24,7 +30,7 @@
       title="Sair da conta"
       data-testid="mais-logout-btn"
     >
-      <ion-icon name="log-out-outline"></ion-icon>
+      <ion-icon name="log-out-outline" aria-hidden="true"></ion-icon>
       <span>Sair</span>
     </button>
   </article>
@@ -32,7 +38,7 @@
   <!-- Card Destaque: Adicionar Transação -->
   <article class="mais-page__hero-cta">
     <div class="mais-page__hero-badge">
-      <ion-icon name="flash-outline"></ion-icon>
+      <ion-icon name="flash-outline" aria-hidden="true"></ion-icon>
       <span>Ação Rápida</span>
     </div>
     <div class="mais-page__hero-content">
@@ -48,7 +54,7 @@
       (click)="abrirModalNovaTransacao()"
       aria-label="Registrar Nova Transação"
     >
-      <ion-icon name="add-outline"></ion-icon>
+      <ion-icon name="add-outline" aria-hidden="true"></ion-icon>
       <span>Nova Transação</span>
     </button>
   </article>
@@ -67,7 +73,7 @@
             [style.background-color]="item.color + '1a'"
             [style.color]="item.color"
           >
-            <ion-icon [name]="item.icon"></ion-icon>
+            <ion-icon [name]="item.icon" aria-hidden="true"></ion-icon>
           </div>
           <div class="mais-page__card-info">
             <h3>{{ item.title }}</h3>
@@ -76,6 +82,7 @@
           <ion-icon
             name="chevron-forward-outline"
             class="mais-page__card-arrow"
+            aria-hidden="true"
           ></ion-icon>
         </a>
       }

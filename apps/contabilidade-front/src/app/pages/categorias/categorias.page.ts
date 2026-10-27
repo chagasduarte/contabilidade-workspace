@@ -7,9 +7,11 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { HttpErrorResponse } from '@angular/common/http';
 import {
   IonAccordion,
   IonAccordionGroup,
+  IonBackButton,
   IonBadge,
   IonButton,
   IonButtons,
@@ -25,7 +27,6 @@ import {
   IonItemSliding,
   IonLabel,
   IonList,
-  IonMenuButton,
   IonModal,
   IonNote,
   IonSegment,
@@ -35,10 +36,13 @@ import {
   IonSpinner,
   IonTitle,
   IonToolbar,
+  AlertController,
+  ToastController,
 } from '@ionic/angular';
 import { addIcons } from 'ionicons';
 import {
   addOutline,
+  alertCircleOutline,
   closeOutline,
   folderOpenOutline,
   pencilOutline,
@@ -68,7 +72,7 @@ type FiltroTipo = 'todas' | 'despesa' | 'receita';
     IonTitle,
     IonButtons,
     IonButton,
-    IonMenuButton,
+    IonBackButton,
     IonContent,
     IonSegment,
     IonSegmentButton,
@@ -97,6 +101,8 @@ type FiltroTipo = 'todas' | 'despesa' | 'receita';
 })
 export class CategoriasPage implements OnInit {
   private readonly categoriaService = inject(CategoriaService);
+  private readonly alertController = inject(AlertController);
+  private readonly toastController = inject(ToastController);
 
   readonly categorias = this.categoriaService.categorias;
   readonly loading = this.categoriaService.loading;
@@ -111,6 +117,8 @@ export class CategoriasPage implements OnInit {
   readonly modalSubcategoriaAberto = signal<boolean>(false);
   readonly subcategoriaEmEdicao = signal<Subcategoria | null>(null);
   readonly categoriaSelecionadaParaSub = signal<Categoria | null>(null);
+  /** Mensagem de erro exibida dentro do modal aberto (409 duplicado, 403, 400...). */
+  readonly erroFormulario = signal<string | null>(null);
 
   // Campos do formulário de categoria
   formCategoriaNome = '';
@@ -142,6 +150,7 @@ export class CategoriasPage implements OnInit {
       folderOpenOutline,
       pricetagOutline,
       closeOutline,
+      alertCircleOutline,
     });
   }
 
@@ -166,6 +175,56 @@ export class CategoriasPage implements OnInit {
         }));
       },
     });
+  }
+
+  /** Itens com `userid === null` são padrão do sistema e não podem ser alterados. */
+  isPadrao(item: Categoria | Subcategoria): boolean {
+    return item.userid === null;
+  }
+
+  private mensagemErro(err: unknown, tipo: 'categoria' | 'subcategoria'): string {
+    const http = err instanceof HttpErrorResponse ? err : null;
+    const msgApi: string | undefined = http?.error?.erro;
+    switch (http?.status) {
+      case 409:
+        return tipo === 'categoria'
+          ? 'Já existe uma categoria sua com esse nome e tipo.'
+          : 'Já existe uma subcategoria com esse nome nesta categoria.';
+      case 403:
+        return msgApi || 'Itens padrão do sistema não podem ser alterados.';
+      case 404:
+        return msgApi || `A ${tipo} não foi encontrada. Atualize a lista.`;
+      case 0:
+        return 'Sem conexão com o servidor. Tente novamente.';
+      default:
+        return msgApi || `Não foi possível salvar a ${tipo}.`;
+    }
+  }
+
+  private async avisar(mensagem: string, color: 'danger' | 'success' = 'danger'): Promise<void> {
+    const toast = await this.toastController.create({
+      message: mensagem,
+      duration: color === 'danger' ? 4000 : 2500,
+      color,
+      position: 'bottom',
+      buttons: [{ text: 'OK', role: 'cancel' }],
+    });
+    await toast.present();
+  }
+
+  /** Confirmação destrutiva com ion-alert; resolve `true` só se o usuário confirmar. */
+  private async confirmar(header: string, message: string): Promise<boolean> {
+    const alert = await this.alertController.create({
+      header,
+      message,
+      buttons: [
+        { text: 'Cancelar', role: 'cancel' },
+        { text: 'Excluir', role: 'destructive', cssClass: 'alert-button-danger' },
+      ],
+    });
+    await alert.present();
+    const { role } = await alert.onDidDismiss();
+    return role === 'destructive';
   }
 
   getSubcategorias(categoriaId: number): Subcategoria[] {
@@ -194,6 +253,7 @@ export class CategoriasPage implements OnInit {
 
   abrirNovaCategoria(): void {
     this.categoriaEmEdicao.set(null);
+    this.erroFormulario.set(null);
     this.formCategoriaNome = '';
     const filtroAtual = this.tipoFiltro();
     this.formCategoriaTipo = filtroAtual === 'receita' ? 'receita' : 'despesa';
@@ -204,7 +264,9 @@ export class CategoriasPage implements OnInit {
 
   abrirEditarCategoria(categoria: Categoria, event?: Event): void {
     event?.stopPropagation();
+    if (this.isPadrao(categoria)) return;
     this.categoriaEmEdicao.set(categoria);
+    this.erroFormulario.set(null);
     this.formCategoriaNome = categoria.nome;
     this.formCategoriaTipo = categoria.tipo ?? 'despesa';
     this.formCategoriaCor = categoria.cor || '#3880ff';
@@ -213,6 +275,7 @@ export class CategoriasPage implements OnInit {
   }
 
   fecharModalCategoria(): void {
+    this.erroFormulario.set(null);
     this.modalCategoriaAberto.set(false);
     this.categoriaEmEdicao.set(null);
   }
@@ -236,6 +299,7 @@ export class CategoriasPage implements OnInit {
         next: () => {
           this.fecharModalCategoria();
         },
+        error: (err) => this.erroFormulario.set(this.mensagemErro(err, 'categoria')),
       });
     } else {
       this.categoriaService.criarCategoria(dto).subscribe({
@@ -245,14 +309,18 @@ export class CategoriasPage implements OnInit {
             this.carregarSubcategorias(nova.id);
           }
         },
+        error: (err) => this.erroFormulario.set(this.mensagemErro(err, 'categoria')),
       });
     }
   }
 
-  confirmarExcluirCategoria(categoria: Categoria, event?: Event): void {
+  async confirmarExcluirCategoria(categoria: Categoria, event?: Event): Promise<void> {
     event?.stopPropagation();
-    const confirmado = confirm(
-      `Deseja realmente excluir a categoria "${categoria.nome}" e suas subcategorias?`
+    if (this.isPadrao(categoria)) return;
+    const confirmado = await this.confirmar(
+      `Excluir "${categoria.nome}"?`,
+      'As subcategorias dela também serão excluídas e os lançamentos que a usam ' +
+        'ficarão sem categoria. Esta ação não pode ser desfeita.'
     );
     if (!confirmado) return;
 
@@ -263,7 +331,9 @@ export class CategoriasPage implements OnInit {
           delete novo[categoria.id];
           return novo;
         });
+        this.avisar('Categoria excluída.', 'success');
       },
+      error: (err) => this.avisar(this.mensagemErro(err, 'categoria')),
     });
   }
 
@@ -273,6 +343,7 @@ export class CategoriasPage implements OnInit {
     event?.stopPropagation();
     this.categoriaSelecionadaParaSub.set(categoria);
     this.subcategoriaEmEdicao.set(null);
+    this.erroFormulario.set(null);
     this.formSubcategoriaNome = '';
     this.formSubcategoriaCor = categoria.cor || '#3880ff';
     this.formSubcategoriaIcone = 'pricetag-outline';
@@ -280,7 +351,9 @@ export class CategoriasPage implements OnInit {
   }
 
   abrirEditarSubcategoria(subcategoria: Subcategoria): void {
+    if (this.isPadrao(subcategoria)) return;
     this.subcategoriaEmEdicao.set(subcategoria);
+    this.erroFormulario.set(null);
     this.formSubcategoriaNome = subcategoria.nome;
     this.formSubcategoriaCor = subcategoria.cor || '#3880ff';
     this.formSubcategoriaIcone = subcategoria.icone || 'pricetag-outline';
@@ -288,6 +361,7 @@ export class CategoriasPage implements OnInit {
   }
 
   fecharModalSubcategoria(): void {
+    this.erroFormulario.set(null);
     this.modalSubcategoriaAberto.set(false);
     this.subcategoriaEmEdicao.set(null);
     this.categoriaSelecionadaParaSub.set(null);
@@ -320,6 +394,7 @@ export class CategoriasPage implements OnInit {
             }));
             this.fecharModalSubcategoria();
           },
+          error: (err) => this.erroFormulario.set(this.mensagemErro(err, 'subcategoria')),
         });
     } else if (categoria) {
       const createDto: CreateSubcategoriaDto = {
@@ -337,13 +412,16 @@ export class CategoriasPage implements OnInit {
           }));
           this.fecharModalSubcategoria();
         },
+        error: (err) => this.erroFormulario.set(this.mensagemErro(err, 'subcategoria')),
       });
     }
   }
 
-  confirmarExcluirSubcategoria(subcategoria: Subcategoria): void {
-    const confirmado = confirm(
-      `Deseja realmente excluir a subcategoria "${subcategoria.nome}"?`
+  async confirmarExcluirSubcategoria(subcategoria: Subcategoria): Promise<void> {
+    if (this.isPadrao(subcategoria)) return;
+    const confirmado = await this.confirmar(
+      `Excluir "${subcategoria.nome}"?`,
+      'Esta ação não pode ser desfeita.'
     );
     if (!confirmado) return;
 
@@ -354,7 +432,9 @@ export class CategoriasPage implements OnInit {
           ...mapa,
           [catId]: (mapa[catId] ?? []).filter((s) => s.id !== subcategoria.id),
         }));
+        this.avisar('Subcategoria excluída.', 'success');
       },
+      error: (err) => this.avisar(this.mensagemErro(err, 'subcategoria')),
     });
   }
 }

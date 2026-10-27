@@ -43,7 +43,8 @@ export async function authMiddleware(
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Token inválido ou expirado';
     console.error('Erro ao verificar token:', message);
-    res.status(403).json({ erro: 'Token inválido ou expirado' });
+    // 401 = problema de autenticação (cliente deve logar de novo); 403 fica reservado para proibição de negócio
+    res.status(401).json({ erro: 'Token inválido ou expirado' });
   }
 }
 

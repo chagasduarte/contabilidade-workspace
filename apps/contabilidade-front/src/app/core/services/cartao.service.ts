@@ -1,4 +1,5 @@
 import { inject, Injectable, signal } from '@angular/core';
+import { mensagemErroHttp } from '../utils/http-error';
 import { HttpClient } from '@angular/common/http';
 import { Observable, tap, catchError, throwError, finalize, switchMap, of, map } from 'rxjs';
 import { Cartao } from '@contabilidade/models';
@@ -53,7 +54,7 @@ export class CartaoService {
         this.cartoes.set(cartoes ?? []);
       }),
       catchError((err: Error) => {
-        this.error.set(err.message || 'Erro ao carregar cartões.');
+        this.error.set(mensagemErroHttp(err, 'Erro ao carregar cartões.'));
         return throwError(() => err);
       }),
       finalize(() => {

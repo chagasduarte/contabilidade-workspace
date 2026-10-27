@@ -48,6 +48,11 @@ export interface ProjecaoMensal {
 }
 
 export interface AgrupamentoCategoria {
+  /** Id legado (subcategoria ou categoria). Prefira os campos de nome. */
   categoria: number;
   media_mensal: number | string;
+  idcategoria?: number | null;
+  idsubcategoria?: number | null;
+  categoria_nome?: string | null;
+  subcategoria_nome?: string | null;
 }

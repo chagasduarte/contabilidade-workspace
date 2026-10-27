@@ -48,6 +48,11 @@ export interface ProjecaoMensalDto {
 }
 
 export interface AgrupamentoCategoriaDto {
+  /** @deprecated Valor legado da coluna `categoria` (subcategoria ou a própria categoria). */
   categoria: number;
   media_mensal: string | number;
+  idcategoria: number | null;
+  idsubcategoria: number | null;
+  categoria_nome: string | null;
+  subcategoria_nome: string | null;
 }

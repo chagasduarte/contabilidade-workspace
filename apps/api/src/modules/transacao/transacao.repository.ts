@@ -4,7 +4,32 @@ import {
   CreateTransacaoDto,
   DespesaParceladaItem,
   LinhaTemporalItem,
+  PeriodoConsulta,
+  TransacaoLoteItem,
+  ExtratoCursor,
+  AgrupamentoTipoItem,
+  ExtratoTotais,
 } from './transacao.types';
+
+/**
+ * Nomes de categoria/subcategoria para as respostas (sempre presentes, null quando não houver).
+ * A visibilidade usa o dono da própria linha: ids legados que apontem para categoria/subcategoria
+ * de outro usuário não vazam o nome.
+ */
+function joinNomes(alias: string): string {
+  return `LEFT JOIN categoria cn ON cn.id = ${alias}.idcategoria AND (cn.userid = ${alias}.userid OR cn.userid IS NULL)
+          LEFT JOIN subcategoria sn ON sn.id = ${alias}.idsubcategoria AND (sn.userid = ${alias}.userid OR sn.userid IS NULL)`;
+}
+const COLUNAS_NOMES = 'cn.nome AS categoria_nome, sn.nome AS subcategoria_nome';
+
+/** Converte a lista de períodos (conta + cartões) nos arrays usados com unnest(). */
+function periodosParaArrays(periodos: PeriodoConsulta[]): [Array<number | null>, string[], string[]] {
+  return [
+    periodos.map((p) => p.cartaoid),
+    periodos.map((p) => p.inicio),
+    periodos.map((p) => p.fim),
+  ];
+}
 
 export const TransacaoRepository = {
   async criar(
@@ -22,6 +47,7 @@ export const TransacaoRepository = {
       status = 'pendente',
       ispaycart = false,
       cartaoid = null,
+      idsubcategoria = null,
     } = transacao;
 
     const parsedCategoria =
@@ -40,9 +66,12 @@ export const TransacaoRepository = {
         : null;
 
     const result = await pool.query<TransacaoEntity>(
-      `INSERT INTO transacoes (tipo, descricao, valor, categoria, data, status, userid, ispaycart, cartaoid, idcategoria, pagamento)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-       RETURNING *`,
+      `WITH r AS (
+         INSERT INTO transacoes (tipo, descricao, valor, categoria, data, status, userid, ispaycart, cartaoid, idcategoria, pagamento, idsubcategoria)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+         RETURNING *
+       )
+       SELECT r.*, ${COLUNAS_NOMES} FROM r ${joinNomes('r')}`,
       [
         tipo,
         descricao,
@@ -55,17 +84,77 @@ export const TransacaoRepository = {
         parsedCartaoId,
         parsedIdCategoria,
         pagamento,
+        idsubcategoria !== null && idsubcategoria !== '' ? Number(idsubcategoria) : null,
       ]
     );
     return result.rows[0];
   },
 
+  /**
+   * Insere várias transações num único statement (atômico), já com o grupo de parcelamento
+   * (parcela_grupo_id/numero/total, migration 004). A ordem do RETURNING não é garantida,
+   * por isso o resultado é ordenado por data e id.
+   */
+  async criarEmLote(rows: TransacaoLoteItem[], userid: number): Promise<TransacaoEntity[]> {
+    if (rows.length === 0) return [];
+
+    const toNum = (v: unknown): number | null =>
+      v !== undefined && v !== null && v !== '' && !isNaN(Number(v)) ? Number(v) : null;
+    const toDate = (v: string | Date | null | undefined): string | null => {
+      if (!v) return null;
+      if (v instanceof Date) {
+        const mm = String(v.getMonth() + 1).padStart(2, '0');
+        const dd = String(v.getDate()).padStart(2, '0');
+        return `${v.getFullYear()}-${mm}-${dd}`;
+      }
+      return String(v).split('T')[0];
+    };
+
+    const result = await pool.query<TransacaoEntity>(
+      `WITH r AS (
+         INSERT INTO transacoes (tipo, descricao, valor, categoria, idcategoria, data, pagamento, status,
+                                 userid, ispaycart, cartaoid, parcela_grupo_id, parcela_numero, parcela_total, idsubcategoria)
+         SELECT x.tipo, x.descricao, x.valor, x.categoria, x.idcategoria, x.data, x.pagamento, x.status,
+                $9, x.ispaycart, x.cartaoid, x.parcela_grupo_id, x.parcela_numero, x.parcela_total, x.idsubcategoria
+         FROM unnest($1::varchar[], $2::varchar[], $3::numeric[], $4::int[], $5::int[], $6::date[], $7::date[],
+                     $8::varchar[], $10::bool[], $11::int[], $12::uuid[], $13::int[], $14::int[], $15::int[])
+              AS x(tipo, descricao, valor, categoria, idcategoria, data, pagamento, status, ispaycart, cartaoid,
+                   parcela_grupo_id, parcela_numero, parcela_total, idsubcategoria)
+         RETURNING *
+       )
+       SELECT r.*, ${COLUNAS_NOMES} FROM r ${joinNomes('r')}`,
+      [
+        rows.map((r) => r.tipo),
+        rows.map((r) => r.descricao),
+        rows.map((r) => r.valor),
+        rows.map((r) => toNum(r.categoria)),
+        rows.map((r) => toNum(r.idcategoria)),
+        rows.map((r) => toDate(r.data)),
+        rows.map((r) => toDate(r.pagamento)),
+        rows.map((r) => r.status ?? 'pendente'),
+        userid,
+        rows.map((r) => Boolean(r.ispaycart)),
+        rows.map((r) => (toNum(r.cartaoid) && Number(r.cartaoid) > 0 ? Number(r.cartaoid) : null)),
+        rows.map((r) => r.parcela_grupo_id ?? null),
+        rows.map((r) => r.parcela_numero ?? null),
+        rows.map((r) => r.parcela_total ?? null),
+        rows.map((r) => toNum(r.idsubcategoria)),
+      ]
+    );
+
+    return result.rows.sort((a, b) => {
+      const da = new Date(a.data).getTime();
+      const db = new Date(b.data).getTime();
+      return da !== db ? da - db : Number(a.id) - Number(b.id);
+    });
+  },
+
   async buscarPorId(id: number | string, userid?: number): Promise<TransacaoEntity | undefined> {
     const params: unknown[] = [id];
-    let query = 'SELECT * FROM transacoes WHERE id = $1';
+    let query = `SELECT t.*, ${COLUNAS_NOMES} FROM transacoes t ${joinNomes('t')} WHERE t.id = $1`;
     if (userid) {
       params.push(userid);
-      query += ' AND userid = $2';
+      query += ' AND t.userid = $2';
     }
     const result = await pool.query<TransacaoEntity>(query, params);
     return result.rows[0];
@@ -73,7 +162,9 @@ export const TransacaoRepository = {
 
   async atualizar(
     id: number | string,
-    transacao: Partial<CreateTransacaoDto>
+    transacao: Partial<CreateTransacaoDto>,
+    userid: number,
+    subcategoria: { alterar: boolean; valor: number | null } = { alterar: false, valor: null }
   ): Promise<TransacaoEntity | undefined> {
     const { tipo, descricao, valor, categoria, data, idcategoria, pagamento } = transacao;
     const parsedCategoria =
@@ -86,24 +177,40 @@ export const TransacaoRepository = {
         : null;
 
     const result = await pool.query<TransacaoEntity>(
-      `UPDATE transacoes
-       SET tipo = COALESCE($1, tipo),
-           descricao = COALESCE($2, descricao),
-           valor = COALESCE($3, valor),
-           categoria = $4,
-           data = COALESCE($5, data),
-           idcategoria = COALESCE($6, idcategoria),
-           pagamento = COALESCE($7, pagamento)
-       WHERE id = $8
-       RETURNING *`,
-      [tipo, descricao, valor, parsedCategoria, data, parsedIdCategoria, pagamento ?? null, id]
+      `WITH r AS (
+         UPDATE transacoes
+         SET tipo = COALESCE($1, tipo),
+             descricao = COALESCE($2, descricao),
+             valor = COALESCE($3, valor),
+             categoria = $4,
+             data = COALESCE($5, data),
+             idcategoria = COALESCE($6, idcategoria),
+             pagamento = COALESCE($7, pagamento),
+             idsubcategoria = CASE WHEN $10::boolean THEN $11::int ELSE idsubcategoria END
+         WHERE id = $8 AND userid = $9
+         RETURNING *
+       )
+       SELECT r.*, ${COLUNAS_NOMES} FROM r ${joinNomes('r')}`,
+      [
+        tipo,
+        descricao,
+        valor,
+        parsedCategoria,
+        data,
+        parsedIdCategoria,
+        pagamento ?? null,
+        id,
+        userid,
+        subcategoria.alterar,
+        subcategoria.valor,
+      ]
     );
     return result.rows[0];
   },
 
-  async excluir(id: number | string): Promise<boolean> {
-    await pool.query('DELETE FROM transacoes WHERE id = $1', [id]);
-    return true;
+  async excluir(id: number | string, userid: number): Promise<boolean> {
+    const result = await pool.query('DELETE FROM transacoes WHERE id = $1 AND userid = $2', [id, userid]);
+    return (result.rowCount ?? 0) > 0;
   },
 
   async listaTransacoes(
@@ -114,39 +221,39 @@ export const TransacaoRepository = {
     userid?: number,
     cardId?: number | string | null
   ): Promise<TransacaoEntity[]> {
-    let query = 'SELECT * FROM transacoes WHERE 1=1';
+    let query = `SELECT t.*, ${COLUNAS_NOMES} FROM transacoes t ${joinNomes('t')} WHERE 1=1`;
     const params: unknown[] = [];
 
     if (userid) {
       params.push(userid);
-      query += ` AND userid = $${params.length}`;
+      query += ` AND t.userid = $${params.length}`;
     }
 
     if (tipo) {
       params.push(tipo);
-      query += ` AND tipo = $${params.length}`;
+      query += ` AND t.tipo = $${params.length}`;
     }
 
     if (status) {
       params.push(status);
-      query += ` AND status = $${params.length}`;
+      query += ` AND t.status = $${params.length}`;
     }
 
     if (inicio && fim) {
       params.push(inicio);
-      query += ` AND data::date BETWEEN $${params.length}`;
+      query += ` AND t.data::date BETWEEN $${params.length}`;
       params.push(fim);
       query += ` AND $${params.length}`;
     }
 
     if (cardId) {
       params.push(cardId);
-      query += ` AND cartaoid = $${params.length}`;
+      query += ` AND t.cartaoid = $${params.length}`;
     } else {
-      query += ' AND cartaoid IS NULL';
+      query += ' AND t.cartaoid IS NULL';
     }
 
-    query += ' ORDER BY data ASC';
+    query += ' ORDER BY t.data ASC';
 
     const result = await pool.query<TransacaoEntity>(query, params);
     return result.rows;
@@ -180,14 +287,22 @@ export const TransacaoRepository = {
       query += ` AND t.status = $${params.length}`;
     }
 
-    if (mes) {
+    // Faixa de datas em vez de EXTRACT para usar idx_transacoes_userid_pagamento
+    if (ano) {
+      params.push(Number(ano));
+      const pAno = params.length;
+      if (mes) {
+        params.push(Number(mes));
+        const pMes = params.length;
+        query += ` AND t.pagamento >= make_date($${pAno}::int, $${pMes}::int, 1)
+                   AND t.pagamento < (make_date($${pAno}::int, $${pMes}::int, 1) + interval '1 month')::date`;
+      } else {
+        query += ` AND t.pagamento >= make_date($${pAno}::int, 1, 1)
+                   AND t.pagamento < make_date($${pAno}::int + 1, 1, 1)`;
+      }
+    } else if (mes) {
       params.push(mes);
       query += ` AND extract(month from t.pagamento) = $${params.length}`;
-    }
-
-    if (ano) {
-      params.push(ano);
-      query += ` AND extract(year from t.pagamento) = $${params.length}`;
     }
 
     if (cardid) {
@@ -199,60 +314,42 @@ export const TransacaoRepository = {
     return Number(result.rows[0]?.soma || 0);
   },
 
+  /**
+   * Resumo de despesas parceladas da conta e de todos os cartões numa única query.
+   * Cada período (cartaoid NULL = conta corrente) traz sua própria janela de vencimento.
+   * O predicado LIKE '%- Parcela' precisa ser idêntico ao do índice parcial idx_transacoes_parcela.
+   */
   async listaDespesasParceladas(
-    inicio: string,
-    fim: string,
     userid: number,
-    cardid?: number | string | null
+    periodos: PeriodoConsulta[]
   ): Promise<DespesaParceladaItem[]> {
-    const params: unknown[] = [inicio, fim, userid];
-    let query = `SELECT
-                    descricao, 
-                    SUM(valor) AS total_parcelado,
-                    SUM(CASE WHEN status = 'pago' THEN valor ELSE 0 END) AS total_pago,
-                    SUM(CASE WHEN status = 'pendente' THEN valor ELSE 0 END) AS total_pendente,
-                    COUNT(*) AS qtd_parcelas,
-                    SUM(CASE WHEN status = 'pago' THEN 1 ELSE 0 END) AS qtd_parcelas_pagas,
-                    SUM(
-                      CASE 
-                        WHEN status = 'pendente'
-                          AND pagamento between $1 and $2
-                        THEN valor 
-                        ELSE 0 
-                      END
-                    ) AS valor_pendente_mes,
-                    CASE 
-                      WHEN SUM(
-                        CASE 
-                          WHEN status = 'pendente'
-                            AND pagamento between $1 and $2
-                          THEN 1 
-                          ELSE 0 
-                        END
-                      ) > 0 
-                      THEN 'pendente'
-                      ELSE 'pago'
-                    END AS status
-                  FROM transacoes
-                  WHERE tipo = 'saida'
-                    AND descricao ILIKE '%- Parcela'
-                    AND descricao in (select descricao from transacoes d where  
-                                              pagamento between $1 and $2
-                                              AND descricao ILIKE '%- Parcela' 
-                                              and tipo = 'saida')
-                    AND userid = $3`;
+    if (periodos.length === 0) return [];
 
-    if (cardid) {
-      params.push(cardid);
-      query += ` AND cartaoid = $${params.length}`;
-    } else {
-      query += ' AND cartaoid is null';
-    }
+    const query = `
+      WITH periodo AS (
+        SELECT * FROM unnest($2::int[], $3::date[], $4::date[]) AS p(cartaoid, inicio, fim)
+      )
+      SELECT t.descricao,
+             SUM(t.valor) AS total_parcelado,
+             SUM(CASE WHEN t.status = 'pago' THEN t.valor ELSE 0 END) AS total_pago,
+             SUM(CASE WHEN t.status = 'pendente' THEN t.valor ELSE 0 END) AS total_pendente,
+             COUNT(*) AS qtd_parcelas,
+             SUM(CASE WHEN t.status = 'pago' THEN 1 ELSE 0 END) AS qtd_parcelas_pagas,
+             SUM(CASE WHEN t.status = 'pendente' AND t.pagamento BETWEEN p.inicio AND p.fim
+                      THEN t.valor ELSE 0 END) AS valor_pendente_mes,
+             CASE WHEN bool_or(t.status = 'pendente' AND t.pagamento BETWEEN p.inicio AND p.fim)
+                  THEN 'pendente' ELSE 'pago' END AS status
+      FROM periodo p
+      JOIN transacoes t
+        ON t.userid = $1
+       AND t.tipo = 'saida'
+       AND t.descricao LIKE '%- Parcela'
+       AND t.cartaoid IS NOT DISTINCT FROM p.cartaoid
+      GROUP BY p.cartaoid, t.descricao
+      HAVING bool_or(t.pagamento BETWEEN p.inicio AND p.fim)
+      ORDER BY p.cartaoid NULLS FIRST, t.descricao`;
 
-    query += ` GROUP BY descricao
-               ORDER BY descricao;`;
-
-    const result = await pool.query<DespesaParceladaItem>(query, params);
+    const result = await pool.query<DespesaParceladaItem>(query, [userid, ...periodosParaArrays(periodos)]);
     return result.rows;
   },
 
@@ -262,106 +359,108 @@ export const TransacaoRepository = {
     fim?: string | null,
     userid?: number,
     tipo?: string | null
-  ): Promise<Array<{ total_tipo: string; idcategoria: number | null; subcategoria: string }>> {
+  ): Promise<AgrupamentoTipoItem[]> {
     const params: unknown[] = [inicio, fim, userid];
+    // Agrupa pela coluna legada `categoria` (subcategoria ou a própria categoria), como antes.
+    // Os nomes são aditivos: subcategoria só quando o valor legado é uma subcategoria da categoria.
     let query = `SELECT 
-        sum(valor) as total_tipo, 
-        idcategoria, categoria as subcategoria
+        sum(t.valor) as total_tipo, 
+        t.idcategoria, t.categoria as subcategoria,
+        sn.id AS idsubcategoria,
+        cn.nome AS categoria_nome,
+        sn.nome AS subcategoria_nome
       FROM public.transacoes t
-      where case when cartaoid is not null then pagamento else data end between $1 and $2
-        AND userid = $3`;
+      LEFT JOIN categoria cn ON cn.id = t.idcategoria AND (cn.userid = t.userid OR cn.userid IS NULL)
+      LEFT JOIN subcategoria sn ON sn.id = t.categoria
+                               AND t.categoria IS DISTINCT FROM t.idcategoria
+                               AND sn.idcategoria = t.idcategoria
+                               AND (sn.userid = t.userid OR sn.userid IS NULL)
+      where case when t.cartaoid is not null then t.pagamento else t.data end between $1 and $2
+        AND t.userid = $3`;
 
     if (tipo) {
       params.push(tipo);
-      query += ` AND tipo = $${params.length}`;
+      query += ` AND t.tipo = $${params.length}`;
     }
 
     if (status) {
       params.push(status);
-      query += ` AND status = $${params.length}`;
+      query += ` AND t.status = $${params.length}`;
     }
 
-    query += ` group by idcategoria, categoria
-               order by idcategoria;`;
+    query += ` group by t.idcategoria, t.categoria, sn.id, cn.nome, sn.nome
+               order by t.idcategoria;`;
 
-    const result = await pool.query<{
-      total_tipo: string;
-      idcategoria: number | null;
-      subcategoria: string;
-    }>(query, params);
+    const result = await pool.query<AgrupamentoTipoItem>(query, params);
 
     return result.rows;
   },
 
-  async listaParceladas(
-    inicio: string,
-    fim: string,
+  /**
+   * GET /transacoes: pendentes (parceladas/adicionais) e pagos da conta e de cada cartão
+   * numa única query. Retorna as linhas com a coluna `grupo` para separação em JS.
+   */
+  async listarMes(
     userid: number,
-    cardId?: number | string | null
-  ): Promise<TransacaoEntity[]> {
-    const params: unknown[] = [inicio, fim, userid];
-    let query = `SELECT id, descricao, tipo, valor, categoria, TO_CHAR(t."data"::date, 'YYYY-MM-DD') AS data, status, ispaycart
-              FROM public.transacoes t
-              where t.tipo = 'saida'
-                and t.status = 'pendente'
-                AND t."pagamento"::date BETWEEN $1 AND $2
-                and descricao like '%Parcela'
-                AND userid = $3 `;
+    periodos: PeriodoConsulta[]
+  ): Promise<Array<TransacaoEntity & { grupo: 'pagos' | 'parceladas' | 'adicionais' }>> {
+    if (periodos.length === 0) return [];
 
-    if (cardId) {
-      params.push(cardId);
-      query += `and cartaoid = $4 `;
-    } else {
-      query += 'and ispaycart is false';
-    }
+    const query = `
+      WITH periodo AS (
+        SELECT * FROM unnest($2::int[], $3::date[], $4::date[]) AS p(cartaoid, inicio, fim)
+      )
+      SELECT CASE WHEN t.status = 'pago' THEN 'pagos'
+                  WHEN t.descricao LIKE '%Parcela' THEN 'parceladas'
+                  ELSE 'adicionais' END AS grupo,
+             t.id, t.descricao, t.tipo, t.valor, t.categoria, t.idcategoria, t.idsubcategoria, ${COLUNAS_NOMES},
+             TO_CHAR(t.data::date, 'YYYY-MM-DD') AS data, t.status, t.ispaycart, t.cartaoid, t.pagamento
+      FROM periodo p
+      JOIN transacoes t
+        ON t.userid = $1
+       AND t.tipo = 'saida'
+       AND (
+            (t.status = 'pendente'
+             AND t.pagamento BETWEEN p.inicio AND p.fim
+             AND (CASE WHEN p.cartaoid IS NULL THEN t.ispaycart IS FALSE ELSE t.cartaoid = p.cartaoid END))
+         OR (t.status = 'pago'
+             AND t.data::date BETWEEN p.inicio AND p.fim
+             AND t.cartaoid IS NOT DISTINCT FROM p.cartaoid)
+       )
+      ${joinNomes('t')}
+      ORDER BY grupo, t.data, t.id`;
 
-    const result = await pool.query<TransacaoEntity>(query, params);
+    const result = await pool.query<TransacaoEntity & { grupo: 'pagos' | 'parceladas' | 'adicionais' }>(
+      query,
+      [userid, ...periodosParaArrays(periodos)]
+    );
     return result.rows;
   },
 
-  async listaAdicionais(
-    inicio: string,
-    fim: string,
-    userid: number,
-    cardId?: number | string | null
-  ): Promise<TransacaoEntity[]> {
-    const params: unknown[] = [inicio, fim, userid];
-    let query = `SELECT id, descricao, tipo, valor, categoria, TO_CHAR(t."data"::date, 'YYYY-MM-DD') AS data, status, ispaycart
-              FROM public.transacoes t
-              where t.tipo = 'saida'
-                and t.status = 'pendente'
-                AND t."pagamento"::date BETWEEN $1 AND $2
-                and descricao not like '%Parcela'
-                AND userid = $3 `;
-
-    if (cardId) {
-      params.push(cardId);
-      query += `and cartaoid = $4 `;
-    } else {
-      query += 'and ispaycart is false';
-    }
-
-    const result = await pool.query<TransacaoEntity>(query, params);
-    return result.rows;
-  },
-
-  async uptopago(id: number | string): Promise<boolean> {
-    await pool.query("UPDATE transacoes SET status = 'pago' WHERE id = $1", [id]);
-    return true;
+  async uptopago(id: number | string, userid: number): Promise<boolean> {
+    const result = await pool.query(
+      "UPDATE transacoes SET status = 'pago' WHERE id = $1 AND userid = $2",
+      [id, userid]
+    );
+    return (result.rowCount ?? 0) > 0;
   },
 
   async listaDespesa(descricao: string, userid: number): Promise<TransacaoEntity[]> {
     const query = `
       SELECT 
-        id, 
-        descricao, 
-        tipo, 
-        valor, 
-        categoria, 
+        t.id, 
+        t.descricao, 
+        t.tipo, 
+        t.valor, 
+        t.categoria, 
+        t.idcategoria,
+        t.idsubcategoria,
+        ${COLUNAS_NOMES},
         TO_CHAR(t."data"::date, 'YYYY-MM-DD') AS data, 
-        status 
+        t.status 
       FROM transacoes t 
-      WHERE descricao ILIKE '%' || $1 || '%' AND userid = $2
+      ${joinNomes('t')}
+      WHERE t.descricao ILIKE '%' || $1 || '%' AND t.userid = $2
     `;
     const result = await pool.query<TransacaoEntity>(query, [descricao, userid]);
     return result.rows;
@@ -374,7 +473,8 @@ export const TransacaoRepository = {
                       MIN(pagamento) AS data_inicio,
                       descricao 
                   FROM transacoes t 	
-                  WHERE EXTRACT(YEAR FROM pagamento) = $1
+                  WHERE t.pagamento >= make_date($1::int, 1, 1)
+                    AND t.pagamento < make_date($1::int + 1, 1, 1)
                     AND t.userid = $2
                     AND t.descricao LIKE '%- Parcela'
                   GROUP BY descricao
@@ -383,7 +483,7 @@ export const TransacaoRepository = {
                       EXTRACT(MONTH FROM MIN(pagamento)) ASC,  
                       total_parcelas ASC,                 
                       MAX(pagamento) ASC;`;
-    const result = await pool.query<LinhaTemporalItem>(query, [ano, userid]);
+    const result = await pool.query<LinhaTemporalItem>(query, [Number(ano), userid]);
     return result.rows;
   },
 
@@ -393,50 +493,78 @@ export const TransacaoRepository = {
     ano: number | string,
     userid: number
   ): Promise<TransacaoEntity[]> {
-    const query = `SELECT id, descricao, tipo, valor, categoria, TO_CHAR(t."data"::date, 'YYYY-MM-DD') AS data, status
+    const query = `SELECT t.id, t.descricao, t.tipo, t.valor, t.categoria, t.idcategoria, t.idsubcategoria, ${COLUNAS_NOMES},
+                           TO_CHAR(t."data"::date, 'YYYY-MM-DD') AS data, t.status
                     FROM public.transacoes t
+                    ${joinNomes('t')}
                     where t.tipo = 'saida'
                       and t.status = 'pendente'
-                      and EXTRACT(DAY FROM pagamento) = $1
-                      and EXTRACT(MONTH FROM pagamento) = $2
-                      and EXTRACT(YEAR FROM pagamento) = $3
-                      and ispaycart = true
-                      AND userid = $4`;
-    const result = await pool.query<TransacaoEntity>(query, [dia, mes, ano, userid]);
+                      and t.pagamento = make_date($3::int, $2::int, $1::int)
+                      and t.ispaycart = true
+                      AND t.userid = $4`;
+    const result = await pool.query<TransacaoEntity>(query, [Number(dia), Number(mes), Number(ano), userid]);
     return result.rows;
   },
 
+  /**
+   * Totais do extrato no período inteiro (mesmo filtro de competência de `extrato`, sem cursor).
+   */
+  async extratoTotais(
+    userid: number,
+    inicio: string | null,
+    fimExclusivo: string | null
+  ): Promise<ExtratoTotais> {
+    const result = await pool.query<{ entradas: string; saidas: string; pendentes: string }>(
+      `SELECT COALESCE(SUM(t.valor) FILTER (WHERE t.tipo = 'entrada'), 0) AS entradas,
+              COALESCE(SUM(t.valor) FILTER (WHERE t.tipo <> 'entrada'), 0) AS saidas,
+              COUNT(*) FILTER (WHERE t.status = 'pendente') AS pendentes
+       FROM transacoes t
+       WHERE t.userid = $1
+         AND ($2::date IS NULL OR (CASE WHEN t.cartaoid IS NOT NULL THEN t.pagamento ELSE t.data END) >= $2::date)
+         AND ($3::date IS NULL OR (CASE WHEN t.cartaoid IS NOT NULL THEN t.pagamento ELSE t.data END) <  $3::date)`,
+      [userid, inicio, fimExclusivo]
+    );
+    const row = result.rows[0];
+    return {
+      entradas: Number(row?.entradas ?? 0),
+      saidas: Number(row?.saidas ?? 0),
+      pendentes: Number(row?.pendentes ?? 0),
+    };
+  },
+
+  /**
+   * Extrato por competência (cartão -> pagamento, conta -> data) com paginação keyset.
+   * A expressão CASE precisa ser idêntica à de idx_transacoes_userid_competencia.
+   * `inicio`/`fimExclusivo` são opcionais; `cursor` = última (data, id) da página anterior.
+   */
   async extrato(
-    limit?: number | string | null,
-    mes?: number | string | null,
-    ano?: number | string | null,
-    userid?: number
+    userid: number,
+    inicio: string | null,
+    fimExclusivo: string | null,
+    cursor: ExtratoCursor | null,
+    limit: number | null
   ): Promise<TransacaoEntity[]> {
-    let query = `SELECT id, descricao, tipo, valor, categoria, TO_CHAR(t."data"::date, 'YYYY-MM-DD') AS data, status, cartaoid, pagamento
-                FROM transacoes t
-                WHERE 1=1`;
-    const params: unknown[] = [];
+    const params: unknown[] = [
+      userid,
+      inicio,
+      fimExclusivo,
+      cursor?.data ?? null,
+      cursor?.id ?? null,
+    ];
 
-    if (userid) {
-      params.push(userid);
-      query += ` AND t.userid = $${params.length}`;
-    }
+    let query = `SELECT t.id, t.descricao, t.tipo, t.valor, t.categoria, t.idcategoria, t.idsubcategoria, ${COLUNAS_NOMES},
+                        TO_CHAR(t."data"::date, 'YYYY-MM-DD') AS data, t.status, t.cartaoid, t.pagamento
+                 FROM transacoes t
+                 ${joinNomes('t')}
+                 WHERE t.userid = $1
+                   AND ($2::date IS NULL OR (CASE WHEN t.cartaoid IS NOT NULL THEN t.pagamento ELSE t.data END) >= $2::date)
+                   AND ($3::date IS NULL OR (CASE WHEN t.cartaoid IS NOT NULL THEN t.pagamento ELSE t.data END) <  $3::date)
+                   AND ($4::date IS NULL OR (t.data, t.id) < ($4::date, $5::int))
+                 ORDER BY t.data DESC, t.id DESC`;
 
-    if (ano) {
-      params.push(ano);
-      query += ` AND $${params.length} = case when cartaoid is not null then extract(year from pagamento) else extract(year from t.data) end `;
-    }
-
-    if (mes) {
-      params.push(mes);
-      query += ` AND $${params.length} = case when cartaoid is not null then extract(month from pagamento) else extract(month from t.data) end `;
-    }
-
-    query += ' order by data desc, id desc';
-
-    if (limit && Number(limit) > 0) {
-      params.push(Number(limit));
-      query += ` limit $${params.length}`;
+    if (limit && limit > 0) {
+      params.push(limit);
+      query += ` LIMIT $${params.length}`;
     }
 
     const result = await pool.query<TransacaoEntity>(query, params);

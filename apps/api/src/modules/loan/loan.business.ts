@@ -11,7 +11,9 @@ import {
   LoanRepository,
   CreateInstallmentInput,
   normalizeUserIdToUuid,
+  LoanCursor,
 } from './loan.repository';
+import { codificarCursor, decodificarCursor, PaginacaoInvalidaError } from '../../common/utils/paginacao';
 import {
   LoanPaymentRepository,
   RegisterPaymentResult,
@@ -182,7 +184,10 @@ export const LoanBusiness = {
    * - Garante integridade: amount_paid === original_amount - discount_amount + penalty_interest
    * - Atualiza atomicamente a parcela e encerra o empréstimo se for a última
    */
-  async registrarPagamento(dto: RegisterPaymentDto): Promise<RegisterPaymentResult> {
+  async registrarPagamento(
+    dto: RegisterPaymentDto,
+    userId: number | string
+  ): Promise<RegisterPaymentResult> {
     const loanId = (dto.loan_id ?? dto.emprestimo_id ?? '').trim();
     const installmentId = (dto.installment_id ?? dto.parcela_id ?? '').trim();
     const amountPaid = Number(dto.amount_paid ?? dto.valor_pago);
@@ -192,6 +197,9 @@ export const LoanBusiness = {
     const paymentDateRaw = dto.payment_date ?? dto.data_pagamento;
     const paymentDate = paymentDateRaw ? new Date(paymentDateRaw) : new Date();
 
+    if (!userId) {
+      throw new LoanValidationError('Usuário inválido ou não informado.');
+    }
     if (!loanId) {
       throw new LoanValidationError('ID do empréstimo é obrigatório.');
     }
@@ -211,7 +219,8 @@ export const LoanBusiness = {
       throw new LoanValidationError('O valor de multa/juros não pode ser negativo.');
     }
 
-    const emprestimo = await LoanRepository.buscarPorId(loanId);
+    // Busca restrita ao usuário autenticado: empréstimo de outro usuário responde 404
+    const emprestimo = await LoanRepository.buscarPorId(loanId, userId);
     if (!emprestimo) {
       throw new LoanNotFoundError('Empréstimo não encontrado.');
     }
@@ -322,6 +331,26 @@ export const LoanBusiness = {
       throw new LoanValidationError('Usuário inválido.');
     }
     return await LoanRepository.listarPorUsuario(userId);
+  },
+
+  /**
+   * Página da listagem de empréstimos do usuário (keyset, cursor opaco).
+   */
+  async listarPaginaPorUsuario(
+    userId: number | string,
+    cursor: string | null,
+    limit: number
+  ): Promise<{ items: LoanEntity[]; next_cursor: string | null }> {
+    if (!userId || (typeof userId === 'number' && userId <= 0)) {
+      throw new LoanValidationError('Usuário inválido.');
+    }
+    const apos = cursor ? decodificarCursor<LoanCursor>(cursor, ['contracted_at', 'created_at', 'id']) : null;
+    if (apos && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(apos.id))) {
+      throw new PaginacaoInvalidaError('Cursor inválido.');
+    }
+
+    const { items, proxima } = await LoanRepository.listarPaginaPorUsuario(userId, apos, limit);
+    return { items, next_cursor: proxima ? codificarCursor(proxima) : null };
   },
 
   /**

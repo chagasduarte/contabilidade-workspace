@@ -12,6 +12,7 @@ import {
   PlannedTransactionFilterDto,
   UpdatePlannedTransactionDto,
 } from './planned-transaction.dto';
+import { lerPaginacao, responderPaginado, PaginacaoInvalidaError } from '../../common/utils/paginacao';
 
 export const PlannedTransactionController = {
   /**
@@ -81,10 +82,23 @@ export const PlannedTransactionController = {
           : undefined,
       };
 
+      // Paginação opcional: sem ?paginado/?cursor a resposta continua sendo o array completo
+      const paginacao = lerPaginacao(query);
+      if (paginacao.paginado && paginacao.limit) {
+        const { items, next_cursor } = await PlannedTransactionBusiness.listarPagina(
+          filtros,
+          userid,
+          paginacao.cursor,
+          paginacao.limit
+        );
+        responderPaginado(res, items, next_cursor, true);
+        return;
+      }
+
       const transacoes = await PlannedTransactionBusiness.listar(filtros, userid);
       res.status(200).json(transacoes);
     } catch (error: unknown) {
-      if (error instanceof PlannedTransactionValidationError) {
+      if (error instanceof PlannedTransactionValidationError || error instanceof PaginacaoInvalidaError) {
         res.status(400).json({ erro: error.message, error: error.message });
         return;
       }

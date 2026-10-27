@@ -1,3 +1,4 @@
+<ion-content class="lancamentos-content">
 <section class="transactions-page" aria-labelledby="transactions-title">
   <header class="transactions-page__header">
     <div>
@@ -48,17 +49,33 @@
       <strong>{{ pendingCount() }}</strong>
     </article>
   </div>
+  @if (totaisParciais()) {
+    <p class="transactions-summary__partial" role="status">
+      Totais parciais: considerando só os {{ transacaoService.extrato().length }} lançamentos
+      carregados. Role a lista para carregar o restante do mês.
+    </p>
+  }
 
   <section class="transactions-list" aria-labelledby="transactions-list-title">
     <div class="transactions-list__header">
       <h2 id="transactions-list-title">Movimentações recentes</h2>
-      <span>{{ transactions().length }} lançamentos</span>
+      <span>
+        {{ transactions().length }} lançamentos{{ temMaisPaginas() ? ' carregados' : '' }}
+      </span>
     </div>
 
     @if (transacaoService.loading()) {
       <div class="transactions-list__state">
         <ion-spinner name="crescent"></ion-spinner>
         <span>Carregando lançamentos...</span>
+      </div>
+    } @else if (transacaoService.error() && transacaoService.extrato().length === 0) {
+      <div class="transactions-list__state transactions-list__state--error" role="alert">
+        <span>Não foi possível carregar os lançamentos. {{ transacaoService.error() }}</span>
+        <ion-button fill="outline" size="small" (click)="carregarExtrato()">
+          <ion-icon name="refresh-outline" slot="start" aria-hidden="true"></ion-icon>
+          Tentar novamente
+        </ion-button>
       </div>
     } @else if (transactions().length === 0) {
       <div class="transactions-list__state">
@@ -100,8 +117,33 @@
           </article>
         }
       </div>
+
+      @if (temMaisPaginas()) {
+        <!-- Botão acessível como alternativa ao scroll infinito (teclado/leitor de tela) -->
+        <div class="transactions-list__more">
+          <ion-button
+            fill="clear"
+            size="small"
+            [disabled]="transacaoService.carregandoMais()"
+            (click)="carregarMais()"
+          >
+            {{ transacaoService.carregandoMais() ? 'Carregando…' : 'Carregar mais lançamentos' }}
+          </ion-button>
+        </div>
+      }
     }
   </section>
+
+  <ion-infinite-scroll
+    threshold="200px"
+    [disabled]="!temMaisPaginas() || transacaoService.loading()"
+    (ionInfinite)="carregarMais($event)"
+  >
+    <ion-infinite-scroll-content
+      loadingSpinner="crescent"
+      loadingText="Carregando mais lançamentos..."
+    ></ion-infinite-scroll-content>
+  </ion-infinite-scroll>
 
   <!-- Botão Flutuante (FAB) visível no Mobile -->
   <button
@@ -110,7 +152,7 @@
     (click)="abrirModalNovaTransacao()"
     aria-label="Adicionar Nova Transação"
   >
-    <ion-icon name="add-outline"></ion-icon>
+    <ion-icon name="add-outline" aria-hidden="true"></ion-icon>
   </button>
 
   <app-transaction-modal
@@ -119,3 +161,4 @@
     (transactionCreated)="onTransacaoCriada()"
   ></app-transaction-modal>
 </section>
+</ion-content>

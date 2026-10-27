@@ -18,6 +18,9 @@ export interface Transacao {
   pagamento?: string | null;
   ispaycart?: boolean | null;
   idcategoria?: number | null;
+  idsubcategoria?: number | null;
+  categoria_nome?: string | null;
+  subcategoria_nome?: string | null;
   criado_em?: string | Date | null;
   created_at?: string | Date | null;
   recorrencia?: string | null;
@@ -29,8 +32,10 @@ export interface CreateTransacaoDto {
   tipo: TipoTransacao;
   descricao: string;
   valor: number;
+  /** @deprecated use `idsubcategoria` (fase 2 do contrato de categorias). */
   categoria?: string | number | null;
   idcategoria?: number | null;
+  idsubcategoria?: number | null;
   data: string | Date;
   pagamento?: string | Date | null;
   status?: StatusTransacao;
@@ -41,8 +46,10 @@ export interface CreateTransacaoDto {
 export interface CreateParceladaDto {
   descricao: string;
   valor: number;
+  /** @deprecated use `idsubcategoria` (fase 2 do contrato de categorias). */
   categoria?: string | number | null;
   idcategoria?: number | null;
+  idsubcategoria?: number | null;
   data: string | Date;
   pagamento?: string | Date | null;
   parcelado?: boolean;
@@ -71,3 +78,15 @@ export interface ResumoTransacoesEntrada {
   entradas_recebidas: Transacao[];
 }
 
+
+/** Resposta de `GET /transacoes/extrato?paginado=true` (cursor opaco). */
+export interface ExtratoPaginado {
+  items: Transacao[];
+  next_cursor: string | null;
+  /** Opcional: totais do mês inteiro, independentes da página (pedido ao BackEnd). */
+  totais?: {
+    entradas: number;
+    saidas: number;
+    pendentes: number;
+  } | null;
+}

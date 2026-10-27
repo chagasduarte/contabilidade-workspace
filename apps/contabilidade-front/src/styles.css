@@ -40,3 +40,8 @@ img {
   max-width: 100%;
   height: auto;
 }
+
+/* Botão destrutivo em ion-alert (ex.: confirmar exclusão) */
+ion-alert .alert-button.alert-button-danger {
+  color: var(--ion-color-danger, #eb445a);
+}

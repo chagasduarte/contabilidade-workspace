@@ -4,6 +4,8 @@ export interface SubcategoriaEntity {
   nome: string;
   icone?: string | null;
   cor?: string | null;
+  /** Dono da subcategoria; null = padrão do sistema. */
+  userid: number | null;
 }
 
 export interface CreateSubcategoriaDto {

@@ -71,3 +71,10 @@ export interface InvoiceItemEntity {
   criado_em?: Date;
 }
 
+
+/**
+ * source_type a usar em `transacoes` se o pagamento de fatura passar a gerar lançamento na conta.
+ * As parcelas já são contadas via invoice_items; relatórios (ex.: planejado x realizado) excluem
+ * esse source_type para não contar a mesma compra duas vezes.
+ */
+export const SOURCE_TYPE_PAGAMENTO_FATURA = 'CREDIT_CARD_INVOICE_PAYMENT';

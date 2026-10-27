@@ -13,48 +13,66 @@ import {
   UpdatePlannedTransactionDto,
 } from './planned-transaction.dto';
 
-let tableVerified = false;
+/**
+ * Monta o WHERE da listagem a partir dos filtros, sempre isolando por userid ($1).
+ */
+function montarFiltros(
+  filtros: PlannedTransactionFilterDto,
+  userid: number
+): { conditions: string[]; params: unknown[] } {
+  const conditions: string[] = ['pt.userid = $1'];
+  const params: unknown[] = [userid];
+
+  // Filtro por status (suporta único ou lista separada por vírgula)
+  if (filtros.status) {
+    const rawStatus = String(filtros.status).trim();
+    if (rawStatus.includes(',')) {
+      const statusList = rawStatus.split(',').map((s) => s.trim().toUpperCase());
+      params.push(statusList);
+      conditions.push(`pt.status = ANY($${params.length})`);
+    } else {
+      params.push(rawStatus.toUpperCase());
+      conditions.push(`pt.status = $${params.length}`);
+    }
+  }
+
+  // Filtro por tipo (RECEITA / DESPESA)
+  if (filtros.tipo) {
+    params.push(String(filtros.tipo).trim().toUpperCase());
+    conditions.push(`pt.tipo = $${params.length}`);
+  }
+
+  // Intervalo de datas (dataInicio e dataFim)
+  const dataInicio = filtros.dataInicio || filtros.data_inicio;
+  if (dataInicio) {
+    params.push(dataInicio);
+    conditions.push(`pt.data_prevista >= $${params.length}`);
+  }
+
+  const dataFim = filtros.dataFim || filtros.data_fim;
+  if (dataFim) {
+    params.push(dataFim);
+    conditions.push(`pt.data_prevista <= $${params.length}`);
+  }
+
+  // Filtro por categoria
+  if (filtros.idcategoria !== undefined && filtros.idcategoria !== null && filtros.idcategoria !== '') {
+    params.push(Number(filtros.idcategoria));
+    conditions.push(`pt.idcategoria = $${params.length}`);
+  }
+
+  return { conditions, params };
+}
+
+/** Chave keyset da listagem: (data_prevista, created_at, id). created_at vai como texto para não perder microssegundos. */
+export interface PlannedTransactionCursor {
+  data_prevista: string;
+  created_at: string;
+  id: string;
+  [k: string]: string;
+}
 
 export const PlannedTransactionRepository = {
-  /**
-   * Garante idempotentemente que a tabela e índices existam no banco de dados.
-   */
-  async ensureTableExists(client?: PoolClient): Promise<void> {
-    if (tableVerified) return;
-    const runner = client ?? pool;
-    try {
-      await runner.query(`
-        CREATE TABLE IF NOT EXISTS planned_transactions (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          userid INTEGER NOT NULL,
-          descricao VARCHAR(255) NOT NULL,
-          tipo VARCHAR(10) NOT NULL CHECK (tipo IN ('RECEITA', 'DESPESA')),
-          valor NUMERIC(12, 2) NOT NULL,
-          data_prevista DATE NOT NULL,
-          idcategoria INTEGER NULL,
-          recorrencia VARCHAR(20) NOT NULL DEFAULT 'NONE' CHECK (recorrencia IN ('NONE', 'MENSAL', 'SEMANAL', 'ANUAL')),
-          data_limite_recorrencia DATE NULL,
-          status VARCHAR(20) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'SETTLED', 'SKIPPED', 'CANCELLED')),
-          parent_recurrence_id UUID NULL,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT clock_timestamp(),
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT clock_timestamp()
-        );
-
-        ALTER TABLE planned_transactions ADD COLUMN IF NOT EXISTS parent_recurrence_id UUID NULL;
-
-        CREATE INDEX IF NOT EXISTS idx_planned_tx_userid_date 
-          ON planned_transactions(userid, data_prevista);
-        CREATE INDEX IF NOT EXISTS idx_planned_tx_status 
-          ON planned_transactions(status);
-        CREATE INDEX IF NOT EXISTS idx_planned_tx_parent_rec 
-          ON planned_transactions(parent_recurrence_id);
-      `);
-      tableVerified = true;
-    } catch (error) {
-      console.warn('[PlannedTransactionRepository] Falha ao verificar/criar tabela:', error);
-    }
-  },
-
   /**
    * Cadastra uma nova transação planejada vinculada obrigatoriamente ao userid.
    */
@@ -63,7 +81,6 @@ export const PlannedTransactionRepository = {
     userid: number,
     client?: PoolClient
   ): Promise<PlannedTransactionEntity> {
-    await this.ensureTableExists(client);
     const runner = client ?? pool;
 
     const query = `
@@ -122,49 +139,8 @@ export const PlannedTransactionRepository = {
     userid: number,
     client?: PoolClient
   ): Promise<PlannedTransactionEntity[]> {
-    await this.ensureTableExists(client);
     const runner = client ?? pool;
-
-    const conditions: string[] = ['pt.userid = $1'];
-    const params: unknown[] = [userid];
-
-    // Filtro por status (suporta único ou lista separada por vírgula)
-    if (filtros.status) {
-      const rawStatus = String(filtros.status).trim();
-      if (rawStatus.includes(',')) {
-        const statusList = rawStatus.split(',').map((s) => s.trim().toUpperCase());
-        params.push(statusList);
-        conditions.push(`pt.status = ANY($${params.length})`);
-      } else {
-        params.push(rawStatus.toUpperCase());
-        conditions.push(`pt.status = $${params.length}`);
-      }
-    }
-
-    // Filtro por tipo (RECEITA / DESPESA)
-    if (filtros.tipo) {
-      params.push(String(filtros.tipo).trim().toUpperCase());
-      conditions.push(`pt.tipo = $${params.length}`);
-    }
-
-    // Intervalo de datas (dataInicio e dataFim)
-    const dataInicio = filtros.dataInicio || filtros.data_inicio;
-    if (dataInicio) {
-      params.push(dataInicio);
-      conditions.push(`pt.data_prevista >= $${params.length}`);
-    }
-
-    const dataFim = filtros.dataFim || filtros.data_fim;
-    if (dataFim) {
-      params.push(dataFim);
-      conditions.push(`pt.data_prevista <= $${params.length}`);
-    }
-
-    // Filtro por categoria
-    if (filtros.idcategoria !== undefined && filtros.idcategoria !== null && filtros.idcategoria !== '') {
-      params.push(Number(filtros.idcategoria));
-      conditions.push(`pt.idcategoria = $${params.length}`);
-    }
+    const { conditions, params } = montarFiltros(filtros, userid);
 
     const query = `
       SELECT 
@@ -172,13 +148,62 @@ export const PlannedTransactionRepository = {
         c.nome AS categoria_nome,
         c.icone AS categoria_icone
       FROM planned_transactions pt
-      LEFT JOIN categoria c ON c.id = pt.idcategoria
+      LEFT JOIN categoria c ON c.id = pt.idcategoria AND (c.userid = pt.userid OR c.userid IS NULL)
       WHERE ${conditions.join(' AND ')}
-      ORDER BY pt.data_prevista ASC, pt.created_at ASC
+      ORDER BY pt.data_prevista ASC, pt.created_at ASC, pt.id ASC
     `;
 
     const result = await runner.query(query, params);
     return result.rows.map(mapPlannedTransactionEntity);
+  },
+
+  /**
+   * Página da listagem (keyset). Mesma ordenação de `listar`; `apos` é a chave da última linha
+   * da página anterior. Busca limit + 1 linhas para saber se existe próxima página.
+   */
+  async listarPagina(
+    filtros: PlannedTransactionFilterDto,
+    userid: number,
+    apos: PlannedTransactionCursor | null,
+    limit: number
+  ): Promise<{ items: PlannedTransactionEntity[]; proxima: PlannedTransactionCursor | null }> {
+    const { conditions, params } = montarFiltros(filtros, userid);
+
+    if (apos) {
+      params.push(apos.data_prevista, apos.created_at, apos.id);
+      const n = params.length;
+      conditions.push(
+        `(pt.data_prevista, pt.created_at, pt.id) > ($${n - 2}::date, $${n - 1}::timestamptz, $${n}::uuid)`
+      );
+    }
+    params.push(limit + 1);
+
+    const query = `
+      SELECT 
+        pt.*,
+        c.nome AS categoria_nome,
+        c.icone AS categoria_icone,
+        TO_CHAR(pt.data_prevista, 'YYYY-MM-DD') AS cursor_data_prevista,
+        pt.created_at::text AS cursor_created_at
+      FROM planned_transactions pt
+      LEFT JOIN categoria c ON c.id = pt.idcategoria AND (c.userid = pt.userid OR c.userid IS NULL)
+      WHERE ${conditions.join(' AND ')}
+      ORDER BY pt.data_prevista ASC, pt.created_at ASC, pt.id ASC
+      LIMIT $${params.length}
+    `;
+
+    const result = await pool.query(query, params);
+    const temMais = result.rows.length > limit;
+    const rows = temMais ? result.rows.slice(0, limit) : result.rows;
+    const ultima = rows[rows.length - 1];
+
+    return {
+      items: rows.map(mapPlannedTransactionEntity),
+      proxima:
+        temMais && ultima
+          ? { data_prevista: ultima.cursor_data_prevista, created_at: ultima.cursor_created_at, id: String(ultima.id) }
+          : null,
+    };
   },
 
   /**
@@ -189,7 +214,6 @@ export const PlannedTransactionRepository = {
     userid: number,
     client?: PoolClient
   ): Promise<PlannedTransactionEntity | null> {
-    await this.ensureTableExists(client);
     const runner = client ?? pool;
 
     const query = `
@@ -198,7 +222,7 @@ export const PlannedTransactionRepository = {
         c.nome AS categoria_nome,
         c.icone AS categoria_icone
       FROM planned_transactions pt
-      LEFT JOIN categoria c ON c.id = pt.idcategoria
+      LEFT JOIN categoria c ON c.id = pt.idcategoria AND (c.userid = pt.userid OR c.userid IS NULL)
       WHERE pt.id = $1 AND pt.userid = $2
       LIMIT 1
     `;
@@ -219,7 +243,6 @@ export const PlannedTransactionRepository = {
     userid: number,
     client?: PoolClient
   ): Promise<PlannedTransactionEntity | null> {
-    await this.ensureTableExists(client);
     const runner = client ?? pool;
 
     const setClauses: string[] = ['updated_at = clock_timestamp()'];
@@ -300,7 +323,6 @@ export const PlannedTransactionRepository = {
     userid: number,
     client?: PoolClient
   ): Promise<PlannedTransactionEntity[]> {
-    await this.ensureTableExists(client);
     const runner = client ?? pool;
 
     const query = `
@@ -309,7 +331,7 @@ export const PlannedTransactionRepository = {
         c.nome AS categoria_nome,
         c.icone AS categoria_icone
       FROM planned_transactions pt
-      LEFT JOIN categoria c ON c.id = pt.idcategoria
+      LEFT JOIN categoria c ON c.id = pt.idcategoria AND (c.userid = pt.userid OR c.userid IS NULL)
       WHERE pt.userid = $1
         AND pt.recorrencia = 'MENSAL'
         AND pt.parent_recurrence_id IS NULL
@@ -331,14 +353,13 @@ export const PlannedTransactionRepository = {
     ano: number,
     client?: PoolClient
   ): Promise<boolean> {
-    await this.ensureTableExists(client);
     const runner = client ?? pool;
 
     const query = `
       SELECT 1 FROM planned_transactions
       WHERE (id = $1::uuid OR parent_recurrence_id = $1::uuid)
-        AND EXTRACT(MONTH FROM data_prevista) = $2
-        AND EXTRACT(YEAR FROM data_prevista) = $3
+        AND data_prevista >= make_date($3::int, $2::int, 1)
+        AND data_prevista < (make_date($3::int, $2::int, 1) + interval '1 month')::date
         AND status != 'CANCELLED'
       LIMIT 1
     `;
@@ -359,7 +380,6 @@ export const PlannedTransactionRepository = {
     userid: number,
     client?: PoolClient
   ): Promise<number> {
-    await this.ensureTableExists(client);
     const runner = client ?? pool;
 
     const setClauses: string[] = ['updated_at = clock_timestamp()'];
@@ -447,7 +467,6 @@ export const PlannedTransactionRepository = {
     userid: number,
     client?: PoolClient
   ): Promise<boolean> {
-    await this.ensureTableExists(client);
     const runner = client ?? pool;
 
     const result = await runner.query(

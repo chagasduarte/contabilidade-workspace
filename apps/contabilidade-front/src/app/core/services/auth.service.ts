@@ -133,6 +133,19 @@ export class AuthService {
     }, safeDelay);
   }
 
+  /** Atualiza o usuário da sessão (memória + localStorage) após editar o perfil. */
+  atualizarUsuarioLocal(parcial: Partial<Usuario>): void {
+    const atual = this.currentUser();
+    if (!atual) return;
+    const atualizado: Usuario = { ...atual, ...parcial };
+    this.currentUser.set(atualizado);
+    try {
+      localStorage.setItem(this.USER_KEY, JSON.stringify(atualizado));
+    } catch {
+      // armazenamento indisponível: mantém só em memória
+    }
+  }
+
   private restoreSession(): void {
     if (typeof window === 'undefined' || !window.localStorage) {
       return;

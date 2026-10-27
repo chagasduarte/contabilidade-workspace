@@ -42,8 +42,19 @@ describe('CardDetailsComponent', () => {
     ],
   };
 
+  const mockFatura: CardInvoice = mockCartaoDetalhes.faturas?.[0] ?? {
+    id: 'fat-1',
+    cartao_id: 'card-1',
+    mes_referencia: 10,
+    ano_referencia: 2026,
+    data_fechamento: '2026-10-20',
+    data_vencimento: '2026-10-28',
+    status: 'OPEN',
+    total_fatura: 1000,
+  };
+
   const mockFaturaDetalhes: InvoiceDetailsResponseDto = {
-    fatura: mockCartaoDetalhes.faturas![0],
+    fatura: mockFatura,
     cartao: mockCartaoDetalhes.cartao,
     itens: [
       {

@@ -57,3 +57,9 @@ vitest.config.*.timestamp*
 .env
 .env.*
 !.env.example
+# Dumps do banco (contêm dados reais)
+backups/
+*.dump
+
+# Uploads gerados pela API em dev
+public/uploads/

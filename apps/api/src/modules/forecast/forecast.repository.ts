@@ -62,7 +62,7 @@ export const ForecastRepository = {
     const query = `
       SELECT pt.*, c.nome AS categoria_nome, c.icone AS categoria_icone
       FROM planned_transactions pt
-      LEFT JOIN categoria c ON c.id = pt.idcategoria
+      LEFT JOIN categoria c ON c.id = pt.idcategoria AND (c.userid = pt.userid OR c.userid IS NULL)
       WHERE pt.userid = $1 
         AND pt.status = 'PENDING'
         AND (pt.data_prevista <= $2::date OR pt.recorrencia != 'NONE')
@@ -99,7 +99,8 @@ export const ForecastRepository = {
         l.institution_name
       FROM loan_installments li
       INNER JOIN loans l ON l.id = li.loan_id
-      WHERE (l.user_id = $1::uuid OR l.user_id = $2)
+      -- loans.user_id é VARCHAR: comparar com ::uuid gerava erro e o forecast nunca trazia empréstimos
+      WHERE l.user_id IN ($1, $2)
         AND li.status = 'PENDING'
         AND li.due_date >= $3::date
         AND li.due_date <= $4::date

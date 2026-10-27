@@ -23,6 +23,9 @@ import {
   flashOutline,
   trendingUpOutline,
   logOutOutline,
+  pieChartOutline,
+  flagOutline,
+  sparklesOutline,
 } from 'ionicons/icons';
 import { TransactionModal } from '../../components/modals/transaction-modal/transaction-modal';
 import { AuthService } from '../../core/services/auth.service';
@@ -63,6 +66,27 @@ export class MaisPage implements OnInit {
       route: '/categorias',
       icon: 'pricetag-outline',
       color: '#38bdf8',
+    },
+    {
+      title: 'Assistente IA',
+      subtitle: 'Registre lançamentos por texto ou foto do recibo',
+      route: '/assistente',
+      icon: 'sparkles-outline',
+      color: '#4ade80',
+    },
+    {
+      title: 'Planejamento',
+      subtitle: 'Orçamento do mês por categoria: planejado x realizado',
+      route: '/planejamento',
+      icon: 'pie-chart-outline',
+      color: '#f97316',
+    },
+    {
+      title: 'Objetivos',
+      subtitle: 'Metas financeiras com progresso e quanto guardar por mês',
+      route: '/objetivos',
+      icon: 'flag-outline',
+      color: '#eab308',
     },
     {
       title: 'Cartões de Crédito',
@@ -129,6 +153,9 @@ export class MaisPage implements OnInit {
       flashOutline,
       trendingUpOutline,
       logOutOutline,
+      pieChartOutline,
+      flagOutline,
+      sparklesOutline,
     });
   }
 

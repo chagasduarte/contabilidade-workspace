@@ -1,7 +1,7 @@
 <ion-header class="ion-no-border">
   <ion-toolbar color="primary">
     <ion-buttons slot="start">
-      <ion-back-button defaultHref="/mais"></ion-back-button>
+      <ion-back-button defaultHref="/mais" text="" aria-label="Voltar"></ion-back-button>
     </ion-buttons>
     <ion-title>Cartões de Crédito</ion-title>
     <ion-buttons slot="end">
@@ -43,8 +43,13 @@
       @for (c of cartoes(); track c.cartao.id) {
         <div
           class="card-tile"
+          role="button"
+          tabindex="0"
+          [attr.aria-label]="'Abrir detalhes do cartão ' + c.cartao.nome"
           [style.background]="'linear-gradient(135deg, ' + (c.cartao.cor_identificacao || '#1e293b') + ' 0%, #0f172a 100%)'"
           (click)="abrirDetalhes(c)"
+          (keydown.enter)="abrirDetalhes(c)"
+          (keydown.space)="abrirDetalhes(c); $event.preventDefault()"
         >
           <div class="card-tile__top">
             <div class="brand-group">
@@ -75,7 +80,7 @@
         </div>
       }
     </div>
-  } @else if (!loading()) {
+  } @else if (!loading() && !error()) {
     <!-- Empty State -->
     <div class="cards-empty">
       <div class="empty-icon-wrap">
@@ -102,8 +107,18 @@
 
 <!-- MODAL NOVO CARTÃO -->
 @if (modalNovoCartaoAberto()) {
-  <div class="modal-backdrop" (click)="fecharModalNovoCartao()"></div>
-  <div class="card-modal" role="dialog" aria-labelledby="modal-card-title">
+  <div
+    class="modal-backdrop"
+    aria-hidden="true"
+    (click)="fecharModalNovoCartao()"
+  ></div>
+  <div
+    class="card-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="modal-card-title"
+    (keydown.escape)="fecharModalNovoCartao()"
+  >
     <header class="modal-header">
       <div class="title-group">
         <ion-icon name="card-outline"></ion-icon>

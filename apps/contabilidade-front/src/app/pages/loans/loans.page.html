@@ -1,7 +1,7 @@
 <ion-header class="ion-no-border">
   <ion-toolbar color="primary">
     <ion-buttons slot="start">
-      <ion-back-button defaultHref="/mais"></ion-back-button>
+      <ion-back-button defaultHref="/mais" text="" aria-label="Voltar"></ion-back-button>
     </ion-buttons>
     <ion-title>Empréstimos & Financiamentos</ion-title>
     <ion-buttons slot="end">
@@ -78,7 +78,7 @@
         </ion-card>
       }
     </div>
-  } @else if (!loading()) {
+  } @else if (!loading() && !error()) {
     <!-- Empty State -->
     <div class="loans-empty">
       <div class="empty-icon-wrap">

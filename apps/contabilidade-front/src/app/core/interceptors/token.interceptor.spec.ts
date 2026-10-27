@@ -208,5 +208,64 @@ describe('tokenInterceptor', () => {
     expect(logoutSpy).not.toHaveBeenCalled();
     ctrl.verify();
   });
+  it('deve enviar Authorization em rotas protegidas de /user (ex.: /user/avatar)', () => {
+    tokenSignal.set('jwt-valido-123');
+
+    httpClient.get('/api/user/avatar').subscribe();
+    httpClient.post('/api/user/7/avatar', {}).subscribe();
+
+    expect(httpTesting.expectOne('/api/user/avatar').request.headers.get('Authorization')).toBe(
+      'Bearer jwt-valido-123'
+    );
+    expect(httpTesting.expectOne('/api/user/7/avatar').request.headers.has('Authorization')).toBe(
+      true
+    );
+    httpTesting.match(() => true).forEach((r) => r.flush({}));
+  });
+
+  it('não deve enviar Authorization no cadastro público POST /user', () => {
+    tokenSignal.set('jwt-valido-123');
+
+    httpClient.post('/api/user', {}).subscribe();
+
+    const req = httpTesting.expectOne('/api/user');
+    expect(req.request.headers.has('Authorization')).toBe(false);
+    req.flush({});
+  });
+
+  it('não deve deslogar em 403 de regra de negócio (categoria padrão do sistema)', () => {
+    const logoutSpy = vi.fn();
+
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(withInterceptors([tokenInterceptor])),
+        provideHttpClientTesting(),
+        {
+          provide: AuthService,
+          useValue: {
+            getToken: () => 'jwt-valido-123',
+            isTokenExpired: () => false,
+            logout: logoutSpy,
+          },
+        },
+      ],
+    });
+
+    const client = TestBed.inject(HttpClient);
+    const ctrl = TestBed.inject(HttpTestingController);
+
+    client.delete('/api/categorias/1').subscribe({ error: () => undefined });
+
+    ctrl
+      .expectOne('/api/categorias/1')
+      .flush(
+        { erro: 'Categorias padrão do sistema não podem ser alteradas.' },
+        { status: 403, statusText: 'Forbidden' }
+      );
+
+    expect(logoutSpy).not.toHaveBeenCalled();
+    ctrl.verify();
+  });
 });
 

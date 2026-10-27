@@ -1,5 +1,7 @@
 import { PoolClient } from 'pg';
 import { pool } from '../../core/config/database';
+import { codificarCursor, decodificarCursor, PaginacaoInvalidaError } from '../../common/utils/paginacao';
+import { CategoriaBusiness } from '../categoria/categoria.business';
 import {
   CreatePlannedTransactionDto,
   formatPlannedTransactionResponse,
@@ -12,7 +14,7 @@ import {
   PlannedTransactionStatus,
   PlannedTransactionType,
 } from './planned-transaction.entity';
-import { PlannedTransactionRepository } from './planned-transaction.repository';
+import { PlannedTransactionRepository, PlannedTransactionCursor } from './planned-transaction.repository';
 import { addMonthsPreservingDay, toIsoDateString } from './planned-transaction.utils';
 
 export class PlannedTransactionValidationError extends Error {
@@ -194,6 +196,16 @@ export const PlannedTransactionBusiness = {
   /**
    * Cria uma transação planejada validando regras de negócio e vinculando ao usuário autenticado.
    */
+  /**
+   * A categoria referenciada precisa ser visível ao usuário (dele ou global).
+   */
+  async validarCategoria(idcategoria: number | null | undefined, userid: number): Promise<void> {
+    if (idcategoria === null || idcategoria === undefined) return;
+    if (!(await CategoriaBusiness.categoriaVisivel(idcategoria, userid))) {
+      throw new PlannedTransactionValidationError('Categoria não encontrada.');
+    }
+  },
+
   async criar(
     dto: CreatePlannedTransactionDto,
     userid: number
@@ -220,6 +232,8 @@ export const PlannedTransactionBusiness = {
       status: (dto.status ? dto.status.toUpperCase() : 'PENDING') as PlannedTransactionStatus,
       parent_recurrence_id: dto.parent_recurrence_id ?? null,
     };
+
+    await this.validarCategoria(dtoNormalizado.idcategoria, userid);
 
     // Criação com Recorrência Mensal: Materialização automática de 3 meses em transação de banco de dados
     if (dtoNormalizado.recorrencia === 'MENSAL') {
@@ -390,6 +404,42 @@ export const PlannedTransactionBusiness = {
   },
 
   /**
+   * Listagem paginada (keyset) com os mesmos filtros e ordenação de `listar`.
+   * A janela deslizante só é mantida na primeira página, para não deslocar páginas já percorridas.
+   */
+  async listarPagina(
+    filtros: PlannedTransactionFilterDto,
+    userid: number,
+    cursor: string | null,
+    limit: number
+  ): Promise<{ items: PlannedTransactionResponseDto[]; next_cursor: string | null }> {
+    if (!userid || isNaN(Number(userid))) {
+      throw new PlannedTransactionValidationError('Identificação do usuário (userid) inválida.');
+    }
+
+    const apos = cursor
+      ? decodificarCursor<PlannedTransactionCursor>(cursor, ['data_prevista', 'created_at', 'id'])
+      : null;
+    if (apos && !isUuid(String(apos.id))) {
+      throw new PaginacaoInvalidaError('Cursor inválido.');
+    }
+
+    if (!apos) {
+      try {
+        await this.ensureRollingWindow(userid, 3);
+      } catch (err) {
+        console.warn('[PlannedTransactionBusiness] Aviso ao executar ensureRollingWindow:', err);
+      }
+    }
+
+    const { items, proxima } = await PlannedTransactionRepository.listarPagina(filtros, userid, apos, limit);
+    return {
+      items: items.map(formatPlannedTransactionResponse),
+      next_cursor: proxima ? codificarCursor(proxima) : null,
+    };
+  },
+
+  /**
    * Busca transação planejada por ID garantindo pertencimento ao usuário.
    */
   async buscarPorId(id: string, userid: number): Promise<PlannedTransactionResponseDto> {
@@ -444,6 +494,7 @@ export const PlannedTransactionBusiness = {
         dto.idcategoria !== null && !isNaN(Number(dto.idcategoria))
           ? Number(dto.idcategoria)
           : null;
+      await this.validarCategoria(dtoNormalizado.idcategoria, userid);
     }
     if (dto.recorrencia !== undefined) {
       dtoNormalizado.recorrencia = dto.recorrencia.toUpperCase() as PlannedTransactionRecurrence;

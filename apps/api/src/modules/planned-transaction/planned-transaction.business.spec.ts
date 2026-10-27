@@ -8,14 +8,31 @@ import {
   PlannedTransactionNotFoundError,
 } from './planned-transaction.business';
 import { PlannedTransactionRepository } from './planned-transaction.repository';
+import { codificarCursor, decodificarCursor, PaginacaoInvalidaError } from '../../common/utils/paginacao';
 import { PlannedTransactionEntity } from './planned-transaction.entity';
 import { CreatePlannedTransactionDto } from './planned-transaction.dto';
+import { CategoriaBusiness } from '../categoria/categoria.business';
+
+// Testes herméticos: nunca conectar em um Postgres real (ex.: túnel local em 5432).
+// connect rejeita na hora = caminho "sem banco" (client undefined) que o business já trata.
+vi.mock('../../core/config/database', () => ({
+  pool: {
+    connect: vi.fn().mockRejectedValue(new Error('sem banco nos testes')),
+    query: vi.fn().mockRejectedValue(new Error('sem banco nos testes')),
+  },
+}));
+
+vi.mock('../categoria/categoria.business', () => ({
+  CategoriaBusiness: {
+    categoriaVisivel: vi.fn().mockResolvedValue(true),
+  },
+}));
 
 vi.mock('./planned-transaction.repository', () => ({
   PlannedTransactionRepository: {
-    ensureTableExists: vi.fn(),
     criar: vi.fn(),
     listar: vi.fn(),
+    listarPagina: vi.fn(),
     buscarPorId: vi.fn(),
     atualizar: vi.fn(),
     deletar: vi.fn(),
@@ -52,6 +69,19 @@ describe('PlannedTransactionBusiness', () => {
   });
 
   describe('Validação e Criação (criar)', () => {
+    it('deve rejeitar idcategoria de categoria não visível ao usuário (outro dono)', async () => {
+      vi.mocked(CategoriaBusiness.categoriaVisivel).mockResolvedValueOnce(false);
+
+      await expect(
+        PlannedTransactionBusiness.criar(
+          { descricao: 'Aluguel', tipo: 'DESPESA', valor: 100, data_prevista: '2026-11-10', idcategoria: 77 },
+          mockUserId
+        )
+      ).rejects.toThrow('Categoria não encontrada.');
+      expect(CategoriaBusiness.categoriaVisivel).toHaveBeenCalledWith(77, mockUserId);
+      expect(PlannedTransactionRepository.criar).not.toHaveBeenCalled();
+    });
+
     it('deve lançar erro se a descrição for vazia ou ausente', async () => {
       const dto = {
         descricao: '   ',
@@ -261,6 +291,43 @@ describe('PlannedTransactionBusiness', () => {
     });
   });
 
+  describe('Listagem paginada (listarPagina)', () => {
+    it('primeira página: sem cursor, mantém a janela e devolve next_cursor opaco', async () => {
+      vi.mocked(PlannedTransactionRepository.buscarMestresAtivos).mockResolvedValue([]);
+      const proxima = { data_prevista: '2026-11-05', created_at: '2026-11-01 10:00:00.123456+00', id: validUuid };
+      vi.mocked(PlannedTransactionRepository.listarPagina).mockResolvedValue({ items: [mockEntity], proxima });
+
+      const res = await PlannedTransactionBusiness.listarPagina({ tipo: 'RECEITA' }, mockUserId, null, 1);
+
+      expect(PlannedTransactionRepository.listarPagina).toHaveBeenCalledWith({ tipo: 'RECEITA' }, mockUserId, null, 1);
+      expect(PlannedTransactionRepository.buscarMestresAtivos).toHaveBeenCalled();
+      expect(res.items[0].id).toBe(validUuid);
+      expect(decodificarCursor(res.next_cursor as string, ['data_prevista', 'created_at', 'id'])).toEqual(proxima);
+    });
+
+    it('páginas seguintes repassam a chave decodificada e não mexem na janela', async () => {
+      const chave = { data_prevista: '2026-11-05', created_at: '2026-11-01 10:00:00.123456+00', id: validUuid };
+      vi.mocked(PlannedTransactionRepository.listarPagina).mockResolvedValue({ items: [], proxima: null });
+
+      const res = await PlannedTransactionBusiness.listarPagina({}, mockUserId, codificarCursor(chave), 50);
+
+      expect(PlannedTransactionRepository.listarPagina).toHaveBeenCalledWith({}, mockUserId, chave, 50);
+      expect(PlannedTransactionRepository.buscarMestresAtivos).not.toHaveBeenCalled();
+      expect(res.next_cursor).toBeNull();
+    });
+
+    it('cursor inválido é rejeitado', async () => {
+      await expect(PlannedTransactionBusiness.listarPagina({}, mockUserId, 'lixo', 50)).rejects.toThrow(
+        PaginacaoInvalidaError
+      );
+      const semUuid = codificarCursor({ data_prevista: '2026-11-05', created_at: 'x', id: '1; DROP' });
+      await expect(PlannedTransactionBusiness.listarPagina({}, mockUserId, semUuid, 50)).rejects.toThrow(
+        PaginacaoInvalidaError
+      );
+      expect(PlannedTransactionRepository.listarPagina).not.toHaveBeenCalled();
+    });
+  });
+
   describe('Busca por ID (buscarPorId)', () => {
     it('deve lançar erro se o ID não for um UUID válido', async () => {
       await expect(
@@ -286,6 +353,25 @@ describe('PlannedTransactionBusiness', () => {
   });
 
   describe('Atualização (atualizar)', () => {
+    it('deve rejeitar idcategoria de categoria não visível ao usuário (outro dono)', async () => {
+      vi.mocked(PlannedTransactionRepository.buscarPorId).mockResolvedValue(mockEntity);
+      vi.mocked(CategoriaBusiness.categoriaVisivel).mockResolvedValueOnce(false);
+
+      await expect(
+        PlannedTransactionBusiness.atualizar(validUuid, { idcategoria: 77 }, mockUserId)
+      ).rejects.toThrow(PlannedTransactionValidationError);
+      expect(CategoriaBusiness.categoriaVisivel).toHaveBeenCalledWith(77, mockUserId);
+      expect(PlannedTransactionRepository.atualizar).not.toHaveBeenCalled();
+    });
+
+    it('deve permitir remover a categoria (idcategoria null) sem consultar posse', async () => {
+      vi.mocked(PlannedTransactionRepository.buscarPorId).mockResolvedValue(mockEntity);
+      vi.mocked(PlannedTransactionRepository.atualizar).mockResolvedValue({ ...mockEntity, idcategoria: null });
+
+      await PlannedTransactionBusiness.atualizar(validUuid, { idcategoria: null }, mockUserId);
+      expect(CategoriaBusiness.categoriaVisivel).not.toHaveBeenCalled();
+    });
+
     it('deve lançar erro se id for inválido', async () => {
       await expect(
         PlannedTransactionBusiness.atualizar('123', { valor: 200 }, mockUserId)

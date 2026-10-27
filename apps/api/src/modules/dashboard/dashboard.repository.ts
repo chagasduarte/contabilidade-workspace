@@ -50,10 +50,7 @@ export const DashboardRepository = {
           ), 0)::numeric AS saldo_atual
         FROM transacoes
         WHERE LOWER(status) IN ('pago', 'paid', 'settled')
-          AND (
-            EXTRACT(YEAR FROM data) < $2
-            OR (EXTRACT(YEAR FROM data) = $2 AND EXTRACT(MONTH FROM data) <= $1)
-          )
+          AND data < (make_date($2::int, $1::int, 1) + interval '1 month')::date
           AND userid = $3;
       `;
       const { rows } = await pool.query<{ saldo_atual: string | number | null }>(query, [mes, ano, userid]);
@@ -106,13 +103,13 @@ export const DashboardRepository = {
           t.status, 
           t.cartaoid, 
           t.pagamento,
-          t.data_criacao AS criado_em,
-          t.data_criacao AS created_at
+          t.criado_em AS criado_em,
+          t.criado_em AS created_at
         FROM transacoes t
         LEFT JOIN categoria c ON c.id = t.idcategoria
         WHERE t.userid = $1
-          AND EXTRACT(MONTH FROM t.data) = $2
-          AND EXTRACT(YEAR FROM t.data) = $3
+          AND t.data >= make_date($3::int, $2::int, 1)
+          AND t.data < (make_date($3::int, $2::int, 1) + interval '1 month')::date
         ORDER BY t.data DESC, t.id DESC
       `;
       const { rows } = await pool.query<TransacaoEntity>(query, [userid, mes, ano]);
@@ -143,11 +140,11 @@ export const DashboardRepository = {
         pt.recorrencia,
         pt.parent_recurrence_id
       FROM planned_transactions pt
-      LEFT JOIN categoria c ON c.id = pt.idcategoria
+      LEFT JOIN categoria c ON c.id = pt.idcategoria AND (c.userid = pt.userid OR c.userid IS NULL)
       WHERE pt.userid = $1
         AND pt.status = 'PENDING'
-        AND EXTRACT(MONTH FROM pt.data_prevista) = $2
-        AND EXTRACT(YEAR FROM pt.data_prevista) = $3
+        AND pt.data_prevista >= make_date($3::int, $2::int, 1)
+        AND pt.data_prevista < (make_date($3::int, $2::int, 1) + interval '1 month')::date
       ORDER BY pt.data_prevista ASC
     `;
     try {
@@ -183,8 +180,8 @@ export const DashboardRepository = {
       INNER JOIN loans l ON l.id = li.loan_id
       WHERE l.user_id IN ($1, $2)
         AND li.status = 'PENDING'
-        AND EXTRACT(MONTH FROM li.due_date) = $3
-        AND EXTRACT(YEAR FROM li.due_date) = $4
+        AND li.due_date >= make_date($4::int, $3::int, 1)
+        AND li.due_date < (make_date($4::int, $3::int, 1) + interval '1 month')::date
       ORDER BY li.due_date ASC
     `;
     try {
@@ -222,7 +219,8 @@ export const DashboardRepository = {
       WHERE c.usuario_id = $1
         AND ci.status != 'PAID'
         AND (
-          (EXTRACT(MONTH FROM ci.data_vencimento) = $2 AND EXTRACT(YEAR FROM ci.data_vencimento) = $3)
+          (ci.data_vencimento >= make_date($3::int, $2::int, 1)
+           AND ci.data_vencimento < (make_date($3::int, $2::int, 1) + interval '1 month')::date)
           OR (ci.mes_referencia = $2 AND ci.ano_referencia = $3)
         )
       GROUP BY ci.id, c.nome, ci.mes_referencia, ci.ano_referencia, ci.data_vencimento, ci.valor_pago
@@ -259,7 +257,7 @@ export const DashboardRepository = {
           COALESCE(SUM(CASE WHEN LOWER(t.tipo) IN ('saida', 'despesa', 'cartao') THEN t.valor ELSE 0 END), 0)::numeric AS desp_trans
         FROM transacoes t
         WHERE t.userid = $1
-          AND EXTRACT(YEAR FROM t.data) = $2::integer
+          AND t.data >= make_date($2::int, 1, 1) AND t.data < make_date($2::int + 1, 1, 1)
         GROUP BY EXTRACT(MONTH FROM t.data)
       ),
       planned_agregadas AS (
@@ -270,7 +268,7 @@ export const DashboardRepository = {
         FROM planned_transactions pt
         WHERE pt.userid = $1
           AND pt.status = 'PENDING'
-          AND EXTRACT(YEAR FROM pt.data_prevista) = $2::integer
+          AND pt.data_prevista >= make_date($2::int, 1, 1) AND pt.data_prevista < make_date($2::int + 1, 1, 1)
         GROUP BY EXTRACT(MONTH FROM pt.data_prevista)
       ),
       loans_agregadas AS (
@@ -281,7 +279,7 @@ export const DashboardRepository = {
         INNER JOIN loans l ON l.id = li.loan_id
         WHERE l.user_id IN ($3, $4)
           AND li.status = 'PENDING'
-          AND EXTRACT(YEAR FROM li.due_date) = $2::integer
+          AND li.due_date >= make_date($2::int, 1, 1) AND li.due_date < make_date($2::int + 1, 1, 1)
         GROUP BY EXTRACT(MONTH FROM li.due_date)
       ),
       invoices_agregadas AS (
@@ -293,7 +291,7 @@ export const DashboardRepository = {
         LEFT JOIN invoice_items ii ON ii.fatura_id = ci.id
         WHERE c.usuario_id = $1
           AND ci.status != 'PAID'
-          AND EXTRACT(YEAR FROM ci.data_vencimento) = $2::integer
+          AND ci.data_vencimento >= make_date($2::int, 1, 1) AND ci.data_vencimento < make_date($2::int + 1, 1, 1)
         GROUP BY EXTRACT(MONTH FROM ci.data_vencimento), ci.id, ci.valor_pago
       ),
       invoices_por_mes AS (
@@ -359,7 +357,7 @@ export const DashboardRepository = {
           SUM(CASE WHEN LOWER(t.tipo) IN ('entrada', 'receita') THEN t.valor ELSE -t.valor END) AS saldo_mensal,
           SUM(SUM(CASE WHEN LOWER(t.tipo) IN ('entrada', 'receita') THEN t.valor ELSE -t.valor END)) OVER (ORDER BY DATE_TRUNC('month', t.data)) AS saldo_acumulado
         FROM transacoes t
-        WHERE EXTRACT(YEAR FROM t.data) = $1
+        WHERE t.data >= make_date($1::int, 1, 1) AND t.data < make_date($1::int + 1, 1, 1)
           AND t.userid = $2
         GROUP BY DATE_TRUNC('month', t.data), EXTRACT(YEAR FROM t.data), EXTRACT(MONTH FROM t.data)
         ORDER BY mes_ano;
@@ -370,18 +368,34 @@ export const DashboardRepository = {
   },
 
   async getAgrupamentoCategoria(ano: number | string, userid: number): Promise<AgrupamentoCategoriaDto[]> {
+    // Mesmas linhas de antes (agrupadas pela coluna legada `categoria`); idcategoria e nomes são aditivos.
     const query = `
-      SELECT
-        CAST(categoria AS integer) AS categoria,
-        SUM(valor) AS media_mensal
-      FROM transacoes
-      WHERE EXTRACT(YEAR FROM CASE WHEN cartaoid IS NULL THEN data ELSE pagamento END) = $1
-        AND LOWER(tipo) IN ('saida', 'despesa')
-        AND userid = $2
-      GROUP BY categoria
-      ORDER BY categoria;
+      WITH g AS (
+        SELECT
+          CAST(categoria AS integer) AS categoria,
+          SUM(valor) AS media_mensal,
+          MIN(idcategoria) AS idcategoria
+        FROM transacoes
+        -- Mesma expressão de idx_transacoes_userid_competencia (cartão -> pagamento, conta -> data)
+        WHERE (CASE WHEN cartaoid IS NOT NULL THEN pagamento ELSE data END) >= make_date($1::int, 1, 1)
+          AND (CASE WHEN cartaoid IS NOT NULL THEN pagamento ELSE data END) < make_date($1::int + 1, 1, 1)
+          AND LOWER(tipo) IN ('saida', 'despesa')
+          AND userid = $2
+        GROUP BY categoria
+      )
+      SELECT g.categoria, g.media_mensal, g.idcategoria,
+             sn.id AS idsubcategoria,
+             cn.nome AS categoria_nome,
+             sn.nome AS subcategoria_nome
+      FROM g
+      LEFT JOIN categoria cn ON cn.id = g.idcategoria AND (cn.userid = $2 OR cn.userid IS NULL)
+      LEFT JOIN subcategoria sn ON sn.id = g.categoria
+                               AND g.categoria IS DISTINCT FROM g.idcategoria
+                               AND sn.idcategoria = g.idcategoria
+                               AND (sn.userid = $2 OR sn.userid IS NULL)
+      ORDER BY g.categoria;
     `;
-    const { rows } = await pool.query<AgrupamentoCategoriaDto>(query, [ano, userid]);
+    const { rows } = await pool.query<AgrupamentoCategoriaDto>(query, [Number(ano), userid]);
     return rows;
   },
 

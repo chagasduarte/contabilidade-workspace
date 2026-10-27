@@ -13,8 +13,8 @@ export const CartaoBusiness = {
     return await CartaoRepository.listar(userid);
   },
 
-  async buscar(cartaoid: number | string): Promise<CartaoEntity | undefined> {
-    return await CartaoRepository.buscar(cartaoid);
+  async buscar(cartaoid: number | string, userid: number): Promise<CartaoEntity | undefined> {
+    return await CartaoRepository.buscar(cartaoid, userid);
   },
 };
 

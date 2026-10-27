@@ -9,24 +9,7 @@ import {
 } from '@contabilidade/models';
 import { environment } from '../../../environments/environment';
 import { API_URL } from './categoria.service';
-
-function extractErrorMessage(err: unknown, fallback: string): string {
-  if (err && typeof err === 'object') {
-    const errorObj = err as {
-      error?: { erro?: string; message?: string; error?: string };
-      message?: string;
-    };
-    if (errorObj.error) {
-      if (errorObj.error.erro) return String(errorObj.error.erro);
-      if (errorObj.error.message) return String(errorObj.error.message);
-      if (errorObj.error.error) return String(errorObj.error.error);
-    }
-    if (errorObj.message) {
-      return String(errorObj.message);
-    }
-  }
-  return fallback;
-}
+import { mensagemErroHttp } from '../utils/http-error';
 
 @Injectable({
   providedIn: 'root',
@@ -54,7 +37,7 @@ export class LoanService {
         this.resumo.set(data);
       }),
       catchError((err: unknown) => {
-        const msg = extractErrorMessage(err, 'Erro ao carregar resumo do empréstimo.');
+        const msg = mensagemErroHttp(err, 'Erro ao carregar resumo do empréstimo.');
         this.error.set(msg);
         return throwError(() => new Error(msg));
       }),
@@ -75,7 +58,7 @@ export class LoanService {
       .post<unknown>(`${this.baseUrl}/loans/pagamentos`, payload)
       .pipe(
         catchError((err: unknown) => {
-          const msg = extractErrorMessage(err, 'Erro ao registrar pagamento da parcela.');
+          const msg = mensagemErroHttp(err, 'Erro ao registrar pagamento da parcela.');
           this.error.set(msg);
           return throwError(() => new Error(msg));
         }),
@@ -97,7 +80,7 @@ export class LoanService {
         this.emprestimos.set(data ?? []);
       }),
       catchError((err: unknown) => {
-        const msg = extractErrorMessage(err, 'Erro ao listar empréstimos.');
+        const msg = mensagemErroHttp(err, 'Erro ao listar empréstimos.');
         this.error.set(msg);
         return throwError(() => new Error(msg));
       }),
@@ -133,7 +116,7 @@ export class LoanService {
       )
       .pipe(
         catchError((err: unknown) => {
-          const msg = extractErrorMessage(err, 'Erro ao criar empréstimo.');
+          const msg = mensagemErroHttp(err, 'Erro ao criar empréstimo.');
           this.error.set(msg);
           return throwError(() => new Error(msg));
         }),

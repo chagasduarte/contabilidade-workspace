@@ -1,8 +1,17 @@
-import { Component, ChangeDetectionStrategy, Input, output, signal } from '@angular/core';
+import {
+  afterRenderEffect,
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  inject,
+  Input,
+  output,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonHeader, IonIcon } from '@ionic/angular';
 import { addIcons } from 'ionicons';
 import { checkmarkDoneCircle, checkmarkOutline, menuOutline } from 'ionicons/icons';
+import { HeaderStateService } from '../desktop-header/services/header-state.service';
 
 export interface MonthOption {
   id: number;
@@ -28,21 +37,34 @@ export class MobileHeader {
     { id: 7, label: 'Jul' },
     { id: 8, label: 'Ago' },
     { id: 9, label: 'Set' },
-    { id: 10, label: 'OUT' },
+    { id: 10, label: 'Out' },
     { id: 11, label: 'Nov' },
     { id: 12, label: 'Dez' },
   ];
 
-  selectedMonthId = signal<number>(10);
+  private readonly headerState = inject(HeaderStateService);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+
+  readonly selectedMonthId = this.headerState.selectedMonth;
+  readonly showMonthSelector = this.headerState.showMonthSelector;
   monthChange = output<number>();
   menuClick = output<void>();
 
   constructor() {
     addIcons({ checkmarkDoneCircle, checkmarkOutline, menuOutline });
+
+    // Mantém o mês ativo visível na régua horizontal.
+    afterRenderEffect(() => {
+      const id = this.selectedMonthId();
+      // A régua só existe em telas mensais: rola também quando ela aparece.
+      if (!this.showMonthSelector()) return;
+      const pill = this.host.nativeElement.querySelector<HTMLElement>(`[data-month="${id}"]`);
+      pill?.scrollIntoView?.({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+    });
   }
 
   selectMonth(id: number): void {
-    this.selectedMonthId.set(id);
+    this.headerState.setMonth(id);
     this.monthChange.emit(id);
   }
 }

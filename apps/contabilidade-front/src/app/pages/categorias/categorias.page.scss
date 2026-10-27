@@ -241,6 +241,11 @@
 
   ion-content {
     --background: #12161c;
+    /* padding.css do Ionic não é global; define o espaçamento do formulário aqui */
+    --padding-top: 16px;
+    --padding-bottom: 16px;
+    --padding-start: 16px;
+    --padding-end: 16px;
     color: #f5f6f8;
   }
 
@@ -307,3 +312,16 @@ ion-fab-button {
   --box-shadow: 0 6px 20px rgba(56, 128, 255, 0.45);
 }
 
+
+.form-error {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(235, 68, 90, 0.12);
+  color: var(--ion-color-danger, #eb445a);
+  font-size: 0.875rem;
+}
+
+.error-state ion-icon {
+  color: var(--ion-color-danger, #eb445a);
+}

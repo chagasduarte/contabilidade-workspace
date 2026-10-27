@@ -16,24 +16,7 @@ import {
 } from '@contabilidade/models';
 import { environment } from '../../../environments/environment';
 import { API_URL } from './categoria.service';
-
-function extractErrorMessage(err: unknown, fallback: string): string {
-  if (err && typeof err === 'object') {
-    const errorObj = err as {
-      error?: { erro?: string; message?: string; error?: string };
-      message?: string;
-    };
-    if (errorObj.error) {
-      if (errorObj.error.erro) return String(errorObj.error.erro);
-      if (errorObj.error.message) return String(errorObj.error.message);
-      if (errorObj.error.error) return String(errorObj.error.error);
-    }
-    if (errorObj.message) {
-      return String(errorObj.message);
-    }
-  }
-  return fallback;
-}
+import { mensagemErroHttp } from '../utils/http-error';
 
 @Injectable({
   providedIn: 'root',
@@ -61,7 +44,7 @@ export class CardService {
         this.cartoes.set(cartoes ?? []);
       }),
       catchError((err: unknown) => {
-        const msg = extractErrorMessage(err, 'Erro ao listar cartões de crédito.');
+        const msg = mensagemErroHttp(err, 'Erro ao listar cartões de crédito.');
         this.error.set(msg);
         return throwError(() => new Error(msg));
       }),
@@ -83,7 +66,7 @@ export class CardService {
         this.cartaoSelecionado.set(detalhes);
       }),
       catchError((err: unknown) => {
-        const msg = extractErrorMessage(err, 'Erro ao obter dados do cartão.');
+        const msg = mensagemErroHttp(err, 'Erro ao obter dados do cartão.');
         this.error.set(msg);
         return throwError(() => new Error(msg));
       }),
@@ -102,7 +85,7 @@ export class CardService {
 
     return this.http.post<CreditCard>(`${this.baseUrl}/cards`, payload).pipe(
       catchError((err: unknown) => {
-        const msg = extractErrorMessage(err, 'Erro ao cadastrar cartão.');
+        const msg = mensagemErroHttp(err, 'Erro ao cadastrar cartão.');
         this.error.set(msg);
         return throwError(() => new Error(msg));
       }),
@@ -122,7 +105,7 @@ export class CardService {
 
     return this.http.get<CardInvoice[]>(url).pipe(
       catchError((err: unknown) => {
-        const msg = extractErrorMessage(err, 'Erro ao listar faturas do cartão.');
+        const msg = mensagemErroHttp(err, 'Erro ao listar faturas do cartão.');
         return throwError(() => new Error(msg));
       })
     );
@@ -142,7 +125,7 @@ export class CardService {
           this.faturaSelecionada.set(faturaDetalhes);
         }),
         catchError((err: unknown) => {
-          const msg = extractErrorMessage(err, 'Erro ao carregar detalhes da fatura.');
+          const msg = mensagemErroHttp(err, 'Erro ao carregar detalhes da fatura.');
           this.error.set(msg);
           return throwError(() => new Error(msg));
         }),
@@ -176,7 +159,7 @@ export class CardService {
           this.cartaoSelecionado.set(res.cartaoAtualizado);
         }),
         catchError((err: unknown) => {
-          const msg = extractErrorMessage(err, 'Erro ao lançar compra no cartão.');
+          const msg = mensagemErroHttp(err, 'Erro ao lançar compra no cartão.');
           this.error.set(msg);
           return throwError(() => new Error(msg));
         }),
@@ -214,7 +197,7 @@ export class CardService {
           }
         }),
         catchError((err: unknown) => {
-          const msg = extractErrorMessage(err, 'Erro ao pagar fatura.');
+          const msg = mensagemErroHttp(err, 'Erro ao pagar fatura.');
           this.error.set(msg);
           return throwError(() => new Error(msg));
         }),

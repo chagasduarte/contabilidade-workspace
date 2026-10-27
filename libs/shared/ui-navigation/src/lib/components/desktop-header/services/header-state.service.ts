@@ -1,5 +1,5 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
-import { NavigationEnd, Router } from '@angular/router';
+import { ActivatedRouteSnapshot, NavigationEnd, Router } from '@angular/router';
 import { filter } from 'rxjs';
 import { DesktopHeaderStrategyFactory } from '../strategies/desktop-header-strategy.factory';
 import { DesktopHeaderConfig } from '../models/desktop-header.models';
@@ -14,7 +14,14 @@ export class HeaderStateService {
 
   readonly currentRoute = signal<string>(this.router.url || '');
   readonly selectedYear = signal<number>(new Date().getFullYear());
+  /** Mês selecionado (1-12), compartilhado entre a régua do header mobile e as páginas. */
+  readonly selectedMonth = signal<number>(new Date().getMonth() + 1);
   readonly searchTerm = signal<string>('');
+  /**
+   * Indica se a rota ativa trabalha por mês (`data: { monthSelector: true }`).
+   * Controla a exibição da régua de meses do header mobile.
+   */
+  readonly showMonthSelector = signal<boolean>(false);
 
   readonly currentStrategy = computed<DesktopHeaderStrategy>(() =>
     this.strategyFactory.create(this.currentRoute())
@@ -30,12 +37,31 @@ export class HeaderStateService {
       .subscribe((event) => {
         const url = event.urlAfterRedirects || event.url;
         this.currentRoute.set(url);
+        this.showMonthSelector.set(this.rotaUsaMes(this.router.routerState.snapshot.root));
       });
+  }
+
+  private rotaUsaMes(root: ActivatedRouteSnapshot): boolean {
+    let atual: ActivatedRouteSnapshot | null = root;
+    let usaMes = false;
+    while (atual) {
+      if (atual.data?.['monthSelector'] === true) {
+        usaMes = true;
+      }
+      atual = atual.firstChild;
+    }
+    return usaMes;
   }
 
   setYear(year: number): void {
     if (year !== this.selectedYear()) {
       this.selectedYear.set(year);
+    }
+  }
+
+  setMonth(month: number): void {
+    if (month >= 1 && month <= 12 && month !== this.selectedMonth()) {
+      this.selectedMonth.set(month);
     }
   }
 

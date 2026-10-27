@@ -1,12 +1,14 @@
 import { inject, Injectable, signal } from '@angular/core';
+import { mensagemErroHttp } from '../utils/http-error';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, tap, catchError, throwError, finalize } from 'rxjs';
+import { Observable, tap, catchError, throwError, finalize, map } from 'rxjs';
 import {
   CreateParceladaDto,
   CreateTransacaoDto,
   ResumoTransacoesEntrada,
   ResumoTransacoesSaida,
   Transacao,
+  ExtratoPaginado,
 } from '@contabilidade/models';
 import { API_URL } from './categoria.service';
 
@@ -22,6 +24,11 @@ export class TransacaoService {
   readonly entradasResumo = signal<ResumoTransacoesEntrada | null>(null);
   readonly loading = signal<boolean>(false);
   readonly error = signal<string | null>(null);
+
+  /** Estado da paginação por cursor do extrato (`?paginado=true`). */
+  readonly nextCursor = signal<string | null>(null);
+  readonly carregandoMais = signal<boolean>(false);
+  readonly totaisExtrato = signal<ExtratoPaginado['totais']>(null);
 
   /**
    * Busca o extrato de transações por mês e ano na API e atualiza o signal `extrato`.
@@ -50,12 +57,77 @@ export class TransacaoService {
         }),
         catchError((err: Error) => {
           this.error.set(
-            err.message || 'Erro ao carregar extrato de lançamentos.'
+            mensagemErroHttp(err, 'Erro ao carregar extrato de lançamentos.')
           );
           return throwError(() => err);
         }),
         finalize(() => {
           this.loading.set(false);
+        })
+      );
+  }
+
+  /**
+   * Carrega uma página do extrato (`?paginado=true`). Sem `cursor`, reinicia a lista;
+   * com `cursor`, anexa a próxima página ao signal `extrato`.
+   * Se a API responder no formato antigo (array), trata como página única.
+   */
+  carregarExtratoPaginado(
+    mes: number,
+    ano: number,
+    cursor: string | null = null,
+    limit = 50
+  ): Observable<ExtratoPaginado> {
+    const proximaPagina = cursor != null;
+    if (proximaPagina) {
+      this.carregandoMais.set(true);
+    } else {
+      this.loading.set(true);
+      this.nextCursor.set(null);
+      this.totaisExtrato.set(null);
+    }
+    this.error.set(null);
+
+    let params = new HttpParams()
+      .set('paginado', 'true')
+      .set('limit', String(limit))
+      .set('mes', String(mes))
+      .set('ano', String(ano));
+    if (cursor) {
+      params = params.set('cursor', cursor);
+    }
+
+    return this.http
+      .get<ExtratoPaginado | Transacao[]>(`${this.baseUrl}/transacoes/extrato`, { params })
+      .pipe(
+        map((resp): ExtratoPaginado =>
+          Array.isArray(resp) ? { items: resp, next_cursor: null } : resp
+        ),
+        tap((pagina) => {
+          const itens = pagina.items ?? [];
+          if (proximaPagina) {
+            this.extrato.update((atual) => {
+              const ids = new Set(atual.map((t) => t.id));
+              return [...atual, ...itens.filter((t) => !ids.has(t.id))];
+            });
+          } else {
+            this.extrato.set(itens);
+          }
+          this.nextCursor.set(pagina.next_cursor ?? null);
+          if (pagina.totais) {
+            this.totaisExtrato.set(pagina.totais);
+          }
+        }),
+        catchError((err: Error) => {
+          this.error.set(mensagemErroHttp(err, 'Erro ao carregar extrato de lançamentos.'));
+          return throwError(() => err);
+        }),
+        finalize(() => {
+          if (proximaPagina) {
+            this.carregandoMais.set(false);
+          } else {
+            this.loading.set(false);
+          }
         })
       );
   }
@@ -74,7 +146,7 @@ export class TransacaoService {
           this.extrato.update((lista) => [nova, ...lista]);
         }),
         catchError((err: Error) => {
-          this.error.set(err.message || 'Erro ao criar transação.');
+          this.error.set(mensagemErroHttp(err, 'Erro ao criar transação.'));
           return throwError(() => err);
         }),
         finalize(() => {
@@ -99,7 +171,7 @@ export class TransacaoService {
           }
         }),
         catchError((err: Error) => {
-          this.error.set(err.message || 'Erro ao criar transações parceladas.');
+          this.error.set(mensagemErroHttp(err, 'Erro ao criar transações parceladas.'));
           return throwError(() => err);
         }),
         finalize(() => {
@@ -126,7 +198,7 @@ export class TransacaoService {
           );
         }),
         catchError((err: Error) => {
-          this.error.set(err.message || 'Erro ao efetivar transação.');
+          this.error.set(mensagemErroHttp(err, 'Erro ao efetivar transação.'));
           return throwError(() => err);
         }),
         finalize(() => {
@@ -149,7 +221,7 @@ export class TransacaoService {
           this.extrato.update((lista) => lista.filter((item) => item.id !== id));
         }),
         catchError((err: Error) => {
-          this.error.set(err.message || 'Erro ao excluir transação.');
+          this.error.set(mensagemErroHttp(err, 'Erro ao excluir transação.'));
           return throwError(() => err);
         }),
         finalize(() => {

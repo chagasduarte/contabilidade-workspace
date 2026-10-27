@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { LoanBusiness, LoanValidationError, LoanNotFoundError } from './loan.business';
 import { LoanRepository } from './loan.repository';
+import { codificarCursor, decodificarCursor, PaginacaoInvalidaError } from '../../common/utils/paginacao';
 import { LoanPaymentRepository } from './loan-payment.repository';
 import { LoanEntity, LoanInstallmentEntity, LoanPaymentEntity } from './loan.entity';
 
@@ -12,6 +13,7 @@ vi.mock('./loan.repository', async (importOriginal) => {
       criarComParcelas: vi.fn(),
       buscarPorId: vi.fn(),
       listarPorUsuario: vi.fn(),
+      listarPaginaPorUsuario: vi.fn(),
       listarParcelas: vi.fn(),
       buscarParcelaPorId: vi.fn(),
       atualizarStatus: vi.fn(),
@@ -118,7 +120,43 @@ describe('LoanBusiness', () => {
     });
   });
 
+  describe('listarPaginaPorUsuario', () => {
+    const loanUuid = '11111111-2222-3333-4444-555555555555';
+
+    it('decodifica o cursor, repassa ao repositório e codifica a próxima chave', async () => {
+      const chave = { contracted_at: '2026-01-10', created_at: '2026-01-10 09:00:00.5+00', id: loanUuid };
+      const proxima = { ...chave, contracted_at: '2025-12-01' };
+      vi.mocked(LoanRepository.listarPaginaPorUsuario).mockResolvedValue({ items: [], proxima });
+
+      const res = await LoanBusiness.listarPaginaPorUsuario(1, codificarCursor(chave), 20);
+
+      expect(LoanRepository.listarPaginaPorUsuario).toHaveBeenCalledWith(1, chave, 20);
+      expect(decodificarCursor(res.next_cursor as string, ['contracted_at', 'created_at', 'id'])).toEqual(proxima);
+    });
+
+    it('rejeita cursor inválido sem consultar o banco', async () => {
+      await expect(LoanBusiness.listarPaginaPorUsuario(1, 'lixo', 20)).rejects.toThrow(PaginacaoInvalidaError);
+      expect(LoanRepository.listarPaginaPorUsuario).not.toHaveBeenCalled();
+    });
+  });
+
   describe('registrarPagamento', () => {
+    it('deve retornar não encontrado quando o empréstimo pertence a outro usuário', async () => {
+      // Repositório filtra por usuário: empréstimo alheio não é retornado
+      vi.mocked(LoanRepository.buscarPorId).mockResolvedValue(undefined);
+
+      await expect(
+        LoanBusiness.registrarPagamento({
+          loan_id: 'loan-1',
+          installment_id: 'inst-1',
+          amount_paid: 500,
+          payment_method: 'PIX',
+        }, 2)
+      ).rejects.toThrow('Empréstimo não encontrado.');
+      expect(LoanRepository.buscarPorId).toHaveBeenCalledWith('loan-1', 2);
+      expect(LoanPaymentRepository.registrarPagamento).not.toHaveBeenCalled();
+    });
+
     const mockLoan: LoanEntity = {
       id: 'loan-1',
       user_id: '00000000-0000-0000-0000-000000000001',
@@ -164,7 +202,7 @@ describe('LoanBusiness', () => {
           installment_id: 'inst-1',
           amount_paid: 500,
           payment_method: 'PIX',
-        })
+        }, 1)
       ).rejects.toThrow('Esta parcela já foi quitada.');
     });
 
@@ -180,7 +218,7 @@ describe('LoanBusiness', () => {
           amount_paid: 400,
           discount_amount: 50,
           payment_method: 'PIX',
-        })
+        }, 1)
       ).rejects.toThrow(/Inconsistência financeira/);
     });
 
@@ -223,7 +261,7 @@ describe('LoanBusiness', () => {
         discount_amount: 50,
         penalty_interest: 0,
         payment_method: 'PIX',
-      });
+      }, 1);
 
       expect(LoanPaymentRepository.registrarPagamento).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -235,6 +273,7 @@ describe('LoanBusiness', () => {
           payment_method: 'PIX',
         })
       );
+      expect(LoanRepository.buscarPorId).toHaveBeenCalledWith('loan-1', 1);
       expect(res.pagamento.amount_paid).toBe(450);
       expect(res.parcela?.status).toBe('PAID');
     });

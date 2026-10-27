@@ -31,27 +31,27 @@ describe('CardService', () => {
     ativo: true,
   };
 
+  const mockFatura: CardInvoice = {
+    id: 'fat-1',
+    cartao_id: 'card-1',
+    mes_referencia: 10,
+    ano_referencia: 2026,
+    data_fechamento: '2026-10-20',
+    data_vencimento: '2026-10-27',
+    status: 'OPEN',
+    total_fatura: 2500,
+  };
+
   const mockCartaoDetalhes: CardDetailsResponseDto = {
     cartao: mockCartao,
     limite_total: 10000,
     limite_comprometido: 2500,
     limite_disponivel: 7500,
-    faturas: [
-      {
-        id: 'fat-1',
-        cartao_id: 'card-1',
-        mes_referencia: 10,
-        ano_referencia: 2026,
-        data_fechamento: '2026-10-20',
-        data_vencimento: '2026-10-27',
-        status: 'OPEN',
-        total_fatura: 2500,
-      },
-    ],
+    faturas: [mockFatura],
   };
 
   const mockFaturaDetalhes: InvoiceDetailsResponseDto = {
-    fatura: mockCartaoDetalhes.faturas![0],
+    fatura: mockFatura,
     cartao: mockCartao,
     itens: [
       {
@@ -220,7 +220,7 @@ describe('CardService', () => {
 
     const mockResponse = {
       fatura: {
-        ...mockCartaoDetalhes.faturas![0],
+        ...mockFatura,
         status: 'PAID' as const,
         valor_pago: 2500,
       },

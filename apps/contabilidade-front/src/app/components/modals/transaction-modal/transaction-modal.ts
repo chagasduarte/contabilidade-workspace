@@ -262,7 +262,12 @@ export class TransactionModal {
     this.erroMensagem.set(null);
 
     const catId = val.idcategoria ? Number(val.idcategoria) : null;
-    const subcatId = val.categoria ? Number(val.categoria) : catId;
+    // O select de subcategoria pode conter o próprio id da categoria quando não há
+    // subcategorias; só enviamos ids que realmente pertencem à lista carregada.
+    const subcatSelecionada = val.categoria != null ? Number(val.categoria) : null;
+    const subcatId = this.subcategoriasDisponiveis().some((s) => s.id === subcatSelecionada)
+      ? subcatSelecionada
+      : null;
 
     if (val.isParcelado && val.tipo === 'saida') {
       const qtd = Number(val.qtdParcelas);
@@ -273,7 +278,7 @@ export class TransactionModal {
         descricao: val.descricao.trim(),
         valor: valorNum,
         idcategoria: catId,
-        categoria: subcatId,
+        idsubcategoria: subcatId,
         data: val.data,
         ispaycart: val.isCartao,
         cartaoid: val.isCartao && val.cartaoid ? Number(val.cartaoid) : undefined,
@@ -308,7 +313,7 @@ export class TransactionModal {
         descricao: val.descricao.trim(),
         valor: valorNum,
         idcategoria: catId,
-        categoria: subcatId,
+        idsubcategoria: subcatId,
         data: val.data,
         status: val.status,
         ispaycart: val.tipo === 'saida' ? val.isCartao : false,

@@ -16,6 +16,7 @@ import {
   InvoiceDetailsResponseDto,
 } from './card.dto';
 import { CardRepository } from './card.repository';
+import { CategoriaBusiness } from '../categoria/categoria.business';
 
 export class CardValidationError extends Error {
   constructor(message: string) {
@@ -265,6 +266,12 @@ export const CardBusiness = {
       throw new CardValidationError('O valor da compra deve ser maior que zero.');
     }
 
+    if (dto.categoria_id !== undefined && dto.categoria_id !== null) {
+      if (!(await CategoriaBusiness.categoriaVisivel(dto.categoria_id, usuarioId))) {
+        throw new CardValidationError('Categoria não encontrada.');
+      }
+    }
+
     const quantidadeParcelas = Number(dto.quantidade_parcelas || 1);
     if (isNaN(quantidadeParcelas) || quantidadeParcelas < 1 || !Number.isInteger(quantidadeParcelas)) {
       throw new CardValidationError('A quantidade de parcelas deve ser um número inteiro maior ou igual a 1.');
@@ -338,6 +345,22 @@ export const CardBusiness = {
 
     try {
       await client.query('BEGIN');
+
+      // 0. Serializa compras concorrentes no mesmo cartão: trava a linha do cartão e
+      //    recalcula o limite comprometido dentro da transação (evita estourar o limite)
+      await client.query(
+        'SELECT id FROM credit_cards WHERE id = $1 AND usuario_id = $2 FOR UPDATE',
+        [cartao.id, usuarioId]
+      );
+      const comprometidoTravado = await CardRepository.obterLimiteComprometido(cartao.id, client);
+      const disponivelTravado = Number((cartao.limite_total - comprometidoTravado).toFixed(2));
+      if (valorTotal > disponivelTravado) {
+        throw new CardValidationError(
+          `Limite disponível insuficiente para esta compra. Limite disponível: R$ ${disponivelTravado.toFixed(
+            2
+          )}, Valor da compra: R$ ${valorTotal.toFixed(2)}.`
+        );
+      }
 
       // 1. Garante que todas as faturas necessárias existam
       const faturasMap = new Map<string, string>(); // Chave: "ano-mes" -> faturaId

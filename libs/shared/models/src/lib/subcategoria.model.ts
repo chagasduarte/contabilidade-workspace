@@ -9,6 +9,8 @@ export interface Subcategoria {
   nome: string;
   icone: string;
   cor: string;
+  /** `null` = subcategoria padrão do sistema (somente leitura); número = do usuário logado. */
+  userid?: number | null;
 }
 
 /**
