@@ -42,12 +42,16 @@ services:
       NODE_ENV: production
       PORT: 3000
       API_PORT: 3000
-      DB_HOST: ${DB_HOST:-postgres}
-      DB_PORT: ${DB_PORT:-5432}
-      DB_USER: ${DB_USER:-postgres}
-      DB_PASS: ${DB_PASS:-postgres_mude_essa_senha_em_producao}
-      DB_NAME: ${DB_NAME:-contabilidade}
-      DB_SSL: ${DB_SSL:-false}
+      # A API sempre usa o container postgres deste compose, pela rede interna.
+      # Não lê DB_HOST/DB_USER/DB_PASS/DATABASE_URL do .env: um valor antigo ali
+      # (ex.: banco da Vercel) desviaria a produção para outro banco.
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASS: ${POSTGRES_PASSWORD:-postgres_mude_essa_senha_em_producao}
+      DB_NAME: ${POSTGRES_DB:-contabilidade}
+      DB_SSL: "false"
+      DATABASE_URL: ""
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET obrigatório}
       BASE_URL: ${BASE_URL:-https://contabilidade.lorien.app.br}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
