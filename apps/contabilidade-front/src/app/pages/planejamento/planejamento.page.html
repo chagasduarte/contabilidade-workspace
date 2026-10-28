@@ -1,29 +1,31 @@
+<div class="plan-page__top-bar">
+  <header class="plan-page__header">
+    <div>
+      <h1 id="plan-title">Planejamento</h1>
+      <p class="plan-page__intro">Orçamento do mês por categoria: planejado x realizado.</p>
+    </div>
+    <div class="plan-page__controls">
+      <button type="button" class="plan-page__add-btn" (click)="abrirNovo()">
+        <ion-icon name="add-outline" aria-hidden="true"></ion-icon>
+        <span>Novo orçamento</span>
+      </button>
+      <app-month-selector
+        [mes]="dashboardService.mes()"
+        [ano]="dashboardService.ano()"
+        (mesChange)="selecionarMes($event)"
+        (mesAnterior)="mesAnterior()"
+        (proximoMes)="proximoMes()"
+      ></app-month-selector>
+    </div>
+  </header>
+</div>
+
 <ion-content class="planejamento-content">
   <ion-refresher slot="fixed" (ionRefresh)="recarregar($event)">
     <ion-refresher-content></ion-refresher-content>
   </ion-refresher>
 
   <section class="plan-page" aria-labelledby="plan-title">
-    <header class="plan-page__header">
-      <div>
-        <h1 id="plan-title">Planejamento</h1>
-        <p class="plan-page__intro">Orçamento do mês por categoria: planejado x realizado.</p>
-      </div>
-      <div class="plan-page__controls">
-        <button type="button" class="plan-page__add-btn" (click)="abrirNovo()">
-          <ion-icon name="add-outline" aria-hidden="true"></ion-icon>
-          <span>Novo orçamento</span>
-        </button>
-        <app-month-selector
-          [mes]="dashboardService.mes()"
-          [ano]="dashboardService.ano()"
-          (mesChange)="selecionarMes($event)"
-          (mesAnterior)="mesAnterior()"
-          (proximoMes)="proximoMes()"
-        ></app-month-selector>
-      </div>
-    </header>
-
     <ion-segment
       class="plan-page__segment"
       [value]="tipo()"

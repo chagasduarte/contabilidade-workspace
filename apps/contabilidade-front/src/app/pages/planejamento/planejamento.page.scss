@@ -16,20 +16,33 @@
 .plan-page {
   max-width: 900px;
   margin: 0 auto;
-  padding: 20px 14px calc(6rem + env(safe-area-inset-bottom));
+  padding: 16px 14px calc(6rem + env(safe-area-inset-bottom));
   color: #f5f6f8;
 
   @media (min-width: 701px) {
-    padding: 28px;
+    padding: 20px 28px 28px;
+  }
+
+  &__top-bar {
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: #171d23;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    color: #f5f6f8;
   }
 
   &__header {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 18px 14px;
     display: flex;
     flex-direction: column;
     gap: 14px;
-    margin-bottom: 16px;
 
     @media (min-width: 701px) {
+      padding: 22px 28px;
       flex-direction: row;
       align-items: center;
       justify-content: space-between;
