@@ -25,6 +25,7 @@
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     box-sizing: border-box;
+    padding-bottom: calc(64px + env(safe-area-inset-bottom));
   }
 
   &__mobile-menu {
