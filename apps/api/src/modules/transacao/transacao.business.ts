@@ -758,18 +758,31 @@ export const TransacaoBusiness = {
     mes: number | null,
     ano: number | null,
     tipo: string | null,
-    userid: number
+    userid: number,
+    inicio?: string | null,
+    fim?: string | null
   ): Promise<{
     soma: { soma: number };
     agrupamento: AgrupamentoTipoItem[];
   }> {
-    const mesValido = mes ?? new Date().getMonth() + 1;
-    const anoValido = ano ?? new Date().getFullYear();
+    let data_inicio: string;
+    let data_fim: string;
 
-    const mm = String(mesValido).padStart(2, '0');
-    const data_inicio = `${anoValido}-${mm}-01`;
-    const ultimoDia = new Date(anoValido, mesValido, 0).getDate();
-    const data_fim = `${anoValido}-${mm}-${String(ultimoDia).padStart(2, '0')}`;
+    if (inicio && fim) {
+      data_inicio = inicio;
+      data_fim = fim;
+    } else if (ano !== null && mes === null) {
+      data_inicio = `${ano}-01-01`;
+      data_fim = `${ano}-12-31`;
+    } else {
+      const mesValido = mes ?? new Date().getMonth() + 1;
+      const anoValido = ano ?? new Date().getFullYear();
+
+      const mm = String(mesValido).padStart(2, '0');
+      data_inicio = `${anoValido}-${mm}-01`;
+      const ultimoDia = new Date(anoValido, mesValido, 0).getDate();
+      data_fim = `${anoValido}-${mm}-${String(ultimoDia).padStart(2, '0')}`;
+    }
 
     const agrupamento = await TransacaoRepository.agrupamentoTipo(status, data_inicio, data_fim, userid, tipo);
     const somaTotal = agrupamento.reduce((acc, p) => acc + Number(p.total_tipo || 0), 0);

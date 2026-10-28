@@ -146,11 +146,13 @@ export const TransacaoController = {
 
   async agrupamentoTipo(req: Request, res: Response): Promise<void> {
     try {
-      const { mes, ano, tipo, status } = req.query as {
+      const { mes, ano, tipo, status, inicio, fim } = req.query as {
         mes?: string;
         ano?: string;
         tipo?: string;
         status?: string;
+        inicio?: string;
+        fim?: string;
       };
       const userid = req.usuarioId;
       if (!userid) {
@@ -166,7 +168,9 @@ export const TransacaoController = {
         mesNum,
         anoNum,
         tipo || null,
-        userid
+        userid,
+        inicio || null,
+        fim || null
       );
       res.json(agrupamento);
     } catch (error: unknown) {

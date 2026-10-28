@@ -1,0 +1,349 @@
+<div class="rel-page__top-bar">
+  <header class="rel-page__header">
+    <div>
+      <h1 id="rel-title">Relatórios</h1>
+      <p class="rel-page__intro">Para onde vai e de onde vem o seu dinheiro.</p>
+    </div>
+
+    <div class="rel-page__controls">
+      <div class="periodo-tabs" role="tablist" aria-label="Tipo de período">
+        @for (p of periodos; track p.valor) {
+          <button
+            type="button"
+            role="tab"
+            class="periodo-tab"
+            [class.periodo-tab--active]="periodoTipo() === p.valor"
+            [attr.aria-selected]="periodoTipo() === p.valor"
+            (click)="selecionarPeriodo(p.valor)"
+          >
+            {{ p.rotulo }}
+          </button>
+        }
+      </div>
+
+      @switch (periodoTipo()) {
+        @case ('mes') {
+          <app-month-selector
+            [mes]="mes()"
+            [ano]="ano()"
+            (mesChange)="selecionarMes($event)"
+            (mesAnterior)="deslocarMes(-1)"
+            (proximoMes)="deslocarMes(1)"
+          ></app-month-selector>
+        }
+        @case ('ano') {
+          <div class="stepper" role="group" aria-label="Navegação por ano">
+            <button type="button" class="stepper__btn" (click)="deslocarAno(-1)" aria-label="Ano anterior">
+              <ion-icon name="chevron-back-outline" aria-hidden="true"></ion-icon>
+            </button>
+            <span class="stepper__label" aria-live="polite">{{ ano() }}</span>
+            <button type="button" class="stepper__btn" (click)="deslocarAno(1)" aria-label="Próximo ano">
+              <ion-icon name="chevron-forward-outline" aria-hidden="true"></ion-icon>
+            </button>
+          </div>
+        }
+      }
+    </div>
+  </header>
+
+  @if (periodoTipo() === 'customizado') {
+    <form class="intervalo" (submit)="$event.preventDefault(); aplicarIntervalo()">
+      <div class="intervalo__presets">
+        <button type="button" class="chip" (click)="aplicarPreset(7)">7 dias</button>
+        <button type="button" class="chip" (click)="aplicarPreset(30)">30 dias</button>
+        <button type="button" class="chip" (click)="aplicarPreset(90)">90 dias</button>
+      </div>
+      <div class="intervalo__campos">
+        <label class="campo">
+          <span>De</span>
+          <input
+            type="date"
+            name="inicio"
+            [max]="fimRascunho()"
+            [ngModel]="inicioRascunho()"
+            (ngModelChange)="inicioRascunho.set($event)"
+          />
+        </label>
+        <label class="campo">
+          <span>Até</span>
+          <input
+            type="date"
+            name="fim"
+            [min]="inicioRascunho()"
+            [ngModel]="fimRascunho()"
+            (ngModelChange)="fimRascunho.set($event)"
+          />
+        </label>
+        <button
+          type="submit"
+          class="btn-primario"
+          [disabled]="!rascunhoValido() || !rascunhoAlterado()"
+        >
+          Aplicar
+        </button>
+      </div>
+      @if (!rascunhoValido()) {
+        <p class="intervalo__erro" role="alert">A data inicial precisa ser anterior à final.</p>
+      }
+    </form>
+  }
+</div>
+
+<ion-content class="relatorios-content">
+  <ion-refresher slot="fixed" (ionRefresh)="recarregar($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
+
+  <section class="rel-page" aria-labelledby="rel-title" [attr.aria-busy]="loading()">
+    <ion-segment
+      class="rel-page__segment"
+      [value]="tipo()"
+      (ionChange)="onTipo($event)"
+      aria-label="Tipo de lançamento"
+    >
+      <ion-segment-button value="saida">Despesas</ion-segment-button>
+      <ion-segment-button value="entrada">Receitas</ion-segment-button>
+    </ion-segment>
+
+    @if (erro()) {
+      <div class="error-banner" role="alert">
+        <ion-icon name="alert-circle-outline" aria-hidden="true"></ion-icon>
+        <span>{{ erro() }}</span>
+        <button type="button" class="btn-texto" (click)="carregarDados()">
+          <ion-icon name="refresh-outline" aria-hidden="true"></ion-icon>
+          Tentar novamente
+        </button>
+      </div>
+    }
+
+    @if (!carregouUmaVez() && loading()) {
+      <!-- Primeira carga: esqueleto no lugar do conteúdo, sem "nenhum dado" piscando -->
+      <div class="skeleton" aria-hidden="true">
+        <div class="skeleton__bloco skeleton__bloco--hero"></div>
+        <div class="skeleton__linha">
+          <div class="skeleton__bloco"></div>
+          <div class="skeleton__bloco"></div>
+          <div class="skeleton__bloco"></div>
+        </div>
+        <div class="skeleton__bloco skeleton__bloco--chart"></div>
+      </div>
+      <span class="sr-only" role="status">Carregando relatório…</span>
+    } @else if (carregouUmaVez()) {
+      <div class="rel-page__body" [class.rel-page__body--atualizando]="loading()">
+        @if (loading()) {
+          <div class="atualizando" role="status">
+            <ion-spinner name="crescent"></ion-spinner>
+            <span>Atualizando…</span>
+          </div>
+        }
+
+        @if (transacoes().length === 0) {
+          <div class="empty-state">
+            <ion-icon name="receipt-outline" aria-hidden="true"></ion-icon>
+            <h2>Nenhuma {{ tipo() === 'saida' ? 'despesa' : 'receita' }} em {{ rotuloPeriodo() }}</h2>
+            <p>Escolha outro período ou alterne entre despesas e receitas.</p>
+          </div>
+        } @else {
+          <!-- Resumo -->
+          <section class="resumo" aria-label="Resumo do período">
+            <article class="resumo__hero" [class.resumo__hero--entrada]="tipo() === 'entrada'">
+              <span class="resumo__label">{{ textos().total }} · {{ rotuloPeriodo() }}</span>
+              <strong class="resumo__valor">{{ formatarMoeda(totalGeral()) }}</strong>
+              <span class="resumo__hint">
+                {{ transacoes().length }} lançamento{{ transacoes().length === 1 ? '' : 's' }}
+                @if (totalPendente() > 0) {
+                  · <span class="resumo__pendente">{{ formatarMoeda(totalPendente()) }} pendente</span>
+                }
+              </span>
+            </article>
+
+            <div class="resumo__kpis">
+              <article class="kpi">
+                <span class="kpi__label">Média por {{ media().unidade }}</span>
+                <strong class="kpi__valor">{{ formatarMoeda(media().valor) }}</strong>
+              </article>
+
+              @if (maiorCategoria(); as cat) {
+                <button
+                  type="button"
+                  class="kpi kpi--acao"
+                  (click)="alternarCategoria(cat.chave)"
+                  [attr.aria-label]="textos().categoria + ': ' + cat.categoria_nome + '. Toque para filtrar.'"
+                >
+                  <span class="kpi__label">{{ textos().categoria }}</span>
+                  <strong class="kpi__valor kpi__valor--texto">
+                    <span class="kpi__dot" [style.background]="cat.cor" aria-hidden="true"></span>
+                    {{ cat.categoria_nome }}
+                  </strong>
+                  <span class="kpi__hint">{{ cat.percentual.toFixed(0) }}% do total</span>
+                </button>
+              }
+
+              @if (maiorTransacao(); as t) {
+                <article class="kpi">
+                  <span class="kpi__label">{{ textos().maior }}</span>
+                  <strong class="kpi__valor">{{ formatarMoeda(t.valor) }}</strong>
+                  <span class="kpi__hint kpi__hint--truncate" [title]="t.descricao">{{ t.descricao }}</span>
+                </article>
+              }
+            </div>
+          </section>
+
+          <!-- Filtro ativo: sempre visível e fácil de desfazer -->
+          @if (categoriaSelecionada(); as sel) {
+            <div class="filtro-ativo" role="status">
+              <span class="kpi__dot" [style.background]="sel.cor" aria-hidden="true"></span>
+              <span>Filtrando por <strong>{{ sel.categoria_nome }}</strong></span>
+              <button type="button" class="filtro-ativo__limpar" (click)="limparSelecao()" aria-label="Remover filtro de categoria">
+                <ion-icon name="close-outline" aria-hidden="true"></ion-icon>
+              </button>
+            </div>
+          }
+
+          <div class="grid">
+            <!-- Categorias: gráfico + lista funcionam como legenda e filtro -->
+            <section class="card" aria-labelledby="cat-title">
+              <header class="card__header">
+                <div>
+                  <h2 id="cat-title" class="card__title">Por categoria</h2>
+                  <p class="card__subtitle">Toque em uma categoria para filtrar</p>
+                </div>
+              </header>
+
+              <div class="doughnut">
+                <canvas #doughnutCanvas role="img" [attr.aria-label]="'Distribuição de ' + textos().serie.toLowerCase() + ' por categoria'"></canvas>
+                <div class="doughnut__centro" aria-hidden="true">
+                  @if (categoriaSelecionada(); as sel) {
+                    <span>{{ sel.percentual.toFixed(0) }}%</span>
+                    <strong>{{ formatarMoeda(sel.total) }}</strong>
+                  } @else {
+                    <span>{{ dadosCategorias().length }} categoria{{ dadosCategorias().length === 1 ? '' : 's' }}</span>
+                    <strong>{{ formatarMoeda(totalGeral()) }}</strong>
+                  }
+                </div>
+              </div>
+
+              <ul class="categorias">
+                @for (cat of dadosCategorias(); track cat.chave) {
+                  @let selecionada = categoriaSelecionadaChave() === cat.chave;
+                  <li class="categoria" [class.categoria--selecionada]="selecionada" [class.categoria--esmaecida]="categoriaSelecionadaChave() !== null && !selecionada">
+                    <button
+                      type="button"
+                      class="categoria__btn"
+                      [attr.aria-pressed]="selecionada"
+                      [attr.aria-expanded]="cat.subcategorias.length > 1 ? selecionada : null"
+                      (click)="alternarCategoria(cat.chave)"
+                    >
+                      <span class="categoria__icone" [style.color]="cat.cor" [style.background]="cat.cor + '22'">
+                        <ion-icon [name]="cat.icone" aria-hidden="true"></ion-icon>
+                      </span>
+                      <span class="categoria__info">
+                        <span class="categoria__linha">
+                          <span class="categoria__nome">{{ cat.categoria_nome }}</span>
+                          <span class="categoria__valor">{{ formatarMoeda(cat.total) }}</span>
+                        </span>
+                        <span class="barra" aria-hidden="true">
+                          <span [style.width.%]="cat.percentual" [style.background]="cat.cor"></span>
+                        </span>
+                        <span class="categoria__meta">
+                          {{ cat.percentual.toFixed(1) }}% · {{ cat.quantidadeTransacoes }} lançamento{{ cat.quantidadeTransacoes === 1 ? '' : 's' }}
+                        </span>
+                      </span>
+                      @if (cat.subcategorias.length > 1) {
+                        <ion-icon class="categoria__chevron" name="chevron-down-outline" aria-hidden="true"></ion-icon>
+                      }
+                    </button>
+
+                    @if (selecionada && cat.subcategorias.length > 1) {
+                      <ul class="subcategorias">
+                        @for (sub of cat.subcategorias; track sub.nome) {
+                          <li class="subcategoria">
+                            <span class="subcategoria__nome">{{ sub.nome }}</span>
+                            <span class="subcategoria__valor">
+                              {{ formatarMoeda(sub.total) }}
+                              <small>{{ sub.percentual.toFixed(0) }}%</small>
+                            </span>
+                          </li>
+                        }
+                      </ul>
+                    }
+                  </li>
+                }
+              </ul>
+            </section>
+
+            <div class="grid__coluna">
+              <!-- Evolução -->
+              <section class="card" aria-labelledby="evo-title">
+                <header class="card__header">
+                  <div>
+                    <h2 id="evo-title" class="card__title">Evolução {{ agrupaPorMes() ? 'mensal' : 'diária' }}</h2>
+                    <p class="card__subtitle">
+                      {{ categoriaSelecionada()?.categoria_nome ?? ('Todas as ' + (tipo() === 'saida' ? 'despesas' : 'receitas')) }}
+                    </p>
+                  </div>
+                </header>
+
+                @if (temDadosEvolucao()) {
+                  <div class="timeline">
+                    <canvas #timelineCanvas role="img" [attr.aria-label]="'Evolução de ' + textos().serie.toLowerCase() + ' no período'"></canvas>
+                  </div>
+                } @else {
+                  <div class="empty-chart">
+                    <ion-icon name="bar-chart-outline" aria-hidden="true"></ion-icon>
+                    <p>Sem valores para exibir neste período.</p>
+                  </div>
+                }
+              </section>
+
+              <!-- Lançamentos -->
+              <section class="card" aria-labelledby="lanc-title">
+                <header class="card__header">
+                  <h2 id="lanc-title" class="card__title">Lançamentos</h2>
+                  <span class="card__badge">{{ transacoesFiltradas().length }}</span>
+                </header>
+
+                <ul class="transacoes">
+                  @for (t of transacoesVisiveis(); track t.id) {
+                    <li class="transacao">
+                      <span
+                        class="transacao__icone"
+                        [class.transacao__icone--entrada]="!ehSaida(t)"
+                        aria-hidden="true"
+                      >
+                        <ion-icon [name]="!ehSaida(t) ? 'trending-up-outline' : t.cartaoid ? 'card-outline' : 'trending-down-outline'"></ion-icon>
+                      </span>
+                      <span class="transacao__info">
+                        <span class="transacao__desc">{{ t.descricao }}</span>
+                        <span class="transacao__meta">
+                          {{ formatarData(t) }} · {{ t.subcategoria_nome || t.categoria_nome || 'Sem categoria' }}
+                          @if (t.cartaoid) {
+                            · Cartão
+                          }
+                        </span>
+                      </span>
+                      <span class="transacao__direita">
+                        <span class="transacao__valor" [class.transacao__valor--entrada]="!ehSaida(t)">
+                          {{ ehSaida(t) ? '−' : '+' }}{{ formatarMoeda(t.valor) }}
+                        </span>
+                        @if (t.status !== 'pago') {
+                          <span class="transacao__pendente">Pendente</span>
+                        }
+                      </span>
+                    </li>
+                  }
+                </ul>
+
+                @if (transacoesFiltradas().length > transacoesVisiveis().length) {
+                  <button type="button" class="btn-mais" (click)="mostrarMais()">
+                    Mostrar mais ({{ transacoesFiltradas().length - transacoesVisiveis().length }} restantes)
+                  </button>
+                }
+              </section>
+            </div>
+          </div>
+        }
+      </div>
+    }
+  </section>
+</ion-content>

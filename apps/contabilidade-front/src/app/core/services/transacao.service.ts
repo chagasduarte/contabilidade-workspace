@@ -10,6 +10,7 @@ import {
   ResumoTransacoesSaida,
   Transacao,
   ExtratoPaginado,
+  AgrupamentoTipoResponse,
 } from '@contabilidade/models';
 import { API_URL } from './categoria.service';
 
@@ -244,6 +245,31 @@ export class TransacaoService {
           this.loading.set(false);
         })
       );
+  }
+
+  /**
+   * Busca despesas/entradas agrupadas por tipo/categoria com filtros de mês, ano ou período customizado.
+   */
+  buscarAgrupamentoTipo(params: {
+    mes?: number;
+    ano?: number;
+    tipo?: string;
+    status?: string;
+    inicio?: string;
+    fim?: string;
+  }): Observable<AgrupamentoTipoResponse> {
+    let httpParams = new HttpParams();
+    if (params.mes != null) httpParams = httpParams.set('mes', String(params.mes));
+    if (params.ano != null) httpParams = httpParams.set('ano', String(params.ano));
+    if (params.tipo) httpParams = httpParams.set('tipo', params.tipo);
+    if (params.status) httpParams = httpParams.set('status', params.status);
+    if (params.inicio) httpParams = httpParams.set('inicio', params.inicio);
+    if (params.fim) httpParams = httpParams.set('fim', params.fim);
+
+    return this.http.get<AgrupamentoTipoResponse>(
+      `${this.baseUrl}/transacoes/agrupadaPorTipos`,
+      { params: httpParams }
+    );
   }
 
   /**

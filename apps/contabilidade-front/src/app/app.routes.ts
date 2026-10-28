@@ -171,11 +171,7 @@ export const appRoutes: Route[] = [
       {
         path: 'relatorios',
         loadComponent: () =>
-          import('./pages/navigation-info/navigation-info').then((m) => m.NavigationInfo),
-        data: {
-          title: 'Relatórios',
-          description: 'Os relatórios financeiros serão apresentados nesta área.',
-        },
+          import('./pages/relatorios/relatorios.page').then((m) => m.RelatoriosPage),
       },
       {
         path: 'configuracoes',

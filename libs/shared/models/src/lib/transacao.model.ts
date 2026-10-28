@@ -101,3 +101,18 @@ export interface ExtratoPaginado {
   /** Opcional: totais do mês inteiro, independentes da página (pedido ao BackEnd). */
   totais?: ExtratoTotais | null;
 }
+
+export interface AgrupamentoTipoItem {
+  total_tipo: number | string;
+  idcategoria: number | null;
+  subcategoria: number | null;
+  idsubcategoria?: number | null;
+  categoria_nome?: string | null;
+  subcategoria_nome?: string | null;
+}
+
+export interface AgrupamentoTipoResponse {
+  soma: { soma: number };
+  agrupamento: AgrupamentoTipoItem[];
+}
+
