@@ -1,6 +1,7 @@
 import {
   ApplicationConfig,
   DEFAULT_CURRENCY_CODE,
+  inject,
   LOCALE_ID,
   provideBrowserGlobalErrorListeners,
   provideZoneChangeDetection,
@@ -16,6 +17,7 @@ import { AUTH_NAVIGATION_HANDLER } from '@org/shared-ui-navigation';
 import { appRoutes } from './app.routes';
 import { tokenInterceptor } from './core/interceptors/token.interceptor';
 import { AuthService } from './core/services/auth.service';
+import { DashboardService } from './core/services/dashboard.service';
 import { registerLocaleData } from '@angular/common';
 import localePt from '@angular/common/locales/pt';
 
@@ -32,7 +34,26 @@ export const appConfig: ApplicationConfig = {
     // Telas que usam `currency`/`number`/`date` sem locale explícito formatavam em en-US ("R$2,446.21").
     { provide: LOCALE_ID, useValue: 'pt-BR' },
     { provide: DEFAULT_CURRENCY_CODE, useValue: 'BRL' },
-    { provide: AUTH_NAVIGATION_HANDLER, useExisting: AuthService },
+    {
+      provide: AUTH_NAVIGATION_HANDLER,
+      useFactory: () => {
+        const authService = inject(AuthService);
+        const dashboardService = inject(DashboardService);
+        return {
+          logout: () => authService.logout(),
+          currentUser: () => authService.currentUser(),
+          ensureAccountBalance: () => {
+            if (
+              authService.isAuthenticated() &&
+              dashboardService.resumo() === null &&
+              !dashboardService.loading()
+            ) {
+              dashboardService.carregarResumo().subscribe({ error: () => undefined });
+            }
+          },
+        };
+      },
+    },
   ],
 };
 

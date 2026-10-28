@@ -4,22 +4,53 @@
       <ion-icon name="checkmark-done-circle" class="mobile-header__logo-icon" aria-hidden="true"></ion-icon>
       <span class="mobile-header__logo-text">Conta<strong>Perfeita</strong></span>
     </div>
-  
-    <button
-      type="button"
-      class="mobile-header__menu-btn"
-      (click)="menuClick.emit()"
-      [attr.aria-expanded]="menuOpen"
-      [attr.aria-label]="menuOpen ? 'Fechar menu' : 'Abrir menu'"
-      aria-controls="mobile-extra-navigation"
-    >
-      <span class="mobile-header__menu-icon" aria-hidden="true">
-        <span></span>
-        <span></span>
-        <span></span>
-      </span>
-      <span class="mobile-header__notification-dot" aria-hidden="true"></span>
-    </button>
+
+    <div class="mobile-header__actions">
+      <div class="mobile-header__balance" data-testid="mobile-account-balance">
+        <div class="mobile-header__balance-info">
+          <span class="mobile-header__balance-label">
+            <ion-icon name="wallet-outline" aria-hidden="true"></ion-icon>
+            Saldo em conta
+          </span>
+          <strong
+            class="mobile-header__balance-value"
+            [class.mobile-header__balance-value--negative]="balanceVisible() && accountBalance() < 0"
+            data-testid="mobile-balance-value"
+          >
+            @if (balanceVisible()) {
+              {{ accountBalance() | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}
+            } @else {
+              R$ •••••
+            }
+          </strong>
+        </div>
+        <button
+          type="button"
+          class="mobile-header__balance-toggle"
+          (click)="toggleBalanceVisibility()"
+          [attr.aria-label]="balanceVisible() ? 'Ocultar saldo' : 'Mostrar saldo'"
+          data-testid="mobile-balance-toggle"
+        >
+          <ion-icon [name]="balanceVisible() ? 'eye-outline' : 'eye-off-outline'" aria-hidden="true"></ion-icon>
+        </button>
+      </div>
+
+      <button
+        type="button"
+        class="mobile-header__menu-btn"
+        (click)="menuClick.emit()"
+        [attr.aria-expanded]="menuOpen"
+        [attr.aria-label]="menuOpen ? 'Fechar menu' : 'Abrir menu'"
+        aria-controls="mobile-extra-navigation"
+      >
+        <span class="mobile-header__menu-icon" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </span>
+        <span class="mobile-header__notification-dot" aria-hidden="true"></span>
+      </button>
+    </div>
   </div>
 
   <!-- Régua horizontal de seleção de meses (só em telas mensais) -->

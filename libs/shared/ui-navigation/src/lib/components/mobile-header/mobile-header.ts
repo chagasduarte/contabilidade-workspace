@@ -7,11 +7,21 @@ import {
   Input,
   output,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, registerLocaleData } from '@angular/common';
+import localePt from '@angular/common/locales/pt';
 import { IonHeader, IonIcon } from '@ionic/angular';
 import { addIcons } from 'ionicons';
-import { checkmarkDoneCircle, checkmarkOutline, menuOutline } from 'ionicons/icons';
+import {
+  checkmarkDoneCircle,
+  checkmarkOutline,
+  menuOutline,
+  walletOutline,
+  eyeOutline,
+  eyeOffOutline,
+} from 'ionicons/icons';
 import { HeaderStateService } from '../desktop-header/services/header-state.service';
+
+registerLocaleData(localePt, 'pt-BR');
 
 export interface MonthOption {
   id: number;
@@ -47,11 +57,20 @@ export class MobileHeader {
 
   readonly selectedMonthId = this.headerState.selectedMonth;
   readonly showMonthSelector = this.headerState.showMonthSelector;
+  readonly accountBalance = this.headerState.accountBalance;
+  readonly balanceVisible = this.headerState.balanceVisible;
   monthChange = output<number>();
   menuClick = output<void>();
 
   constructor() {
-    addIcons({ checkmarkDoneCircle, checkmarkOutline, menuOutline });
+    addIcons({
+      checkmarkDoneCircle,
+      checkmarkOutline,
+      menuOutline,
+      walletOutline,
+      eyeOutline,
+      eyeOffOutline,
+    });
 
     // Mantém o mês ativo visível na régua horizontal.
     afterRenderEffect(() => {
@@ -61,6 +80,10 @@ export class MobileHeader {
       const pill = this.host.nativeElement.querySelector<HTMLElement>(`[data-month="${id}"]`);
       pill?.scrollIntoView?.({ block: 'nearest', inline: 'center', behavior: 'smooth' });
     });
+  }
+
+  toggleBalanceVisibility(): void {
+    this.headerState.toggleBalanceVisibility();
   }
 
   selectMonth(id: number): void {

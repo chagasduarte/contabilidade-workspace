@@ -4,6 +4,36 @@
     <span class="desktop-sidebar__brand-title">Conta<strong>Perfeita</strong></span>
   </div>
 
+  <div class="desktop-sidebar__balance-card" data-testid="sidebar-account-balance">
+    <div class="desktop-sidebar__balance-header">
+      <div class="desktop-sidebar__balance-title">
+        <ion-icon name="wallet-outline" aria-hidden="true"></ion-icon>
+        <span>Saldo em conta</span>
+      </div>
+      <button
+        type="button"
+        class="desktop-sidebar__balance-toggle"
+        (click)="toggleBalanceVisibility()"
+        [attr.aria-label]="balanceVisible() ? 'Ocultar saldo' : 'Mostrar saldo'"
+        [title]="balanceVisible() ? 'Ocultar saldo' : 'Mostrar saldo'"
+        data-testid="sidebar-balance-toggle"
+      >
+        <ion-icon [name]="balanceVisible() ? 'eye-outline' : 'eye-off-outline'" aria-hidden="true"></ion-icon>
+      </button>
+    </div>
+    <strong
+      class="desktop-sidebar__balance-amount"
+      [class.desktop-sidebar__balance-amount--negative]="balanceVisible() && accountBalance() < 0"
+      data-testid="sidebar-balance-value"
+    >
+      @if (balanceVisible()) {
+        {{ accountBalance() | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}
+      } @else {
+        R$ •••••
+      }
+    </strong>
+  </div>
+
   <nav class="desktop-sidebar__nav">
     @for (item of items; track item.route) {
       <a

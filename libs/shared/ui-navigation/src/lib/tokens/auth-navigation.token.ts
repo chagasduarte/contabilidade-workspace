@@ -10,6 +10,7 @@ export interface AuthNavigationUser {
 export interface AuthNavigationHandler {
   logout: () => void;
   currentUser?: () => AuthNavigationUser | null;
+  ensureAccountBalance?: () => void;
 }
 
 export const AUTH_NAVIGATION_HANDLER = new InjectionToken<AuthNavigationHandler>(

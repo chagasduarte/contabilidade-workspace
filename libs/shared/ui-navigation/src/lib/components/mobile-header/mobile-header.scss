@@ -42,6 +42,73 @@
     }
   }
 
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  &__balance {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, rgba(74, 222, 128, 0.1) 0%, rgba(30, 41, 59, 0.7) 100%);
+    border: 1px solid rgba(74, 222, 128, 0.22);
+  }
+
+  &__balance-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    line-height: 1.15;
+  }
+
+  &__balance-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.62rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #94a3b8;
+
+    ion-icon {
+      font-size: 0.72rem;
+      color: #4ade80;
+    }
+  }
+
+  &__balance-value {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #4ade80;
+    white-space: nowrap;
+
+    &--negative {
+      color: #f87171;
+    }
+  }
+
+  &__balance-toggle {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    padding: 2px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    ion-icon {
+      font-size: 0.95rem;
+    }
+  }
+
   &__menu-btn {
     position: relative;
     width: 36px;

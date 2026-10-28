@@ -9,14 +9,18 @@ import { DesktopHeaderStrategy } from '../strategies/desktop-header.strategy';
   providedIn: 'root',
 })
 export class HeaderStateService {
-  private readonly router = inject(Router);
+  private readonly router = inject(Router, { optional: true });
   private readonly strategyFactory = inject(DesktopHeaderStrategyFactory);
 
-  readonly currentRoute = signal<string>(this.router.url || '');
+  readonly currentRoute = signal<string>(this.router?.url || '');
   readonly selectedYear = signal<number>(new Date().getFullYear());
   /** Mês selecionado (1-12), compartilhado entre a régua do header mobile e as páginas. */
   readonly selectedMonth = signal<number>(new Date().getMonth() + 1);
   readonly searchTerm = signal<string>('');
+  /** Saldo atual em conta corrente (exibido na sidebar web e no header mobile). */
+  readonly accountBalance = signal<number>(0);
+  /** Controla se o saldo em conta está visível ou oculto. */
+  readonly balanceVisible = signal<boolean>(true);
   /**
    * Indica se a rota ativa trabalha por mês (`data: { monthSelector: true }`).
    * Controla a exibição da régua de meses do header mobile.
@@ -32,12 +36,14 @@ export class HeaderStateService {
   );
 
   constructor() {
-    this.router.events
+    this.router?.events
       .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
       .subscribe((event) => {
         const url = event.urlAfterRedirects || event.url;
         this.currentRoute.set(url);
-        this.showMonthSelector.set(this.rotaUsaMes(this.router.routerState.snapshot.root));
+        if (this.router) {
+          this.showMonthSelector.set(this.rotaUsaMes(this.router.routerState.snapshot.root));
+        }
       });
   }
 
@@ -71,6 +77,15 @@ export class HeaderStateService {
 
   clearSearch(): void {
     this.searchTerm.set('');
+  }
+
+  setAccountBalance(balance: number): void {
+    const val = Number.isFinite(balance) ? balance : 0;
+    this.accountBalance.set(val);
+  }
+
+  toggleBalanceVisibility(): void {
+    this.balanceVisible.update((visible) => !visible);
   }
 }
 

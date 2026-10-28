@@ -35,6 +35,7 @@ export class AppLayout {
 
   constructor() {
     addIcons({ logOutOutline });
+    this.authHandler?.ensureAccountBalance?.();
   }
 
   toggleMobileMenu(): void {

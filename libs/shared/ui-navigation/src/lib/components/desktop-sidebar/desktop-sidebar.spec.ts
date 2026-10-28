@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { DesktopSidebar } from './desktop-sidebar';
+import { HeaderStateService } from '../desktop-header/services/header-state.service';
 
 describe('DesktopSidebar', () => {
   let component: DesktopSidebar;
@@ -52,5 +53,20 @@ describe('DesktopSidebar', () => {
     logoutBtn.click();
 
     expect(logoutMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('deve exibir o saldo em conta no menu lateral e permitir ocultar/mostrar', () => {
+    const headerState = TestBed.inject(HeaderStateService);
+    headerState.setAccountBalance(3450.75);
+    fixture.detectChanges();
+
+    const balanceEl = fixture.nativeElement.querySelector('[data-testid="sidebar-balance-value"]');
+    expect(balanceEl?.textContent).toContain('3.450,75');
+
+    const toggleBtn = fixture.nativeElement.querySelector('[data-testid="sidebar-balance-toggle"]');
+    toggleBtn.click();
+    fixture.detectChanges();
+
+    expect(balanceEl?.textContent?.trim()).toBe('R$ •••••');
   });
 });

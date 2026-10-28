@@ -40,4 +40,23 @@ describe('MobileHeader', () => {
 
     expect((fixture.nativeElement as HTMLElement).querySelector('[role="tablist"]')).toBeNull();
   });
+
+  it('deve exibir o saldo em conta no cabeçalho mobile e permitir ocultar/mostrar', () => {
+    const headerState = TestBed.inject(HeaderStateService);
+    headerState.setAccountBalance(1280.5);
+    fixture.detectChanges();
+
+    const balanceEl = (fixture.nativeElement as HTMLElement).querySelector(
+      '[data-testid="mobile-balance-value"]'
+    );
+    expect(balanceEl?.textContent).toContain('1.280,50');
+
+    const toggleBtn = (fixture.nativeElement as HTMLElement).querySelector(
+      '[data-testid="mobile-balance-toggle"]'
+    ) as HTMLButtonElement;
+    toggleBtn.click();
+    fixture.detectChanges();
+
+    expect(balanceEl?.textContent?.trim()).toBe('R$ •••••');
+  });
 });

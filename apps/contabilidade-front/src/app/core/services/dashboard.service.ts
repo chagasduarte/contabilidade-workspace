@@ -8,6 +8,7 @@ import {
   DashboardDespesaItem,
   ProjecaoMensal,
 } from '@contabilidade/models';
+import { HeaderStateService } from '@org/shared-ui-navigation';
 import { API_URL } from './categoria.service';
 
 @Injectable({
@@ -16,6 +17,7 @@ import { API_URL } from './categoria.service';
 export class DashboardService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = inject(API_URL);
+  private readonly headerState = inject(HeaderStateService, { optional: true });
 
   readonly mes = signal<number>(new Date().getMonth() + 1);
   readonly ano = signal<number>(new Date().getFullYear());
@@ -46,6 +48,7 @@ export class DashboardService {
         tap((dados) => {
           this.resumo.set(dados);
           this.despesas.set(dados.despesas_mes ?? []);
+          this.headerState?.setAccountBalance(Number(dados.saldo_atual ?? 0));
         }),
         catchError((err: Error) => {
           this.error.set(mensagemErroHttp(err, 'Erro ao carregar resumo do dashboard.'));
@@ -138,6 +141,7 @@ export class DashboardService {
         this.resumo.set(resumo);
         this.projecao.set(projecao ?? []);
         this.despesas.set(resumo.despesas_mes ?? []);
+        this.headerState?.setAccountBalance(Number(resumo.saldo_atual ?? 0));
       }),
       catchError((err: Error) => {
         this.error.set(mensagemErroHttp(err, 'Erro ao carregar dados do dashboard.'));

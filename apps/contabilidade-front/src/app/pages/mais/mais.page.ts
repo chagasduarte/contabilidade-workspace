@@ -29,6 +29,7 @@ import {
 } from 'ionicons/icons';
 import { TransactionModal } from '../../components/modals/transaction-modal/transaction-modal';
 import { AuthService } from '../../core/services/auth.service';
+import { DashboardService } from '../../core/services/dashboard.service';
 
 export interface QuickMenuItem {
   title: string;
@@ -49,6 +50,7 @@ export interface QuickMenuItem {
 export class MaisPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly authService = inject(AuthService);
+  private readonly dashboardService = inject(DashboardService, { optional: true });
   private readonly alertCtrl = inject(AlertController);
 
   readonly currentUser = this.authService.currentUser;
@@ -182,7 +184,7 @@ export class MaisPage implements OnInit {
   }
 
   onTransacaoCriada(): void {
-    // Transação adicionada com sucesso
+    this.dashboardService?.carregarResumo().subscribe({ error: () => undefined });
   }
 }
 
