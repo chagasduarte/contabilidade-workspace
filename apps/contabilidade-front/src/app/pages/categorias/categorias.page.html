@@ -276,13 +276,27 @@
         </div>
 
         <div class="form-group">
-          <label for="cat-icone-input">Ícone (Nome do Ionic Icon)</label>
-          <ion-input
-            id="cat-icone-input"
-            type="text"
-            placeholder="Ex: pricetag-outline, cart-outline"
-            [(ngModel)]="formCategoriaIcone"
-          ></ion-input>
+          <label id="cat-icone-label">Ícone</label>
+          <div
+            class="icon-selector-grid"
+            role="listbox"
+            aria-labelledby="cat-icone-label"
+          >
+            @for (icone of iconesDisponiveis; track icone) {
+              <button
+                type="button"
+                class="icon-option-btn"
+                role="option"
+                [class.selected]="formCategoriaIcone === icone"
+                [attr.aria-selected]="formCategoriaIcone === icone"
+                [attr.aria-label]="icone"
+                [style.--selected-color]="formCategoriaCor || '#3880ff'"
+                (click)="selecionarIconeCategoria(icone)"
+              >
+                <ion-icon [name]="icone" aria-hidden="true"></ion-icon>
+              </button>
+            }
+          </div>
         </div>
 
         @if (erroFormulario()) {
@@ -351,13 +365,27 @@
         </div>
 
         <div class="form-group">
-          <label for="sub-icone-input">Ícone (Nome do Ionic Icon)</label>
-          <ion-input
-            id="sub-icone-input"
-            type="text"
-            placeholder="Ex: pricetag-outline"
-            [(ngModel)]="formSubcategoriaIcone"
-          ></ion-input>
+          <label id="sub-icone-label">Ícone</label>
+          <div
+            class="icon-selector-grid"
+            role="listbox"
+            aria-labelledby="sub-icone-label"
+          >
+            @for (icone of iconesDisponiveis; track icone) {
+              <button
+                type="button"
+                class="icon-option-btn"
+                role="option"
+                [class.selected]="formSubcategoriaIcone === icone"
+                [attr.aria-selected]="formSubcategoriaIcone === icone"
+                [attr.aria-label]="icone"
+                [style.--selected-color]="formSubcategoriaCor || '#3880ff'"
+                (click)="selecionarIconeSubcategoria(icone)"
+              >
+                <ion-icon [name]="icone" aria-hidden="true"></ion-icon>
+              </button>
+            }
+          </div>
         </div>
 
         @if (erroFormulario()) {

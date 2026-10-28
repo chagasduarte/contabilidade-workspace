@@ -280,6 +280,52 @@
       padding: 4px;
       cursor: pointer;
     }
+
+    .icon-selector-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(42px, 1fr));
+      gap: 8px;
+      max-height: 220px;
+      overflow-y: auto;
+      padding: 10px;
+      background: #1b2028;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+    }
+
+    .icon-option-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      aspect-ratio: 1;
+      min-height: 42px;
+      padding: 0;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      background: #141920;
+      color: #94a3b8;
+      cursor: pointer;
+      transition: all 0.15s ease;
+
+      ion-icon {
+        font-size: 20px;
+        pointer-events: none;
+      }
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.06);
+        color: #f8fafc;
+        border-color: rgba(255, 255, 255, 0.18);
+      }
+
+      &.selected {
+        background: rgba(56, 128, 255, 0.15);
+        border-color: var(--selected-color, #3880ff);
+        color: var(--selected-color, #3880ff);
+        box-shadow: 0 0 0 2px rgba(56, 128, 255, 0.25);
+      }
+    }
   }
 
   .modal-buttons {
