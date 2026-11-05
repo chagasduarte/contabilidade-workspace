@@ -833,6 +833,24 @@ Permite o controle integral de fluxo de caixa, cartões de crédito com faturas 
         },
       },
     },
+    '/transacoes/parcelamentos/{origem}/{grupoId}': {
+      get: {
+        tags: ['Transações'],
+        summary: 'Histórico completo de uma compra parcelada',
+        description: 'Consulta todas as parcelas pelo grupo da conta ou pela compra do cartão, sem filtro mensal e restrita ao usuário autenticado. Valores são somados em centavos. historicoCompleto indica se todas as parcelas esperadas estão disponíveis; no cartão, o pagamento acompanha a quitação da fatura.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'origem', in: 'path', required: true, schema: { type: 'string', enum: ['conta', 'cartao'] } },
+          { name: 'grupoId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          200: { description: 'Resumo financeiro, progresso, integridade do histórico e lista ordenada de parcelas.' },
+          400: { description: 'Origem ou identificador inválido.' },
+          401: { description: 'Usuário não autenticado.' },
+          404: { description: 'Parcelamento inexistente ou indisponível para o usuário.' },
+        },
+      },
+    },
     '/transacoes/extrato': {
       get: {
         tags: ['Transações'],

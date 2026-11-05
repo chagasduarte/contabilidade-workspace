@@ -1,3 +1,4 @@
+import { resolverAcaoLancamento, AcaoLancamento } from './lancamento-acao';
 import {
   CurrencyPipe,
   DatePipe,
@@ -84,6 +85,7 @@ export interface TransactionViewItem {
   isRecorrente?: boolean;
   isReadOnly?: boolean;
   raw: Transacao;
+  acao: AcaoLancamento;
 }
 
 const MESES_PT: readonly string[] = [
@@ -234,6 +236,7 @@ export class Lancamentos implements OnInit {
         isRecorrente,
         isReadOnly: isCard || isSettledRecord,
         raw: item,
+        acao: resolverAcaoLancamento(item, isCard || isSettledRecord),
       };
     });
   });
@@ -569,6 +572,18 @@ export class Lancamentos implements OnInit {
 
   onTransacaoCriada(): void {
     this.carregarExtrato();
+  }
+
+  abrirLancamento(transaction: TransactionViewItem, event?: Event): void {
+    if (event?.target !== event?.currentTarget && event?.type.startsWith('key')) return;
+    const acao = transaction.acao;
+    if (acao.tipo === 'parcelamento') {
+      void this.router.navigate(['/parcelamentos', acao.origem, acao.id]);
+    } else if (acao.tipo === 'editar') {
+      this.abrirEdicao(transaction);
+    } else if (acao.tipo === 'origem') {
+      this.abrirItemCartao(transaction);
+    }
   }
 
   abrirItemCartao(transaction: TransactionViewItem): void {

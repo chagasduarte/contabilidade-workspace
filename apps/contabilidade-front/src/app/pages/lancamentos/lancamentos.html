@@ -228,32 +228,13 @@
         @for (transaction of transactions(); track transaction.id) {
           <article
             class="transaction"
-            [class.transaction--card]="transaction.isCard || (transaction.origem === 'EMPRESTIMO' && !!transaction.loanId)"
-            [attr.role]="
-              (transaction.isCard && transaction.cardId) || (transaction.origem === 'EMPRESTIMO' && transaction.loanId)
-                ? 'link'
-                : null
-            "
-            [attr.tabindex]="
-              (transaction.isCard && transaction.cardId) || (transaction.origem === 'EMPRESTIMO' && transaction.loanId)
-                ? '0'
-                : null
-            "
-            [attr.aria-label]="
-              transaction.isCard && transaction.cardId
-                ? transaction.description + ' — ver cartão ' + (transaction.cardLabel || '')
-                : transaction.origem === 'EMPRESTIMO' && transaction.loanId
-                ? transaction.description + ' — ver empréstimo'
-                : null
-            "
-            (click)="abrirItemCartao(transaction)"
-            (keydown.enter)="abrirItemCartao(transaction)"
-            (keydown.space)="
-              (transaction.isCard && transaction.cardId) || (transaction.origem === 'EMPRESTIMO' && transaction.loanId)
-                ? $event.preventDefault()
-                : null;
-              abrirItemCartao(transaction)
-            "
+            [class.transaction--card]="transaction.acao.tipo !== 'nenhuma'"
+            [attr.role]="transaction.acao.tipo === 'nenhuma' ? null : transaction.acao.tipo === 'editar' ? 'button' : 'link'"
+            [attr.tabindex]="transaction.acao.tipo !== 'nenhuma' ? 0 : null"
+            [attr.aria-label]="transaction.description + (transaction.acao.tipo === 'parcelamento' ? ' — ver parcelamento' : transaction.acao.tipo === 'editar' ? ' — editar lançamento' : ' — ver origem')"
+            (click)="abrirLancamento(transaction)"
+            (keydown.enter)="abrirLancamento(transaction, $event)"
+            (keydown.space)=" $event.target === $event.currentTarget && $event.preventDefault(); abrirLancamento(transaction, $event)"
           >
             <div class="transaction__date">
               <strong>{{ transaction.date | date: 'dd' : 'UTC' : 'pt-BR' }}</strong>
@@ -305,7 +286,7 @@
               {{ transaction.status }}
             </span>
 
-            <div class="transaction__actions" (click)="$event.stopPropagation()">
+            <div class="transaction__actions">
               @if (!transaction.isReadOnly) {
                 @if (transaction.status === 'Pendente') {
                   <button

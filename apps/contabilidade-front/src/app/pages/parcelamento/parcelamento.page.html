@@ -1,0 +1,158 @@
+<ion-content class="parcelamento-content">
+  <main class="parcelamento" aria-labelledby="parcelamento-title">
+    <a routerLink="/lancamentos" class="voltar">← Voltar aos lançamentos</a>
+    @if (carregando()) {
+    <div class="estado" role="status">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>Carregando parcelamento...</p>
+    </div>
+    } @else if (erro()) {
+    <div class="estado">
+      <h1 id="parcelamento-title">Detalhes do parcelamento</h1>
+      <p role="alert">{{ erro() }}</p>
+      <button type="button" (click)="tentarNovamente()">
+        Tentar novamente
+      </button>
+    </div>
+    } @else if (detalhes(); as dados) {
+    <header class="cabecalho">
+      <div>
+        <p class="eyebrow">
+          {{ dados.origem === 'cartao' ? 'Compra no cartão' : 'Compra parcelada'
+          }}
+        </p>
+        <h1 id="parcelamento-title">{{ dados.descricao }}</h1>
+        <p>
+          {{ dados.totalParcelas }} parcelas · {{ dados.parcelasPagas }} pagas
+        </p>
+      </div>
+      <span
+        class="situacao"
+        [class.quitado]="dados.historicoCompleto && dados.parcelasPendentes === 0"
+        >{{ dados.historicoCompleto && dados.parcelasPendentes === 0 ? 'Quitado'
+        : 'Em acompanhamento' }}</span
+      >
+    </header>
+    @if (!dados.historicoCompleto) {
+    <p class="aviso" role="status">
+      O histórico desta compra está incompleto: {{ dados.parcelas.length }} de
+      {{ dados.totalParcelas }} parcelas disponíveis. Os valores abaixo
+      consideram somente os registros encontrados.
+    </p>
+    }
+    <div class="resumo" aria-label="Resumo financeiro">
+      <article>
+        <span
+          >{{ dados.historicoCompleto ? 'Total da compra' : 'Total registrado'
+          }}</span
+        ><strong
+          >{{ dados.total | currency:'BRL':'symbol':'1.2-2':'pt-BR' }}</strong
+        >
+      </article>
+      <article class="pago">
+        <span>Total pago</span
+        ><strong
+          >{{ dados.totalPago | currency:'BRL':'symbol':'1.2-2':'pt-BR'
+          }}</strong
+        >
+      </article>
+      <article>
+        <span
+          >Saldo a pagar{{ dados.historicoCompleto ? '' : ' registrado' }}</span
+        ><strong
+          >{{ dados.saldoRestante | currency:'BRL':'symbol':'1.2-2':'pt-BR'
+          }}</strong
+        >
+      </article>
+    </div>
+    <section class="painel progresso" aria-labelledby="progresso-title">
+      <div class="linha-titulo">
+        <h2 id="progresso-title">
+          {{ dados.historicoCompleto ? 'Progresso do pagamento' : 'Progresso dos
+          registros disponíveis' }}
+        </h2>
+        <strong>{{ dados.progresso | number:'1.0-1':'pt-BR' }}%</strong>
+      </div>
+      <progress
+        [value]="dados.progresso"
+        max="100"
+        aria-label="Percentual do valor pago"
+      ></progress>
+      <div class="linha-titulo legenda">
+        <span
+          >{{ dados.parcelasPagas }} {{ dados.parcelasPagas === 1 ? 'parcela
+          paga' : 'parcelas pagas' }}</span
+        ><span
+          >{{ dados.parcelasPendentes }} {{ dados.parcelasPendentes === 1 ?
+          'parcela pendente' : 'parcelas pendentes' }}</span
+        >
+      </div>
+      @if (proximaParcela(); as proxima) {
+      <p class="proxima">
+        Próxima pendente:
+        <strong>{{ proxima.vencimento | date:'dd/MM/yyyy':'UTC' }}</strong> · {{
+        proxima.valor | currency:'BRL':'symbol':'1.2-2':'pt-BR' }}
+      </p>
+      } @else if (dados.historicoCompleto) {
+      <p class="proxima">Todas as parcelas foram pagas.</p>
+      } @if (dados.origem === 'cartao') {
+      <p class="nota">
+        No cartão, a parcela é considerada paga quando sua fatura é quitada.
+      </p>
+      }
+    </section>
+    <section class="painel historico" aria-labelledby="historico-title">
+      <div class="linha-titulo">
+        <h2 id="historico-title">Histórico de parcelas</h2>
+        <span>{{ dados.parcelas.length }} registros</span>
+      </div>
+      <div class="filtros" role="group" aria-label="Filtrar parcelas">
+        <button
+          type="button"
+          [attr.aria-pressed]="filtro() === 'todas'"
+          (click)="filtro.set('todas')"
+        >
+          Todas
+        </button>
+        <button
+          type="button"
+          [attr.aria-pressed]="filtro() === 'pendente'"
+          (click)="filtro.set('pendente')"
+        >
+          Pendentes
+        </button>
+        <button
+          type="button"
+          [attr.aria-pressed]="filtro() === 'pago'"
+          (click)="filtro.set('pago')"
+        >
+          Pagas
+        </button>
+      </div>
+      <ol class="parcelas">
+        @for (parcela of parcelasVisiveis(); track parcela.id) {
+        <li>
+          <span class="numero">{{ parcela.numero }}</span>
+          <div class="parcela-info">
+            <strong
+              >Parcela {{ parcela.numero }} de {{ dados.totalParcelas }}</strong
+            ><span
+              >Vencimento {{ parcela.vencimento | date:'dd/MM/yyyy':'UTC'
+              }}</span
+            >
+          </div>
+          <strong class="valor"
+            >{{ parcela.valor | currency:'BRL':'symbol':'1.2-2':'pt-BR'
+            }}</strong
+          ><span class="status" [class.paga]="parcela.status === 'pago'"
+            >{{ parcela.status === 'pago' ? 'Paga' : 'Pendente' }}</span
+          >
+        </li>
+        } @empty {
+        <li class="vazio">Nenhuma parcela neste filtro.</li>
+        }
+      </ol>
+    </section>
+    }
+  </main>
+</ion-content>

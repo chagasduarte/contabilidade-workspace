@@ -491,4 +491,29 @@ describe('Lancamentos', () => {
     component.abrirItemCartao(loanItem);
     expect(navigateSpy).toHaveBeenCalledWith(['/emprestimos', 'uuid-loan-1']);
   });
+  it('abre o modal existente ao clicar em lançamento comum', () => {
+    const row = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.transaction');
+    row?.click();
+    expect(component.itemEmEdicao()).toEqual(mockExtrato[0]);
+    expect(component.modalNovaTransacaoAberto()).toBe(true);
+  });
+
+  it('abre detalhes da compra parcelada sem abrir edição', () => {
+    const router = TestBed.inject(Router);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    transacaoServiceStub.extrato.set([{ ...mockExtrato[1], parcela_grupo_id: 'compra', parcela_numero: 2, parcela_total: 3 }]);
+    fixture.detectChanges();
+    const row = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.transaction');
+    row?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(navigate).toHaveBeenCalledWith(['/parcelamentos', 'conta', 'compra']);
+    expect(component.modalNovaTransacaoAberto()).toBe(false);
+  });
+
+  it('não aciona a linha quando um botão interno recebe Enter', () => {
+    const abrir = vi.spyOn(component, 'abrirEdicao');
+    const button = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.transaction__icon-btn');
+    button?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(abrir).not.toHaveBeenCalled();
+  });
+
 });

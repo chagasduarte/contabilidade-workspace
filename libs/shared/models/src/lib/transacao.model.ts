@@ -14,6 +14,9 @@ export interface Transacao {
   target_id?: string;
   source_type?: string;
   source_id?: string;
+  parcela_grupo_id?: string | null;
+  parcela_numero?: number | null;
+  parcela_total?: number | null;
   cartaoid?: number | null;
   pagamento?: string | null;
   ispaycart?: boolean | null;

@@ -1,9 +1,25 @@
+import { ParcelamentoBusiness } from './parcelamento.business';
 import { Request, Response } from 'express';
 import { TransacaoBusiness } from './transacao.business';
 import { TransacaoNotFoundError } from './transacao.types';
 import { responderPaginado } from '../../common/utils/paginacao';
 
 export const TransacaoController = {
+  async detalharParcelamento(req: Request, res: Response): Promise<void> {
+    if (!req.usuarioId) { res.status(401).json({ erro: 'Usuário não autenticado' }); return; }
+    const { origem, grupoId } = req.params;
+    if ((origem !== 'conta' && origem !== 'cartao') ||
+      typeof grupoId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(grupoId)) {
+      res.status(400).json({ erro: 'Parcelamento inválido' }); return;
+    }
+    try {
+      res.json(await ParcelamentoBusiness.detalhar(grupoId, origem, req.usuarioId));
+    } catch (error) {
+      res.status(error instanceof TransacaoNotFoundError ? 404 : 500)
+        .json({ erro: error instanceof TransacaoNotFoundError ? 'Parcelamento não encontrado' : 'Erro ao consultar parcelamento' });
+    }
+  },
+
   async criar(req: Request, res: Response): Promise<void> {
     try {
       const userid = req.usuarioId;

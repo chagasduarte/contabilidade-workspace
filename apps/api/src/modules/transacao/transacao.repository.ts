@@ -602,7 +602,7 @@ export const TransacaoRepository = {
 
     let query = `SELECT t.id, t.descricao, t.tipo, t.valor, t.categoria, t.idcategoria, t.idsubcategoria, ${COLUNAS_NOMES},
                         TO_CHAR(t."data"::date, 'YYYY-MM-DD') AS data, t.status, t.cartaoid, t.pagamento,
-                        t.source_type, t.source_id
+                        t.source_type, t.source_id, t.parcela_grupo_id, t.parcela_numero, t.parcela_total
                  FROM transacoes t
                  ${joinNomes('t')}
                  WHERE t.userid = $1
@@ -656,7 +656,8 @@ export const TransacaoRepository = {
                         cc.nome AS origem_rotulo,
                         ci.id::text AS target_id,
                         'CREDIT_CARD_ITEM' AS source_type,
-                        cc.id::text AS source_id
+                        cc.id::text AS source_id,
+                        ct.id::text AS parcela_grupo_id, ii.numero_parcela AS parcela_numero, ct.quantidade_parcelas AS parcela_total
                  FROM invoice_items ii
                  JOIN card_invoices ci ON ci.id = ii.fatura_id
                  JOIN credit_cards cc ON cc.id = ci.cartao_id

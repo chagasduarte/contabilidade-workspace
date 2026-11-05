@@ -19,6 +19,9 @@ export interface TransacaoEntity {
   subcategoria_nome?: string | null;
   source_type?: string | null;
   source_id?: string | null;
+  parcela_grupo_id?: string | null;
+  parcela_numero?: number | null;
+  parcela_total?: number | null;
   /** 'CARTAO' nas parcelas de compras no cartão incluídas no extrato (somente leitura). */
   origem?: string | null;
   /** Nome do cartão, nas parcelas de cartão. */

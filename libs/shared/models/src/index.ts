@@ -12,3 +12,5 @@ export * from './lib/planned-transaction.model';
 export * from './lib/planejamento.model';
 export * from './lib/objetivo.model';
 export * from './lib/ai.model';
+
+export * from './lib/parcelamento.model';

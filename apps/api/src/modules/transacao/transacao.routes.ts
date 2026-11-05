@@ -6,6 +6,7 @@ const router = Router();
 
 router.use(authMiddleware);
 
+router.get('/parcelamentos/:origem/:grupoId', TransacaoController.detalharParcelamento);
 router.get('/parceladas', TransacaoController.listaDespesasParceladas);
 router.post('/parceladas', TransacaoController.criarParcelada);
 router.get('/extrato', TransacaoController.extrato);

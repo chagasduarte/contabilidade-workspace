@@ -37,6 +37,10 @@ export const appRoutes: Route[] = [
         data: { monthSelector: true },
       },
       {
+        path: 'parcelamentos/:origem/:grupoId',
+        loadComponent: () => import('./pages/parcelamento/parcelamento.page').then(m => m.ParcelamentoPage),
+      },
+      {
         path: 'categorias',
         loadComponent: () =>
           import('./pages/categorias/categorias.page').then((m) => m.CategoriasPage),
