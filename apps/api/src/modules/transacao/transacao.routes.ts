@@ -6,6 +6,7 @@ const router = Router();
 
 router.use(authMiddleware);
 
+router.delete('/parcelamentos/:origem/:grupoId', TransacaoController.excluirParcelamento);
 router.get('/parcelamentos/:origem/:grupoId', TransacaoController.detalharParcelamento);
 router.get('/parceladas', TransacaoController.listaDespesasParceladas);
 router.post('/parceladas', TransacaoController.criarParcelada);

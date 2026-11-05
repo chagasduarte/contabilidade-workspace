@@ -6,6 +6,15 @@ import { ParcelamentoRepository } from './parcelamento.repository';
 import { TransacaoNotFoundError } from './transacao.types';
 
 export const ParcelamentoBusiness = {
+  async excluir(
+    id: string,
+    origem: OrigemParcelamento,
+    userid: number,
+  ): Promise<void> {
+    if (!(await ParcelamentoRepository.excluir(id, origem, userid)))
+      throw new TransacaoNotFoundError();
+  },
+
   async detalhar(
     id: string,
     origem: OrigemParcelamento,

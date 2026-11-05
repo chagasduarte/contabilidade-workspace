@@ -3,7 +3,9 @@ import {
   ActivatedRoute,
   convertToParamMap,
   provideRouter,
+  Router,
 } from '@angular/router';
+import { AlertController } from '@ionic/angular';
 import { BehaviorSubject, of, throwError } from 'rxjs';
 import { ParcelamentoDetalhes } from '@contabilidade/models';
 import { ParcelamentoPage } from './parcelamento.page';
@@ -29,11 +31,17 @@ const dados: ParcelamentoDetalhes = {
   })),
 };
 describe('ParcelamentoPage', () => {
-  const service = { detalhar: vi.fn() };
+  const service = { detalhar: vi.fn(), excluir: vi.fn() };
+  const alert = { present: vi.fn(), onDidDismiss: vi.fn() };
+  const alertController = { create: vi.fn() };
   let params: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
   beforeEach(() => {
     vi.resetAllMocks();
     service.detalhar.mockReturnValue(of(dados));
+    service.excluir.mockReturnValue(of(undefined));
+    alert.present.mockResolvedValue(undefined);
+    alert.onDidDismiss.mockResolvedValue({ role: 'cancel' });
+    alertController.create.mockResolvedValue(alert);
     params = new BehaviorSubject(
       convertToParamMap({ origem: 'conta', grupoId: 'grupo' }),
     );
@@ -41,6 +49,7 @@ describe('ParcelamentoPage', () => {
       imports: [ParcelamentoPage],
       providers: [
         provideRouter([]),
+        { provide: AlertController, useValue: alertController },
         { provide: ParcelamentoService, useValue: service },
         { provide: ActivatedRoute, useValue: { paramMap: params } },
       ],
@@ -96,5 +105,66 @@ describe('ParcelamentoPage', () => {
     expect(fixture.nativeElement.textContent).not.toContain(
       'Todas as parcelas foram pagas.',
     );
+  });
+  it('exige confirmação e não exclui ao cancelar', async () => {
+    const fixture = TestBed.createComponent(ParcelamentoPage);
+    fixture.detectChanges();
+    await fixture.componentInstance.excluirCompra();
+    expect(alertController.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        header: 'Excluir compra definitivamente?',
+        message: expect.stringContaining('inclusive as pagas'),
+        buttons: expect.arrayContaining([
+          expect.objectContaining({ text: 'Cancelar', role: 'cancel' }),
+        ]),
+      }),
+    );
+    expect(service.excluir).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.excluindo()).toBe(false);
+  });
+  it('exclui todas as parcelas após confirmar e volta aos lançamentos', async () => {
+    alert.onDidDismiss.mockResolvedValue({ role: 'confirm' });
+    const navigate = vi
+      .spyOn(TestBed.inject(Router), 'navigate')
+      .mockResolvedValue(true);
+    const fixture = TestBed.createComponent(ParcelamentoPage);
+    fixture.detectChanges();
+    await fixture.componentInstance.excluirCompra();
+    expect(service.excluir).toHaveBeenCalledWith('conta', 'grupo');
+    expect(navigate).toHaveBeenCalledWith(['/lancamentos']);
+  });
+  it('mantém a página e informa erro quando a exclusão falha', async () => {
+    alert.onDidDismiss.mockResolvedValue({ role: 'confirm' });
+    service.excluir.mockReturnValue(throwError(() => new Error('offline')));
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate');
+    const fixture = TestBed.createComponent(ParcelamentoPage);
+    fixture.detectChanges();
+    await fixture.componentInstance.excluirCompra();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.detalhes()).toEqual(dados);
+    expect(fixture.componentInstance.excluindo()).toBe(false);
+    expect(
+      fixture.nativeElement.querySelector('[role="alert"]').textContent,
+    ).toContain('Não foi possível confirmar a exclusão');
+    expect(navigate).not.toHaveBeenCalled();
+  });
+  it('evita confirmações duplicadas e exclusão se a rota mudar durante o aviso', async () => {
+    let responder: (value: { role: string }) => void = () => undefined;
+    alert.onDidDismiss.mockReturnValue(
+      new Promise((resolve) => {
+        responder = resolve;
+      }),
+    );
+    const fixture = TestBed.createComponent(ParcelamentoPage);
+    fixture.detectChanges();
+    const pending = fixture.componentInstance.excluirCompra();
+    await fixture.componentInstance.excluirCompra();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(alertController.create).toHaveBeenCalledTimes(1);
+    params.next(convertToParamMap({ origem: 'invalida', grupoId: 'outro' }));
+    responder({ role: 'confirm' });
+    await pending;
+    expect(service.excluir).not.toHaveBeenCalled();
   });
 });

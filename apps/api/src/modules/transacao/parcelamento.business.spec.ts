@@ -6,7 +6,7 @@ import {
 } from './parcelamento.repository';
 import { TransacaoNotFoundError } from './transacao.types';
 vi.mock('./parcelamento.repository', () => ({
-  ParcelamentoRepository: { listar: vi.fn() },
+  ParcelamentoRepository: { listar: vi.fn(), excluir: vi.fn() },
 }));
 const parcela = (
   numero: number,
@@ -77,5 +77,21 @@ describe('Detalhes de parcelamento', () => {
     expect(
       (await ParcelamentoBusiness.detalhar('compra', 'conta', 8)).progresso,
     ).toBe(0);
+  });
+  it('exclui o grupo pelo usuário autenticado e trata ausência sem sucesso falso', async () => {
+    vi.mocked(ParcelamentoRepository.excluir)
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false);
+    await expect(
+      ParcelamentoBusiness.excluir('compra', 'conta', 7),
+    ).resolves.toBeUndefined();
+    expect(ParcelamentoRepository.excluir).toHaveBeenCalledWith(
+      'compra',
+      'conta',
+      7,
+    );
+    await expect(
+      ParcelamentoBusiness.excluir('compra', 'cartao', 99),
+    ).rejects.toBeInstanceOf(TransacaoNotFoundError);
   });
 });

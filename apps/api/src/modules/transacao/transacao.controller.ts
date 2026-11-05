@@ -5,6 +5,22 @@ import { TransacaoNotFoundError } from './transacao.types';
 import { responderPaginado } from '../../common/utils/paginacao';
 
 export const TransacaoController = {
+  async excluirParcelamento(req: Request, res: Response): Promise<void> {
+    if (!req.usuarioId) { res.status(401).json({ erro: 'Usuário não autenticado' }); return; }
+    const { origem, grupoId } = req.params;
+    if ((origem !== 'conta' && origem !== 'cartao') ||
+      typeof grupoId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(grupoId)) {
+      res.status(400).json({ erro: 'Parcelamento inválido' }); return;
+    }
+    try {
+      await ParcelamentoBusiness.excluir(grupoId, origem, req.usuarioId);
+      res.status(204).send();
+    } catch (error) {
+      res.status(error instanceof TransacaoNotFoundError ? 404 : 500)
+        .json({ erro: error instanceof TransacaoNotFoundError ? 'Parcelamento não encontrado' : 'Erro ao excluir compra' });
+    }
+  },
+
   async detalharParcelamento(req: Request, res: Response): Promise<void> {
     if (!req.usuarioId) { res.status(401).json({ erro: 'Usuário não autenticado' }); return; }
     const { origem, grupoId } = req.params;

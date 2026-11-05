@@ -834,6 +834,23 @@ Permite o controle integral de fluxo de caixa, cartões de crédito com faturas 
       },
     },
     '/transacoes/parcelamentos/{origem}/{grupoId}': {
+      delete: {
+        tags: ['Transações'],
+        summary: 'Exclui definitivamente a compra e todas as parcelas',
+        description: 'Remove todas as parcelas pagas e pendentes e os lançamentos vinculados, restritos ao usuário autenticado. Para cartão, remove a compra e os itens de fatura em uma transação; faturas vazias são removidas e faturas compartilhadas são preservadas. A interface deve solicitar confirmação antes desta operação.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'origem', in: 'path', required: true, schema: { type: 'string', enum: ['conta', 'cartao'] } },
+          { name: 'grupoId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          204: { description: 'Compra e registros vinculados excluídos.' },
+          400: { description: 'Origem ou identificador inválido.' },
+          401: { description: 'Usuário não autenticado.' },
+          404: { description: 'Compra inexistente ou de outro usuário.' },
+          500: { description: 'Falha na operação; alterações na transação são revertidas.' },
+        },
+      },
       get: {
         tags: ['Transações'],
         summary: 'Histórico completo de uma compra parcelada',

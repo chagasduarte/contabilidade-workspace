@@ -282,3 +282,23 @@ a:focus-visible {
     align-items: flex-start;
   }
 }
+
+.acoes-compra {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 20px;
+}
+.excluir-compra {
+  border: 1px solid #f87171;
+  color: #fca5a5;
+  background: transparent;
+  border-radius: 10px;
+  padding: 10px 16px;
+  &:hover {
+    background: #482d32;
+  }
+  &:disabled {
+    opacity: 0.6;
+    cursor: wait;
+  }
+}

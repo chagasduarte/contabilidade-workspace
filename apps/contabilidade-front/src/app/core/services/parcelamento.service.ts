@@ -11,6 +11,12 @@ export class ParcelamentoService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = inject(API_URL);
 
+  excluir(origem: OrigemParcelamento, id: string) {
+    return this.http.delete<void>(
+      `${this.baseUrl}/transacoes/parcelamentos/${origem}/${encodeURIComponent(id)}`,
+    );
+  }
+
   detalhar(origem: OrigemParcelamento, id: string) {
     return this.http.get<ParcelamentoDetalhes>(
       `${this.baseUrl}/transacoes/parcelamentos/${origem}/${encodeURIComponent(id)}`,

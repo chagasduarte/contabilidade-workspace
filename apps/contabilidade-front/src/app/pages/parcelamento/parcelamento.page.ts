@@ -8,16 +8,18 @@ import localePt from '@angular/common/locales/pt';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   computed,
   inject,
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, RouterLink } from '@angular/router';
-import { IonContent, IonSpinner } from '@ionic/angular';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { AlertController, IonContent, IonSpinner } from '@ionic/angular';
 import { ParcelamentoDetalhes } from '@contabilidade/models';
 import {
   Subject,
+  firstValueFrom,
   catchError,
   combineLatest,
   of,
@@ -44,6 +46,11 @@ registerLocaleData(localePt, 'pt-BR');
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ParcelamentoPage {
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly router = inject(Router);
+  private readonly alertController = inject(AlertController);
+  readonly excluindo = signal(false);
+  readonly erroExclusao = signal<string | null>(null);
   private readonly route = inject(ActivatedRoute);
   private readonly service = inject(ParcelamentoService);
   private readonly reload = new Subject<void>();
@@ -95,6 +102,57 @@ export class ParcelamentoPage {
         this.carregando.set(false);
         this.filtro.set('todas');
       });
+  }
+
+  async excluirCompra(): Promise<void> {
+    const dados = this.detalhes();
+    if (!dados || this.excluindo()) return;
+    this.excluindo.set(true);
+    this.erroExclusao.set(null);
+    try {
+      const alert = await this.alertController.create({
+        header: 'Excluir compra definitivamente?',
+        subHeader: dados.descricao,
+        message:
+          'Todas as parcelas, inclusive as pagas, e os registros vinculados a esta compra serão excluídos. Esta ação não pode ser desfeita.' +
+          (dados.origem === 'cartao'
+            ? ' Faturas com outras compras serão preservadas.'
+            : ''),
+        backdropDismiss: false,
+        buttons: [
+          { text: 'Cancelar', role: 'cancel' },
+          {
+            text: 'Excluir compra',
+            role: 'confirm',
+            cssClass: 'alert-button-danger',
+          },
+        ],
+      });
+      await alert.present();
+      const { role } = await alert.onDidDismiss();
+      if (
+        role !== 'confirm' ||
+        this.destroyRef.destroyed ||
+        this.detalhes() !== dados
+      )
+        return;
+      await firstValueFrom(
+        this.service
+          .excluir(dados.origem, dados.id)
+          .pipe(takeUntilDestroyed(this.destroyRef)),
+      );
+      if (!this.destroyRef.destroyed && this.detalhes() === dados) {
+        await this.router.navigate(['/lancamentos']);
+      }
+    } catch {
+      if (!this.destroyRef.destroyed && this.detalhes() === dados) {
+        this.erroExclusao.set(
+          'Não foi possível confirmar a exclusão. Atualize a página antes de tentar novamente.',
+        );
+      }
+    } finally {
+      if (!this.destroyRef.destroyed) this.excluindo.set(false);
+    }
   }
 
   tentarNovamente(): void {

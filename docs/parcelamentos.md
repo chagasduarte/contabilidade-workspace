@@ -28,3 +28,16 @@ O extrato mantém paginação, totais e identificadores. Foram adicionados apena
 Sem migration nova ou preenchimento de dados históricos. Registros antigos sem grupo explícito não são associados pela descrição. O backfill manual existente continua separado desta feature.
 
 Se alguma parcela foi removida, a resposta sinaliza histórico incompleto; a tela identifica os valores como parciais e não anuncia quitação. A navegação de volta preserva o mês em memória nos serviços existentes.
+
+
+## Exclusão definitiva
+
+O botão **Excluir compra** solicita confirmação explícita, informa que parcelas pagas também serão removidas e permite cancelar. Sem confirmação, nenhuma chamada de exclusão é enviada. Durante a operação, o botão fica bloqueado; após sucesso, a navegação retorna aos lançamentos, que consultam os dados novamente.
+
+`DELETE /transacoes/parcelamentos/:origem/:grupoId`, autenticado, retorna 204:
+
+- Conta: remove todas as linhas do grupo em `transacoes`, de qualquer mês e status, em uma instrução atômica.
+- Cartão: verifica e bloqueia a compra do usuário; bloqueia suas faturas; remove lançamentos vinculados à compra/itens em `transacoes`, todos os `invoice_items` e a linha de `card_transactions`. Faturas que ficarem vazias e seus eventuais lançamentos de pagamento também são removidos.
+- Faturas com outras compras, os pagamentos dessas faturas, o cartão e as categorias são compartilhados e permanecem. Totais de fatura e limite disponível são calculados pelas consultas existentes a partir dos itens remanescentes; o valor histórico pago de uma fatura compartilhada é preservado.
+- A exclusão de cartão usa BEGIN/COMMIT/ROLLBACK e libera a conexão mesmo em caso de falha. Não há exclusão parcial em caso de erro de banco.
+- A mesma resposta 404 cobre compra inexistente e compra de outro usuário. Nenhum dado real é removido durante os testes unitários.

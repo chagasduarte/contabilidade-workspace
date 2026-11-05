@@ -15,6 +15,12 @@
       </button>
     </div>
     } @else if (detalhes(); as dados) {
+    <div class="acoes-compra">
+      <button type="button" class="excluir-compra" [disabled]="excluindo()" (click)="excluirCompra()">
+        {{ excluindo() ? 'Aguarde...' : 'Excluir compra' }}
+      </button>
+    </div>
+    @if (erroExclusao()) { <p class="aviso" role="alert">{{ erroExclusao() }}</p> }
     <header class="cabecalho">
       <div>
         <p class="eyebrow">
