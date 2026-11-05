@@ -319,3 +319,11 @@
     }
   }
 }
+ a.transaction {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color .15s;
+  &:hover { background: var(--ion-color-light, #f1f5f9); }
+  &:focus-visible { outline: 3px solid var(--ion-color-primary, #2563eb); outline-offset: 2px; }
+}

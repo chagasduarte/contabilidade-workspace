@@ -2,6 +2,28 @@ import { Request, Response } from 'express';
 import { TransacaoBusiness } from './transacao.business';
 
 export const TransacaoController = {
+  async detalhes(req: Request, res: Response): Promise<void> {
+    if (!req.usuarioId) {
+      res.status(401).json({ erro: 'Usuário não autenticado' });
+      return;
+    }
+    const id = String(req.params.id);
+    if (!/^(?:[1-9]\d*|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.test(id)) {
+      res.status(400).json({ erro: 'Identificador inválido' });
+      return;
+    }
+    try {
+      const detalhes = await TransacaoBusiness.detalhes(id, req.usuarioId, req.query.origem === 'cartao');
+      if (!detalhes) {
+        res.status(404).json({ erro: 'Lançamento não encontrado' });
+        return;
+      }
+      res.json(detalhes);
+    } catch {
+      res.status(500).json({ erro: 'Erro ao consultar detalhes do lançamento' });
+    }
+  },
+
   async criar(req: Request, res: Response): Promise<void> {
     try {
       const userid = req.usuarioId;
@@ -91,7 +113,10 @@ export const TransacaoController = {
 
   async atualizar(req: Request, res: Response): Promise<void> {
     try {
-      const transacao = await TransacaoBusiness.atualizar(req.params.id, req.body);
+      if (!req.usuarioId) { res.status(401).json({ erro: 'Usuário não autenticado' }); return; }
+      const transacao = req.query.origem === 'cartao'
+        ? await TransacaoBusiness.atualizarCartao(String(req.params.id), req.usuarioId, req.body)
+        : await TransacaoBusiness.atualizar(req.params.id, req.body, req.usuarioId);
       res.json(transacao);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Erro ao atualizar transação';

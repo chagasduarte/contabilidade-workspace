@@ -14,6 +14,8 @@ export interface Transacao {
   target_id?: string;
   source_type?: string;
   source_id?: string;
+  numero_parcela?: number;
+  quantidade_parcelas?: number;
   cartaoid?: number | null;
   pagamento?: string | null;
   ispaycart?: boolean | null;
@@ -71,3 +73,10 @@ export interface ResumoTransacoesEntrada {
   entradas_recebidas: Transacao[];
 }
 
+
+/** Detalhes sempre consultados por compra, independentemente do mês do extrato. */
+export interface TransactionDetails {
+  lancamento: Transacao;
+  parcelas: Transacao[];
+  parcelado: boolean;
+}

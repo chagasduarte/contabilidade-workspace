@@ -19,6 +19,7 @@ router.get('/pordia', TransacaoController.buscaPorDia);
 
 router.get('/', TransacaoController.listar);
 router.post('/', TransacaoController.criar);
+router.get('/:id/detalhes', TransacaoController.detalhes);
 router.get('/:id', TransacaoController.buscar);
 router.put('/:id', TransacaoController.atualizar);
 router.delete('/:id', TransacaoController.excluir);

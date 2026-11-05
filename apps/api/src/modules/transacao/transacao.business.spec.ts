@@ -6,6 +6,9 @@ import { CardBusiness } from '../card/card.business';
 vi.mock('./transacao.repository', () => ({
   TransacaoRepository: {
     criar: vi.fn(),
+    criarParcelamento: vi.fn(),
+    parcelasDaCompra: vi.fn(),
+    parcelasCartao: vi.fn(),
     buscarPorId: vi.fn(),
     atualizar: vi.fn(),
     excluir: vi.fn(),
@@ -214,16 +217,7 @@ describe('TransacaoBusiness', () => {
   });
 
   it('deve criar parcelas não-cartão salvando na tabela transacoes', async () => {
-    vi.mocked(TransacaoRepository.criar).mockImplementation(async (tr) => ({
-      id: Math.floor(Math.random() * 1000),
-      tipo: tr.tipo,
-      descricao: tr.descricao,
-      valor: tr.valor,
-      categoria: tr.categoria,
-      data: tr.data,
-      status: tr.status ?? 'pendente',
-      userid: 1,
-    }));
+    vi.mocked(TransacaoRepository.criarParcelamento).mockImplementation(async (items) => items.map((tr, i) => ({ ...tr, id: i + 1, status: 'pendente', userid: 1 })));
 
     const parcelas = await TransacaoBusiness.criarParcelada(
       {
@@ -241,7 +235,50 @@ describe('TransacaoBusiness', () => {
     );
 
     expect(parcelas).toHaveLength(3);
-    expect(TransacaoRepository.criar).toHaveBeenCalledTimes(3);
+    expect(TransacaoRepository.criarParcelamento).toHaveBeenCalledTimes(1);
+    expect(new Set(parcelas.map(item => item.source_id)).size).toBe(1);
+    expect(parcelas.every(item => item.source_type === 'INSTALLMENT')).toBe(true);
     expect(CardBusiness.lancarTransacao).not.toHaveBeenCalled();
   });
+  it('distribui centavos sem alterar o total da compra e respeita o fim do mês', async () => {
+    vi.mocked(TransacaoRepository.criarParcelamento).mockImplementation(async items => items.map((tr, i) => ({ ...tr, id: i + 1, status: 'pendente', userid: 1 })));
+    const items = await TransacaoBusiness.criarParcelada({ descricao: 'Compra', valor: 100, data: '2026-01-31', parcelado: true, parcelas: { QtdParcelas: 3, Valor: 33.33 } }, 7);
+    expect(items.map(item => item.valor)).toEqual([33.34, 33.33, 33.33]);
+    expect(items.map(item => item.data)).toEqual(['2026-01-31', '2026-02-28', '2026-03-31']);
+    expect(TransacaoRepository.criarParcelamento).toHaveBeenCalledWith(expect.any(Array), 7);
+  });
+
+  it('consulta todas as parcelas pelo vínculo da compra e pelo usuário', async () => {
+    const item = { id: 12, tipo: 'saida' as const, descricao: 'Compra', data: '2026-01-01', valor: 10, status: 'pago' as const, userid: 7, source_type: 'INSTALLMENT' };
+    vi.mocked(TransacaoRepository.buscarPorId).mockResolvedValue(item);
+    vi.mocked(TransacaoRepository.parcelasDaCompra).mockResolvedValue([item]);
+    expect(await TransacaoBusiness.detalhes('12', 7, false)).toEqual({ lancamento: item, parcelas: [item], parcelado: true });
+    expect(TransacaoRepository.buscarPorId).toHaveBeenCalledWith('12', 7);
+    expect(TransacaoRepository.parcelasDaCompra).toHaveBeenCalledWith('12', 7);
+  });
+
+  it('não retorna detalhes para lançamento de outro usuário', async () => {
+    vi.mocked(TransacaoRepository.buscarPorId).mockResolvedValue(undefined);
+    expect(await TransacaoBusiness.detalhes('12', 99, false)).toBeNull();
+  });
+
+  it('não agrupa lançamentos antigos apenas por descrição', async () => {
+    const item = { id: 12, tipo: 'saida' as const, descricao: 'Compra - Parcela', data: '2026-01-01', valor: 10, status: 'pago' as const, userid: 7 };
+    vi.mocked(TransacaoRepository.buscarPorId).mockResolvedValue(item);
+    expect(await TransacaoBusiness.detalhes('12', 7, false)).toEqual({ lancamento: item, parcelas: [], parcelado: false });
+    expect(TransacaoRepository.parcelasDaCompra).not.toHaveBeenCalled();
+  });
+
+  it('consulta parcelas do cartão limitadas ao usuário', async () => {
+    vi.mocked(TransacaoRepository.parcelasCartao).mockResolvedValue([]);
+    expect(await TransacaoBusiness.detalhes('uuid', 99, true)).toBeNull();
+    expect(TransacaoRepository.parcelasCartao).toHaveBeenCalledWith('uuid', 99);
+  });
+
+  it('impede atualização de lançamento sem acesso pelo usuário', async () => {
+    vi.mocked(TransacaoRepository.buscarPorId).mockResolvedValue(undefined);
+    await expect(TransacaoBusiness.atualizar('12', { valor: 20 }, 99)).rejects.toThrow('Transação não encontrada');
+    expect(TransacaoRepository.atualizar).not.toHaveBeenCalled();
+  });
+
 });

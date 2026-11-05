@@ -67,7 +67,9 @@
     } @else {
       <div class="transactions-list__items">
         @for (transaction of transactions(); track transaction.id) {
-          <article class="transaction">
+          <a class="transaction" [routerLink]="[transaction.detailsRoute, transaction.id]"
+            [queryParams]="transaction.origin ? { origem: transaction.origin } : {}"
+            [attr.aria-label]="'Ver detalhes de ' + transaction.description">
             <div class="transaction__date">
               <strong>{{ transaction.date | date: 'dd' : 'UTC' : 'pt-BR' }}</strong>
               <span>{{ transaction.date | date: 'MMM' : 'UTC' : 'pt-BR' }}</span>
@@ -97,7 +99,7 @@
             >
               {{ transaction.status }}
             </span>
-          </article>
+          </a>
         }
       </div>
     }

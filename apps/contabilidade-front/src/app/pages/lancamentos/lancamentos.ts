@@ -15,6 +15,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { IonButton, IonIcon, IonSpinner } from '@ionic/angular';
 import { addIcons } from 'ionicons';
 import {
@@ -33,6 +34,8 @@ registerLocaleData(localePt, 'pt-BR');
 
 export interface TransactionViewItem {
   id: number | string;
+  detailsRoute: string;
+  origin: string | null;
   date: string;
   description: string;
   category: string;
@@ -59,6 +62,7 @@ const MESES_PT: readonly string[] = [
 @Component({
   selector: 'app-lancamentos',
   imports: [
+    RouterLink,
     CurrencyPipe,
     DatePipe,
     IonButton,
@@ -93,6 +97,9 @@ export class Lancamentos implements OnInit {
 
       return {
         id: item.id,
+        detailsRoute: item.source_type === 'INSTALLMENT' || (item.source_type === 'CREDIT_CARD_INVOICE_ITEM' && (item.quantidade_parcelas ?? 1) > 1)
+          ? '/parcelamentos' : '/lancamentos',
+        origin: item.source_type === 'CREDIT_CARD_INVOICE_ITEM' ? 'cartao' : null,
         date: item.data,
         description: item.descricao,
         category: item.categoria ? String(item.categoria) : 'Geral',

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { TransacaoRepository } from './transacao.repository';
 import { CartaoRepository } from '../cartao/cartao.repository';
 import { CardBusiness } from '../card/card.business';
@@ -117,6 +118,28 @@ function calcularDataPagamento(
 }
 
 export const TransacaoBusiness = {
+  async atualizarCartao(id: string, userid: number, dados: Partial<CreateTransacaoDto>) {
+    if (typeof dados.descricao !== 'string' || dados.descricao.trim().length < 2 ||
+      !Number.isFinite(Number(dados.valor)) || Number(dados.valor) <= 0) throw new Error('Descrição ou valor inválido');
+    const updated = await TransacaoRepository.atualizarCompraCartao(id, userid, dados.descricao.trim(), Number(dados.valor));
+    if (!updated) throw new Error('Apenas compras avulsas de faturas abertas podem ser editadas');
+    const detalhes = await this.detalhes(id, userid, true);
+    return detalhes?.lancamento;
+  },
+
+  async detalhes(id: string, userid: number, cartao: boolean) {
+    if (cartao) {
+      const parcelas = await TransacaoRepository.parcelasCartao(id, userid);
+      const lancamento = parcelas.find(item => String(item.id) === id);
+      return lancamento ? { lancamento, parcelas, parcelado: parcelas.length > 1 } : null;
+    }
+    const lancamento = await TransacaoRepository.buscarPorId(id, userid);
+    if (!lancamento) return null;
+    const parcelas = lancamento.source_type === 'INSTALLMENT'
+      ? await TransacaoRepository.parcelasDaCompra(id, userid) : [];
+    return { lancamento, parcelas, parcelado: parcelas.length > 0 };
+  },
+
   async criar(transacao: CreateTransacaoDto, userid: number): Promise<TransacaoEntity> {
     if (!['entrada', 'saida', 'cartao'].includes(transacao.tipo)) {
       throw new Error("Tipo deve ser 'entrada' ou 'saida'.");
@@ -210,12 +233,12 @@ export const TransacaoBusiness = {
     }
 
     const qtdParcelas = Number(payload.parcelas?.QtdParcelas ?? 1);
-    if (qtdParcelas <= 0) {
+    if (!Number.isInteger(qtdParcelas) || qtdParcelas <= 0 || qtdParcelas > 72) {
       throw new Error('Quantidade de parcelas inválida.');
     }
 
     const valorTotal = Number(payload.valor);
-    if (isNaN(valorTotal) || valorTotal <= 0) {
+    if (!Number.isFinite(valorTotal) || Math.round(valorTotal * 100) < qtdParcelas) {
       throw new Error('Valor total inválido.');
     }
 
@@ -303,7 +326,8 @@ export const TransacaoBusiness = {
       baseDay = d.getDate();
     }
 
-    const parcelasCriadas: TransacaoEntity[] = [];
+    const parcelas: CreateTransacaoDto[] = [];
+    const compraId = randomUUID();
 
     for (let i = 0; i < qtdParcelas; i++) {
       let mesParcela = baseMonth + i;
@@ -325,7 +349,10 @@ export const TransacaoBusiness = {
       const parcela: CreateTransacaoDto = {
         tipo: 'saida',
         descricao: `${payload.descricao} - Parcela`,
-        valor: valorParcelaInformado,
+        valor: (Math.floor(Math.round(valorTotal * 100) / qtdParcelas) +
+          (i < Math.round(valorTotal * 100) % qtdParcelas ? 1 : 0)) / 100,
+        source_type: 'INSTALLMENT',
+        source_id: compraId,
         categoria: payload.categoria,
         idcategoria: payload.idcategoria,
         data: dataParcelaStr,
@@ -335,11 +362,10 @@ export const TransacaoBusiness = {
         cartaoid: cartaoidNum,
       };
 
-      const criada = await TransacaoRepository.criar(parcela, userId);
-      parcelasCriadas.push(criada);
+      parcelas.push(parcela);
     }
 
-    return parcelasCriadas;
+    return TransacaoRepository.criarParcelamento(parcelas, userId);
   },
 
   async saveNewuser(
@@ -536,10 +562,16 @@ export const TransacaoBusiness = {
 
   async atualizar(
     id: number | string,
-    dados: Partial<CreateTransacaoDto>
+    dados: Partial<CreateTransacaoDto>,
+    userid: number
   ): Promise<TransacaoEntity | undefined> {
-    await this.buscarPorId(id);
-    return await TransacaoRepository.atualizar(id, dados);
+    await this.buscarPorId(id, userid);
+    if (dados.descricao !== undefined && (typeof dados.descricao !== 'string' || dados.descricao.trim().length < 2)) throw new Error('Descrição inválida');
+    if (dados.valor !== undefined && (!Number.isFinite(Number(dados.valor)) || Number(dados.valor) <= 0)) throw new Error('Valor inválido');
+    if (dados.tipo !== undefined && !['entrada', 'saida'].includes(dados.tipo)) throw new Error('Tipo inválido');
+    if (dados.status !== undefined && !['pendente', 'pago'].includes(dados.status)) throw new Error('Status inválido');
+    if (dados.data !== undefined && !Number.isFinite(new Date(dados.data).getTime())) throw new Error('Data inválida');
+    return await TransacaoRepository.atualizar(id, dados, userid);
   },
 
   async excluir(id: number | string): Promise<boolean> {

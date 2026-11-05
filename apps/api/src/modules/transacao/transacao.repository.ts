@@ -1,3 +1,4 @@
+import { PoolClient } from 'pg';
 import { pool } from '../../core/config/database';
 import {
   TransacaoEntity,
@@ -7,9 +8,79 @@ import {
 } from './transacao.types';
 
 export const TransacaoRepository = {
+  async criarParcelamento(parcelas: CreateTransacaoDto[], userid: number): Promise<TransacaoEntity[]> {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const criadas: TransacaoEntity[] = [];
+      for (const parcela of parcelas) criadas.push(await this.criar(parcela, userid, client));
+      await client.query('COMMIT');
+      return criadas;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
+
+  async parcelasDaCompra(id: string, userid: number): Promise<TransacaoEntity[]> {
+    const result = await pool.query<TransacaoEntity>(`
+      SELECT t.*, TO_CHAR(t.data, 'YYYY-MM-DD') AS data,
+        ROW_NUMBER() OVER (ORDER BY t.data, t.id)::int AS numero_parcela,
+        COUNT(*) OVER ()::int AS quantidade_parcelas
+      FROM transacoes t
+      JOIN transacoes origem ON origem.id::text = $1 AND origem.userid = $2
+      WHERE t.userid = $2 AND t.source_type = 'INSTALLMENT'
+        AND origem.source_type = 'INSTALLMENT' AND t.source_id = origem.source_id
+      ORDER BY t.data, t.id`, [id, userid]);
+    return result.rows;
+  },
+
+  async atualizarCompraCartao(id: string, userid: number, descricao: string, valor: number): Promise<boolean> {
+    // Uma única instrução mantém compra e item consistentes; faturas fechadas não são editáveis.
+    const result = await pool.query(`
+      WITH elegivel AS (
+        SELECT ct.id AS compra_id, ii.id AS item_id
+        FROM invoice_items ii
+        JOIN card_transactions ct ON ct.id = ii.transacao_id
+        JOIN credit_cards cc ON cc.id = ct.cartao_id
+        JOIN card_invoices ci ON ci.id = ii.fatura_id
+        WHERE ii.id::text = $1 AND cc.usuario_id = $2
+          AND ct.quantidade_parcelas = 1 AND ci.status = 'OPEN'
+        FOR UPDATE OF ci, ct, ii
+      ), compra AS (
+        UPDATE card_transactions SET descricao = $3, valor_total = $4
+        WHERE id IN (SELECT compra_id FROM elegivel) RETURNING id
+      )
+      UPDATE invoice_items SET valor_parcela = $4
+      WHERE id IN (SELECT item_id FROM elegivel) AND transacao_id IN (SELECT id FROM compra)
+      RETURNING id`, [id, userid, descricao, valor]);
+    return result.rows.length > 0;
+  },
+
+  async parcelasCartao(id: string, userid: number): Promise<TransacaoEntity[]> {
+    const result = await pool.query<TransacaoEntity>(`
+      SELECT ii.id, ct.descricao, 'cartao' AS tipo, ii.valor_parcela AS valor,
+        TO_CHAR(ci.data_vencimento, 'YYYY-MM-DD') AS data,
+        CASE WHEN ci.status = 'PAID' THEN 'pago' ELSE 'pendente' END AS status,
+        cc.usuario_id AS userid, 'CREDIT_CARD_INVOICE_ITEM' AS source_type,
+        ii.id::text AS source_id, ii.numero_parcela, ct.quantidade_parcelas,
+        c.nome AS categoria
+      FROM invoice_items ii
+      JOIN card_transactions ct ON ct.id = ii.transacao_id
+      JOIN credit_cards cc ON cc.id = ct.cartao_id AND cc.usuario_id = $2
+      JOIN card_invoices ci ON ci.id = ii.fatura_id
+      LEFT JOIN categoria c ON c.id = ct.categoria_id
+      WHERE ct.id = (SELECT transacao_id FROM invoice_items WHERE id::text = $1)
+      ORDER BY ii.numero_parcela`, [id, userid]);
+    return result.rows;
+  },
+
   async criar(
     transacao: CreateTransacaoDto,
-    userid: number
+    userid: number,
+    client?: PoolClient
   ): Promise<TransacaoEntity> {
     const {
       tipo,
@@ -22,6 +93,8 @@ export const TransacaoRepository = {
       status = 'pendente',
       ispaycart = false,
       cartaoid = null,
+      source_type = null,
+      source_id = null,
     } = transacao;
 
     const parsedCategoria =
@@ -39,9 +112,9 @@ export const TransacaoRepository = {
         ? Number(cartaoid)
         : null;
 
-    const result = await pool.query<TransacaoEntity>(
-      `INSERT INTO transacoes (tipo, descricao, valor, categoria, data, status, userid, ispaycart, cartaoid, idcategoria, pagamento)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+    const result = await (client ?? pool).query<TransacaoEntity>(
+      `INSERT INTO transacoes (tipo, descricao, valor, categoria, data, status, userid, ispaycart, cartaoid, idcategoria, pagamento, source_type, source_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        RETURNING *`,
       [
         tipo,
@@ -55,6 +128,8 @@ export const TransacaoRepository = {
         parsedCartaoId,
         parsedIdCategoria,
         pagamento,
+        source_type,
+        source_id,
       ]
     );
     return result.rows[0];
@@ -62,7 +137,7 @@ export const TransacaoRepository = {
 
   async buscarPorId(id: number | string, userid?: number): Promise<TransacaoEntity | undefined> {
     const params: unknown[] = [id];
-    let query = 'SELECT * FROM transacoes WHERE id = $1';
+    let query = `SELECT *, TO_CHAR(data, 'YYYY-MM-DD') AS data FROM transacoes WHERE id = $1`;
     if (userid) {
       params.push(userid);
       query += ' AND userid = $2';
@@ -73,9 +148,10 @@ export const TransacaoRepository = {
 
   async atualizar(
     id: number | string,
-    transacao: Partial<CreateTransacaoDto>
+    transacao: Partial<CreateTransacaoDto>,
+    userid: number
   ): Promise<TransacaoEntity | undefined> {
-    const { tipo, descricao, valor, categoria, data, idcategoria, pagamento } = transacao;
+    const { tipo, descricao, valor, categoria, data, idcategoria, pagamento, status } = transacao;
     const parsedCategoria =
       categoria !== undefined && categoria !== null && !isNaN(Number(categoria))
         ? Number(categoria)
@@ -90,13 +166,14 @@ export const TransacaoRepository = {
        SET tipo = COALESCE($1, tipo),
            descricao = COALESCE($2, descricao),
            valor = COALESCE($3, valor),
-           categoria = $4,
+           categoria = COALESCE($4, categoria),
            data = COALESCE($5, data),
            idcategoria = COALESCE($6, idcategoria),
-           pagamento = COALESCE($7, pagamento)
-       WHERE id = $8
+           pagamento = COALESCE($7, pagamento),
+           status = COALESCE($10, status)
+       WHERE id = $8 AND userid = $9
        RETURNING *`,
-      [tipo, descricao, valor, parsedCategoria, data, parsedIdCategoria, pagamento ?? null, id]
+      [tipo, descricao, valor, parsedCategoria, data, parsedIdCategoria, pagamento ?? null, id, userid, status ?? null]
     );
     return result.rows[0];
   },
@@ -412,9 +489,22 @@ export const TransacaoRepository = {
     ano?: number | string | null,
     userid?: number
   ): Promise<TransacaoEntity[]> {
-    let query = `SELECT id, descricao, tipo, valor, categoria, TO_CHAR(t."data"::date, 'YYYY-MM-DD') AS data, status, cartaoid, pagamento
-                FROM transacoes t
-                WHERE 1=1`;
+    let query = `SELECT t.*, TO_CHAR(t.data::date, 'YYYY-MM-DD') AS data FROM (
+      SELECT id::text, descricao, tipo, valor, categoria::text, data, status,
+        cartaoid, pagamento, userid, source_type, source_id, NULL::integer AS quantidade_parcelas
+      FROM transacoes
+      UNION ALL
+      SELECT ii.id::text, ct.descricao || ' (' || ii.numero_parcela || '/' || ct.quantidade_parcelas || ')',
+        'cartao', ii.valor_parcela, c.nome, ci.data_vencimento,
+        CASE WHEN ci.status = 'PAID' THEN 'pago' ELSE 'pendente' END,
+        NULL::integer, ci.data_vencimento, cc.usuario_id,
+        'CREDIT_CARD_INVOICE_ITEM', ii.id::text, ct.quantidade_parcelas
+      FROM invoice_items ii
+      JOIN card_transactions ct ON ct.id = ii.transacao_id
+      JOIN credit_cards cc ON cc.id = ct.cartao_id
+      JOIN card_invoices ci ON ci.id = ii.fatura_id
+      LEFT JOIN categoria c ON c.id = ct.categoria_id
+    ) t WHERE 1=1`;
     const params: unknown[] = [];
 
     if (userid) {
@@ -440,7 +530,7 @@ export const TransacaoRepository = {
     }
 
     const result = await pool.query<TransacaoEntity>(query, params);
-    return result.rows;
+    return result.rows.map(item => ({ ...item, id: /^\d+$/.test(String(item.id)) ? Number(item.id) : item.id }));
   },
 };
 

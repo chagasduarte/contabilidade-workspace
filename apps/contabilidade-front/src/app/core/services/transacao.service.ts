@@ -7,6 +7,7 @@ import {
   ResumoTransacoesEntrada,
   ResumoTransacoesSaida,
   Transacao,
+  TransactionDetails,
 } from '@contabilidade/models';
 import { API_URL } from './categoria.service';
 
@@ -16,6 +17,18 @@ import { API_URL } from './categoria.service';
 export class TransacaoService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = inject(API_URL);
+
+  atualizar(id: string, dto: Partial<CreateTransacaoDto>, origem: string | null = null): Observable<Transacao> {
+    const params = origem === 'cartao' ? new HttpParams().set('origem', origem) : new HttpParams();
+    return this.http.put<Transacao>(`${this.baseUrl}/transacoes/${encodeURIComponent(id)}`, dto, { params });
+  }
+
+  obterDetalhes(id: string, origem: string | null): Observable<TransactionDetails> {
+    const params = origem === 'cartao' ? new HttpParams().set('origem', origem) : new HttpParams();
+    return this.http.get<TransactionDetails>(
+      `${this.baseUrl}/transacoes/${encodeURIComponent(id)}/detalhes`, { params }
+    );
+  }
 
   readonly extrato = signal<Transacao[]>([]);
   readonly saidasResumo = signal<ResumoTransacoesSaida | null>(null);

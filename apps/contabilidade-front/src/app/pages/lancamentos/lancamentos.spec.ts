@@ -186,4 +186,15 @@ describe('Lancamentos', () => {
     component.onTransacaoCriada();
     expect(transacaoServiceStub.carregarExtrato).toHaveBeenCalled();
   });
+  it('direciona parcelas para acompanhamento e lançamentos comuns para edição', () => {
+    transacaoServiceStub.extrato.set([
+      { ...mockExtrato[0], id: 7, source_type: 'INSTALLMENT', source_id: 'compra' },
+      { ...mockExtrato[1], id: 'card-item', quantidade_parcelas: 3, source_type: 'CREDIT_CARD_INVOICE_ITEM' },
+      mockExtrato[2],
+    ]);
+    fixture.detectChanges();
+    const links = [...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLAnchorElement>('a.transaction')];
+    expect(links.map(link => link.getAttribute('href'))).toEqual(['/parcelamentos/7', '/parcelamentos/card-item?origem=cartao', '/lancamentos/3']);
+  });
+
 });

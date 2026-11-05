@@ -1,0 +1,121 @@
+<section class="details-page" aria-labelledby="details-title">
+  <a routerLink="/lancamentos" class="back-link">← Voltar aos lançamentos</a>
+  @if (loading()) {
+  <p role="status">Carregando detalhes...</p>
+  } @else if (error()) {
+  <div role="alert">
+    <p>{{ error() }}</p>
+    <button type="button" (click)="retry()">Tentar novamente</button>
+  </div>
+  } @else if (details(); as data) {
+  <header>
+    <p class="eyebrow">
+      {{ data.parcelado ? 'Detalhes do parcelamento' : 'Editar lançamento' }}
+    </p>
+    <h1 id="details-title">{{ data.lancamento.descricao }}</h1>
+    <p>{{ data.lancamento.categoria || 'Geral' }}</p>
+  </header>
+  @if (data.parcelado) {
+  <div class="summary">
+    <article>
+      <span>Total da compra</span
+      ><strong
+        >{{ summary().total | currency:'BRL':'symbol':'1.2-2':'pt-BR' }}</strong
+      >
+    </article>
+    <article>
+      <span>Total pago</span
+      ><strong
+        >{{ summary().paid | currency:'BRL':'symbol':'1.2-2':'pt-BR' }}</strong
+      >
+    </article>
+    <article>
+      <span>Saldo a pagar</span
+      ><strong
+        >{{ summary().remaining | currency:'BRL':'symbol':'1.2-2':'pt-BR'
+        }}</strong
+      >
+    </article>
+  </div>
+  <section class="panel" aria-labelledby="progress-title">
+    <h2 id="progress-title">Progresso do pagamento</h2>
+    <p>
+      {{ summary().paidCount }} de {{ data.parcelas.length }} parcelas pagas ·
+      {{ summary().progress | number:'1.0-1':'pt-BR' }}%
+    </p>
+    <progress
+      [value]="summary().progress"
+      max="100"
+      aria-label="Percentual do valor pago"
+    ></progress>
+    <p>{{ summary().pendingCount }} parcelas restantes</p>
+    @if (summary().next; as next) {
+    <p>
+      Próxima parcela pendente: {{ next.data | date:'dd/MM/yyyy':'UTC' }} · {{
+      next.valor | currency:'BRL':'symbol':'1.2-2':'pt-BR' }}
+    </p>
+    } @else {
+    <p>Compra quitada.</p>
+    } @if (data.lancamento.source_type === 'CREDIT_CARD_INVOICE_ITEM') {
+    <p class="hint">
+      As parcelas são consideradas pagas quando a fatura é quitada.
+    </p>
+    }
+  </section>
+  <section class="panel" aria-labelledby="installments-title">
+    <h2 id="installments-title">Todas as parcelas</h2>
+    <ol class="installments">
+      @for (item of data.parcelas; track item.id) {
+      <li [class.selected]="item.id === data.lancamento.id">
+        <div>
+          <strong>Parcela {{ item.numero_parcela }}</strong
+          ><span>{{ item.data | date:'dd/MM/yyyy':'UTC' }}</span>
+        </div>
+        <strong
+          >{{ item.valor | currency:'BRL':'symbol':'1.2-2':'pt-BR' }}</strong
+        >
+        <span class="badge" [class.paid]="item.status === 'pago'"
+          >{{ item.status === 'pago' ? 'Paga' : 'Pendente' }}</span
+        >
+      </li>
+      }
+    </ol>
+  </section>
+  } @else {
+  <form class="panel edit-form" [formGroup]="form" (ngSubmit)="salvar()">
+    <label for="descricao">Descrição</label
+    ><input id="descricao" formControlName="descricao" required minlength="2" />
+    <label for="valor">Valor (R$)</label
+    ><input
+      id="valor"
+      type="number"
+      formControlName="valor"
+      min="0.01"
+      step="0.01"
+      required
+    />
+    <label for="data">Data</label
+    ><input id="data" type="date" formControlName="data" required />
+    <label for="tipo">Tipo</label
+    ><select id="tipo" formControlName="tipo">
+      <option value="entrada">Entrada</option>
+      <option value="saida">Saída</option>
+    </select>
+    <label for="status">Status</label
+    ><select id="status" formControlName="status">
+      <option value="pendente">Pendente</option>
+      <option value="pago">Efetivado</option>
+    </select>
+    @if (form.invalid && form.touched) {
+    <p role="alert">Preencha a descrição, a data e um valor maior que zero.</p>
+    } @if (saveError()) {
+    <p role="alert">{{ saveError() }}</p>
+    } @if (saved()) {
+    <p role="status">Lançamento atualizado com sucesso.</p>
+    }
+    <button type="submit" [disabled]="saving() || form.invalid">
+      {{ saving() ? 'Salvando...' : 'Salvar alterações' }}
+    </button>
+  </form>
+  } }
+</section>

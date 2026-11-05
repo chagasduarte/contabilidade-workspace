@@ -34,6 +34,14 @@ export const appRoutes: Route[] = [
           import('./pages/lancamentos/lancamentos').then((m) => m.Lancamentos),
       },
       {
+        path: 'parcelamentos/:id',
+        loadComponent: () => import('./pages/transaction-details/transaction-details').then(m => m.TransactionDetailsPage),
+      },
+      {
+        path: 'lancamentos/:id',
+        loadComponent: () => import('./pages/transaction-details/transaction-details').then(m => m.TransactionDetailsPage),
+      },
+      {
         path: 'categorias',
         loadComponent: () =>
           import('./pages/categorias/categorias.page').then((m) => m.CategoriasPage),
