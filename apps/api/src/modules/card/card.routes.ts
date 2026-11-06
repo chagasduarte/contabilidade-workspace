@@ -22,6 +22,7 @@ router.put('/itens/:itemId', CardController.atualizarItem);
 
 // GET /cards/faturas/:faturaId - Detalhes de uma fatura com seus lançamentos (invoice_items)
 router.get('/faturas/:faturaId', CardController.obterFatura);
+router.put('/faturas/:faturaId/datas', CardController.corrigirDatasFatura);
 
 // POST /cards/faturas/:faturaId/pagar - Liquidar fatura
 router.post('/faturas/:faturaId/pagar', CardController.pagarFatura);

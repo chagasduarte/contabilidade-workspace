@@ -24,6 +24,12 @@ import { mensagemErroHttp } from '../utils/http-error';
   providedIn: 'root',
 })
 export class CardService {
+  corrigirDatasFatura(id: string): Observable<CardInvoice> {
+    return this.http.put<CardInvoice>(`${this.baseUrl}/cards/faturas/${encodeURIComponent(id)}/datas`, {}).pipe(
+      catchError((err: unknown) => throwError(() => new Error(mensagemErroHttp(err, 'Erro ao corrigir datas da fatura.'))))
+    );
+  }
+
   atualizarItem(id: string, payload: UpdateInvoiceItemDto): Observable<void> {
     return this.http.put<void>(`${this.baseUrl}/cards/itens/${encodeURIComponent(id)}`, payload).pipe(
       catchError((err: unknown) => throwError(() => new Error(mensagemErroHttp(err, 'Erro ao atualizar despesa.'))))

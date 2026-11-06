@@ -111,6 +111,20 @@
       </div>
     </div>
 
+    @for (ajuste of datasDivergentes(); track ajuste.fatura.id) {
+      <ion-card>
+        <ion-card-content>
+          <p>As datas desta fatura diferem do fechamento e vencimento cadastrados no cartão.
+            Referência: {{ ajuste.fatura.mes_referencia }}/{{ ajuste.fatura.ano_referencia }}.</p>
+          <p>Datas pelo ciclo cadastrado: fechamento {{ ajuste.fechamento | date:'dd/MM/yyyy':'UTC' }};
+            vencimento {{ ajuste.vencimento | date:'dd/MM/yyyy':'UTC' }}.</p>
+          <ion-button (click)="corrigirDatasFatura(ajuste.fatura)" [disabled]="corrigindoDatas() || salvandoCompra() || !!removendoCompra()">
+            Revisar e corrigir datas
+          </ion-button>
+        </ion-card-content>
+      </ion-card>
+    }
+
     <!-- 2. SELETOR DE FATURAS -->
     <ion-card class="invoice-selector-card">
       <ion-card-content>
@@ -155,11 +169,11 @@
             <div class="invoice-due-meta">
               <div class="due-item">
                 <ion-icon name="time-outline"></ion-icon>
-                <span>Fecha em: <strong>{{ fat.data_fechamento | date:'dd/MM/yyyy' }}</strong></span>
+                <span>Fecha em: <strong>{{ fat.data_fechamento | date:'dd/MM/yyyy':'UTC' }}</strong></span>
               </div>
               <div class="due-item">
                 <ion-icon name="calendar-outline"></ion-icon>
-                <span>Vence em: <strong>{{ fat.data_vencimento | date:'dd/MM/yyyy' }}</strong></span>
+                <span>Vence em: <strong>{{ fat.data_vencimento | date:'dd/MM/yyyy':'UTC' }}</strong></span>
               </div>
             </div>
 
@@ -179,7 +193,7 @@
             } @else {
               <div class="invoice-paid-stamp">
                 <ion-icon name="shield-checkmark-outline"></ion-icon>
-                <span>Fatura Liquidada em {{ fat.data_pagamento | date:'dd/MM/yyyy' }}</span>
+                <span>Fatura Liquidada em {{ fat.data_pagamento | date:'dd/MM/yyyy':'UTC' }}</span>
               </div>
             }
           </div>
@@ -219,7 +233,7 @@
                     <span class="item-title">{{ item.descricao }}</span>
                     <div class="item-sub-meta">
                       <span class="item-date">
-                        {{ item.data_compra | date:'dd/MM/yyyy' }}
+                        {{ item.data_compra | date:'dd/MM/yyyy':'UTC' }}
                       </span>
                       @if (item.quantidade_parcelas && item.quantidade_parcelas > 1) {
                         <span class="item-installment-tag">

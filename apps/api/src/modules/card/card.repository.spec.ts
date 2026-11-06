@@ -32,4 +32,13 @@ describe('CardRepository - subcategoria', () => {
     expect(query.mock.calls[0][1]).toEqual(['cartao', 11, 2026]);
   });
 
+  it('corrigir datas não muda status, pagamento, valores ou parcelas', async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [] });
+    await CardRepository.atualizarDatasFatura('fatura', new Date('2026-11-01'), new Date('2026-11-07'), { query } as unknown as PoolClient);
+    const sql = query.mock.calls[0][0];
+    expect(sql).toContain('data_fechamento = $1');
+    expect(sql).toContain('data_vencimento = $2');
+    expect(sql).not.toMatch(/valor_pago|data_pagamento|status|invoice_items|valor_parcela/);
+  });
+
 });

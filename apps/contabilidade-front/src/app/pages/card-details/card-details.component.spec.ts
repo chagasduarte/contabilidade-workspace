@@ -96,6 +96,7 @@ describe('CardDetailsComponent', () => {
     lancarTransacao: ReturnType<typeof vi.fn>;
     pagarFatura: ReturnType<typeof vi.fn>;
     atualizarItem: ReturnType<typeof vi.fn>;
+    corrigirDatasFatura: ReturnType<typeof vi.fn>;
   };
 
   let categoriaServiceStub: {
@@ -122,6 +123,7 @@ describe('CardDetailsComponent', () => {
       obterCartaoPorId: vi.fn().mockReturnValue(of(mockCartaoDetalhes)),
       obterDetalhesFatura: vi.fn().mockReturnValue(of(mockFaturaDetalhes)),
       lancarTransacao: vi.fn().mockReturnValue(of({ transacao: {}, itens: [], cartaoAtualizado: mockCartaoDetalhes })),
+      corrigirDatasFatura: vi.fn(),
       atualizarItem: vi.fn().mockReturnValue(of(undefined)),
       pagarFatura: vi.fn().mockReturnValue(of({ fatura: {}, cartaoAtualizado: mockCartaoDetalhes })),
     };
@@ -437,6 +439,49 @@ describe('CardDetailsComponent', () => {
     antiga.next({ ...mockFaturaDetalhes, fatura: novembro });
     expect(component.detalhesFaturaAtiva()?.fatura.id).toBe('dezembro');
     expect(cardServiceStub.faturaSelecionada()?.fatura.id).toBe('dezembro');
+  });
+
+  it('corrige as datas legadas da fatura paga de novembro sem reabrir nem deslocar dezembro', async () => {
+    const legada: CardInvoice = { ...mockFatura, id: 'nov-paga', mes_referencia: 11, ano_referencia: 2026,
+      data_fechamento: '2026-11-30T00:00:00.000Z', data_vencimento: '2026-12-07T00:00:00.000Z',
+      status: 'PAID', valor_pago: 2202.35, data_pagamento: '2026-11-06T00:00:00.000Z' };
+    const dezembro: CardInvoice = { ...mockFatura, id: 'dez-aberta', mes_referencia: 12,
+      data_fechamento: '2026-12-01', data_vencimento: '2026-12-07', status: 'OPEN' };
+    const corrigida = { ...legada, data_fechamento: '2026-11-01', data_vencimento: '2026-11-07' };
+    cardServiceStub.cartaoSelecionado.set({ ...mockCartaoDetalhes,
+      cartao: { ...mockCartaoDetalhes.cartao, nome: 'Inter', dia_fechamento: 1, dia_vencimento: 7 } });
+    component.faturas.set([legada, dezembro]);
+    component.selecionarMes(12);
+    expect(component.datasDivergentes().map(f => f.fatura.id)).toEqual(['nov-paga']);
+    cardServiceStub.corrigirDatasFatura.mockReturnValue(of(corrigida));
+    cardServiceStub.obterDetalhesFatura.mockReturnValue(of({ ...mockFaturaDetalhes, fatura: corrigida }));
+    vi.mocked(TestBed.inject(AlertController).create).mockResolvedValue({
+      present: vi.fn(), onDidDismiss: vi.fn().mockResolvedValue({ role: 'confirm' }),
+    } as never);
+    await component.corrigirDatasFatura(legada);
+    expect(cardServiceStub.corrigirDatasFatura).toHaveBeenCalledWith('nov-paga');
+    expect(component.mes()).toBe(11);
+    expect(component.faturaAtiva()).toMatchObject({ id: 'nov-paga', status: 'PAID', valor_pago: 2202.35 });
+    expect(component.datasDivergentes()).toEqual([]);
+    component.selecionarMes(12);
+    expect(component.faturaAtiva()).toMatchObject({ id: 'dez-aberta', status: 'OPEN' });
+  });
+
+  it('não altera as datas quando a revisão é cancelada', async () => {
+    vi.mocked(TestBed.inject(AlertController).create).mockResolvedValue({
+      present: vi.fn(), onDidDismiss: vi.fn().mockResolvedValue({ role: 'cancel' }),
+    } as never);
+    await component.corrigirDatasFatura(mockFatura);
+    expect(cardServiceStub.corrigirDatasFatura).not.toHaveBeenCalled();
+    expect(component.corrigindoDatas()).toBe(false);
+  });
+
+  it('mostra o dia civil 7 mesmo quando a API retorna meia-noite UTC', () => {
+    const fatura = { ...mockFatura, data_fechamento: '2026-10-01T00:00:00.000Z', data_vencimento: '2026-10-07T00:00:00.000Z' };
+    component.faturas.set([fatura]);
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('07/10/2026');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('01/10/2026');
   });
 
 });

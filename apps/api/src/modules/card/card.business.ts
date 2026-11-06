@@ -164,6 +164,34 @@ function validarDadosCartao(dto: CreateCardDto, usuarioId: number): CreateCardDt
 }
 
 export const CardBusiness = {
+  async corrigirDatasFatura(faturaId: string, usuarioId: number): Promise<CardInvoiceEntity> {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(faturaId))
+      throw new CardValidationError('ID da fatura inválido.');
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      // Trava somente a fatura; não altera pagamentos, itens ou referências mensais.
+      const result = await client.query(`
+        SELECT ci.*, cc.dia_fechamento, cc.dia_vencimento
+        FROM card_invoices ci JOIN credit_cards cc ON cc.id = ci.cartao_id
+        WHERE ci.id = $1::uuid AND cc.usuario_id = $2 FOR UPDATE OF ci`, [faturaId, usuarioId]);
+      const fatura = result.rows[0];
+      if (!fatura) throw new InvoiceNotFoundError();
+      const datas = calcularDatasFatura(Number(fatura.dia_fechamento), Number(fatura.dia_vencimento),
+        Number(fatura.mes_referencia), Number(fatura.ano_referencia));
+      await CardRepository.atualizarDatasFatura(faturaId, datas.dataFechamento, datas.dataVencimento, client);
+      const corrigida = await CardRepository.buscarFaturaPorId(faturaId, client);
+      if (!corrigida) throw new InvoiceNotFoundError();
+      await client.query('COMMIT');
+      return corrigida;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
+
   async atualizarItem(id: string, usuarioId: number, dto: UpdateInvoiceItemDto): Promise<void> {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))
       throw new CardValidationError('ID da despesa inválido.');

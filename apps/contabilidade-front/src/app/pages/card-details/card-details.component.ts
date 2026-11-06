@@ -68,6 +68,7 @@ import {
 import { CardInvoice, CreateTransactionDto, InvoiceItem } from './card.model';
 import { CardService } from './card.service';
 import { ParcelamentoService } from '../../core/services/parcelamento.service';
+import { dataCivil, datasDoCiclo } from '../../core/utils/card-invoice-dates';
 import { mensagemErroHttp } from '../../core/utils/http-error';
 import { CategoriaService } from '../../core/services/categoria.service';
 import { DashboardService } from '../../core/services/dashboard.service';
@@ -175,6 +176,19 @@ export class CardDetailsComponent implements OnInit {
   // Modal de Nova Compra
   readonly modalNovaCompraAberto = signal<boolean>(false);
   readonly salvandoCompra = signal<boolean>(false);
+  readonly corrigindoDatas = signal(false);
+  readonly datasDivergentes = computed(() => {
+    const cartao = this.cartaoDetalhes()?.cartao;
+    if (!cartao) return [];
+    const mesSelecionado = `${this.ano()}-${String(this.mes()).padStart(2, '0')}`;
+    return this.faturas().filter(f => f.cartao_id === this.cardId()).map(fatura => ({
+      fatura, ...datasDoCiclo(fatura, cartao),
+    })).filter(item =>
+      (dataCivil(item.fatura.data_fechamento) !== item.fechamento ||
+       dataCivil(item.fatura.data_vencimento) !== item.vencimento) &&
+      (dataCivil(item.fatura.data_vencimento).startsWith(mesSelecionado) || item.vencimento.startsWith(mesSelecionado))
+    );
+  });
   compraForm!: FormGroup;
 
   // Computado: percentual de limite consumido
@@ -382,6 +396,43 @@ export class CardDetailsComponent implements OnInit {
   private carregarDetalhesFaturaAtual(): void {
     this.cardService.faturaSelecionada.set(null);
     this.consultarFatura$.next(this.faturaAtiva()?.id ?? null);
+  }
+
+  async corrigirDatasFatura(fatura: CardInvoice): Promise<void> {
+    if (this.corrigindoDatas() || this.salvandoCompra() || this.removendoCompra()) return;
+    const cartao = this.cartaoDetalhes()?.cartao;
+    if (!cartao) return;
+    const datas = datasDoCiclo(fatura, cartao);
+    const formatar = (data: string) => data.split('-').reverse().join('/');
+    this.corrigindoDatas.set(true);
+    try {
+      const alert = await this.alertController.create({
+        header: 'Corrigir datas da fatura?',
+        message: `Fechamento: ${formatar(dataCivil(fatura.data_fechamento))} para ${formatar(datas.fechamento)}. ` +
+          `Vencimento: ${formatar(dataCivil(fatura.data_vencimento))} para ${formatar(datas.vencimento)}. ` +
+          'Compras, parcelas, valores e pagamento registrado serão preservados.',
+        buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Corrigir datas', role: 'confirm' }],
+      });
+      await alert.present();
+      if ((await alert.onDidDismiss()).role !== 'confirm') return;
+      const corrigida = await firstValueFrom(this.cardService.corrigirDatasFatura(fatura.id));
+      this.faturas.update(lista => lista.map(f => f.id === corrigida.id ? corrigida : f));
+      this.cardService.cartaoSelecionado.update(atual => atual ? {
+        ...atual, faturas: this.faturas(),
+        fatura_atual: atual.fatura_atual?.id === corrigida.id ? corrigida : atual.fatura_atual,
+      } : atual);
+      const [ano, mes] = dataCivil(corrigida.data_vencimento).split('-').map(Number);
+      this.ano.set(ano);
+      this.headerState.setYear(ano);
+      this.selecionarMes(mes);
+      const toast = await this.toastController.create({ message: 'Datas corrigidas. Pagamento e compras preservados.', duration: 3500, color: 'success' });
+      await toast.present();
+    } catch (error) {
+      const toast = await this.toastController.create({ message: mensagemErroHttp(error, 'Erro ao corrigir datas da fatura.'), duration: 4000, color: 'danger' });
+      await toast.present();
+    } finally {
+      this.corrigindoDatas.set(false);
+    }
   }
 
   // --- Ações de Nova Compra ---

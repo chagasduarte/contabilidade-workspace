@@ -417,6 +417,21 @@ Permite o controle integral de fluxo de caixa, cartões de crédito com faturas 
         },
       },
     },
+    '/cards/faturas/{faturaId}/datas': {
+      put: {
+        tags: ['Cartões de Crédito'],
+        summary: 'Corrigir datas de uma fatura pelo ciclo cadastrado no cartão',
+        description: 'Ação explícita após revisão. Recalcula apenas fechamento e vencimento pela referência da fatura. Preserva status, pagamento, valores, compras e parcelas.',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ in: 'path', name: 'faturaId', required: true, schema: { type: 'string', format: 'uuid' } }],
+        responses: {
+          200: { description: 'Fatura com datas corrigidas.', content: { 'application/json': { schema: { $ref: '#/components/schemas/CardInvoice' } } } },
+          400: { description: 'Identificador inválido.' },
+          401: { description: 'Usuário não autenticado.' },
+          404: { description: 'Fatura não encontrada ou de outro usuário.' },
+        },
+      },
+    },
     '/cards/transacoes': {
       post: {
         tags: ['Cartões de Crédito'],

@@ -10,6 +10,18 @@ import {
 import { CreateCardDto, UpdateCardDto, CreateTransactionDto, PayInvoiceDto } from './card.dto';
 
 export const CardController = {
+  async corrigirDatasFatura(req: Request, res: Response): Promise<void> {
+    if (!req.usuarioId) { res.status(401).json({ erro: 'Usuário não autenticado.' }); return; }
+    try {
+      const fatura = await CardBusiness.corrigirDatasFatura(String(req.params.faturaId), req.usuarioId);
+      res.status(200).json(fatura);
+    } catch (error) {
+      const status = error instanceof CardValidationError ? 400 : error instanceof InvoiceNotFoundError ? 404 : 500;
+      const message = status === 500 ? 'Erro ao corrigir datas da fatura.' : (error as Error).message;
+      res.status(status).json({ erro: message, error: message });
+    }
+  },
+
   async atualizarItem(req: Request, res: Response): Promise<void> {
     if (!req.usuarioId) { res.status(401).json({ erro: 'Usuário não autenticado.' }); return; }
     try {
