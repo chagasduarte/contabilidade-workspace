@@ -480,7 +480,19 @@ export class CardDetailsComponent implements OnInit {
           categoria_id: categoriaId, subcategoria_id: subcategoriaId,
         }));
       } else {
-        await firstValueFrom(this.cardService.lancarTransacao(payload));
+        const resultado = await firstValueFrom(this.cardService.lancarTransacao(payload));
+        const primeiraFatura = resultado.cartaoAtualizado.faturas?.find(
+          f => f.id === resultado.itens[0]?.fatura_id
+        );
+        if (primeiraFatura) {
+          const vencimento = primeiraFatura.data_vencimento instanceof Date
+            ? primeiraFatura.data_vencimento.toISOString() : primeiraFatura.data_vencimento;
+          const [ano, mes] = vencimento.substring(0, 10).split('-').map(Number);
+          this.ano.set(ano);
+          this.mes.set(mes);
+          this.headerState.setYear(ano);
+          this.headerState.setMonth(mes);
+        }
       }
       this.modalNovaCompraAberto.set(false);
       this.itemEmEdicao.set(null);

@@ -116,12 +116,13 @@ export function calcularMesAnoPrimeiraFatura(
   anoCompra: number,
   diaFechamento: number
 ): { mesInicial: number; anoInicial: number } {
-  // Se a data de compra for menor ou igual ao fechamento, cai no mês da compra
-  if (diaCompra <= diaFechamento) {
+  // O fechamento inicia o próximo ciclo, inclusive quando é ajustado ao fim do mês.
+  const fechamentoEfetivo = Math.min(diaFechamento, new Date(anoCompra, mesCompra, 0).getDate());
+  if (diaCompra < fechamentoEfetivo) {
     return { mesInicial: mesCompra, anoInicial: anoCompra };
   }
 
-  // Se for após o fechamento, cai no mês seguinte
+  // No dia do fechamento ou depois dele, a compra vai para o mês seguinte.
   let mesInicial = mesCompra + 1;
   let anoInicial = anoCompra;
   if (mesInicial > 12) {
@@ -455,41 +456,37 @@ export const CardBusiness = {
         );
       }
 
-      // 1. Garante que todas as faturas necessárias existam
-      const faturasMap = new Map<string, string>(); // Chave: "ano-mes" -> faturaId
-
+      // 1. Aloca cada parcela na próxima fatura aberta. Uma fatura quitada/fechada
+      //    encerra aquele ciclo mesmo quando o pagamento ocorreu antes do fechamento.
+      const faturasMap = new Map<string, string>();
+      let mesDisponivel = mesInicial;
+      let anoDisponivel = anoInicial;
       for (const p of parcelasCalculadas) {
-        const key = `${p.anoReferencia}-${p.mesReferencia}`;
-        if (!faturasMap.has(key)) {
+        while (true) {
+          if (anoDisponivel > 9999) throw new CardValidationError('Não foi possível encontrar uma fatura aberta.');
           let fatura = await CardRepository.buscarFaturaPorMesAno(
-            cartao.id,
-            p.mesReferencia,
-            p.anoReferencia,
-            client
+            cartao.id, mesDisponivel, anoDisponivel, client
           );
-
           if (!fatura) {
             const { dataFechamento, dataVencimento } = calcularDatasFatura(
-              cartao.dia_fechamento,
-              cartao.dia_vencimento,
-              p.mesReferencia,
-              p.anoReferencia
+              cartao.dia_fechamento, cartao.dia_vencimento, mesDisponivel, anoDisponivel
             );
-
-            fatura = await CardRepository.criarFatura(
-              {
-                cartao_id: cartao.id,
-                mes_referencia: p.mesReferencia,
-                ano_referencia: p.anoReferencia,
-                data_fechamento: dataFechamento,
-                data_vencimento: dataVencimento,
-                status: 'OPEN',
-              },
-              client
-            );
+            fatura = await CardRepository.criarFatura({
+              cartao_id: cartao.id, mes_referencia: mesDisponivel, ano_referencia: anoDisponivel,
+              data_fechamento: dataFechamento, data_vencimento: dataVencimento, status: 'OPEN',
+            }, client);
           }
-
-          faturasMap.set(key, fatura.id);
+          const aceitaCompra = fatura.status === 'OPEN' && Number(fatura.valor_pago ?? 0) === 0 &&
+            fatura.data_fechamento.toISOString().substring(0, 10) > dataCompraFinal.toISOString().substring(0, 10);
+          const key = `${anoDisponivel}-${mesDisponivel}`;
+          p.mesReferencia = mesDisponivel;
+          p.anoReferencia = anoDisponivel;
+          mesDisponivel++;
+          if (mesDisponivel > 12) { mesDisponivel = 1; anoDisponivel++; }
+          if (aceitaCompra) {
+            faturasMap.set(key, fatura.id);
+            break;
+          }
         }
       }
 

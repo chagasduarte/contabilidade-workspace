@@ -63,10 +63,10 @@ describe('CardBusiness', () => {
       expect(res).toEqual({ mesInicial: 10, anoInicial: 2026 });
     });
 
-    it('deve calcular corretamente a primeira fatura para compra no mesmo dia do fechamento', () => {
-      // Compra dia 20, fechamento dia 20 -> fatura do mesmo mês
+    it('deve enviar compra no dia do fechamento para a próxima fatura', () => {
+      // Compra dia 20, fechamento dia 20 -> fatura do mês seguinte
       const res = calcularMesAnoPrimeiraFatura(20, 10, 2026, 20);
-      expect(res).toEqual({ mesInicial: 10, anoInicial: 2026 });
+      expect(res).toEqual({ mesInicial: 11, anoInicial: 2026 });
     });
 
     it('deve jogar a primeira parcela para o mês seguinte para compra após o fechamento', () => {
@@ -79,6 +79,19 @@ describe('CardBusiness', () => {
       // Compra 25/12/2026 com fechamento dia 20 -> fatura de Janeiro 2027
       const res = calcularMesAnoPrimeiraFatura(25, 12, 2026, 20);
       expect(res).toEqual({ mesInicial: 1, anoInicial: 2027 });
+    });
+
+    it.each([
+      [19, 11, 2026, 20, 11, 2026],
+      [20, 11, 2026, 20, 12, 2026],
+      [21, 11, 2026, 20, 12, 2026],
+      [20, 12, 2026, 20, 1, 2027],
+      [28, 2, 2026, 31, 3, 2026],
+      [29, 2, 2028, 31, 3, 2028],
+      [1, 11, 2026, 1, 12, 2026],
+    ])('aplica fechamento inclusivo: compra %s/%s/%s, fechamento %s', (dia, mes, ano, fechamento, mesEsperado, anoEsperado) => {
+      expect(calcularMesAnoPrimeiraFatura(dia, mes, ano, fechamento))
+        .toEqual({ mesInicial: mesEsperado, anoInicial: anoEsperado });
     });
 
     it('deve calcular datas de fechamento e vencimento quando vencimento for posterior ao fechamento', () => {

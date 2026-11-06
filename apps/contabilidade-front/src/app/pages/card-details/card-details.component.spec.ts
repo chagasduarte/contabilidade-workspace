@@ -374,5 +374,18 @@ describe('CardDetailsComponent', () => {
     expect(cardServiceStub.atualizarItem).toHaveBeenCalledTimes(1);
   });
 
+  it('abre o mês de vencimento da primeira parcela após registrar a compra', async () => {
+    const dezembro = { ...mockFatura, id: 'fat-dezembro', mes_referencia: 12, data_vencimento: '2026-12-28' };
+    cardServiceStub.lancarTransacao.mockReturnValue(of({
+      transacao: {}, itens: [{ fatura_id: dezembro.id }],
+      cartaoAtualizado: { ...mockCartaoDetalhes, faturas: [mockFatura, dezembro] },
+    }));
+    component.abrirModalNovaCompra();
+    component.compraForm.patchValue({ descricao: 'Compra de hoje', valor_total: 100, quantidade_parcelas: 1, data_compra: '2026-11-06' });
+    await component.salvarNovaCompra();
+    expect(component.mes()).toBe(12);
+    expect(component.ano()).toBe(2026);
+  });
+
 });
 

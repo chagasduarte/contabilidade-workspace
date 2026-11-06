@@ -270,13 +270,12 @@ export const CardRepository = {
     const runner = client ?? pool;
     const query = `
       SELECT ci.*,
-             COALESCE(SUM(ii.valor_parcela), 0)::numeric AS total_fatura,
-             COUNT(ii.id)::int AS itens_count
+             (SELECT COALESCE(SUM(ii.valor_parcela), 0)::numeric FROM invoice_items ii WHERE ii.fatura_id = ci.id) AS total_fatura,
+             (SELECT COUNT(*)::int FROM invoice_items ii WHERE ii.fatura_id = ci.id) AS itens_count
       FROM card_invoices ci
-      LEFT JOIN invoice_items ii ON ci.id = ii.fatura_id
       WHERE ci.cartao_id = $1 AND ci.mes_referencia = $2 AND ci.ano_referencia = $3
-      GROUP BY ci.id
       LIMIT 1
+      ${client ? 'FOR UPDATE OF ci' : ''}
     `;
     const result = await runner.query(query, [cartaoId, mes, ano]);
     if (!result.rows[0]) return undefined;
