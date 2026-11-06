@@ -651,9 +651,9 @@ export const TransacaoRepository = {
                         ii.valor_parcela AS valor,
                         ct.categoria_id AS categoria,
                         ct.categoria_id AS idcategoria,
-                        NULL::int AS idsubcategoria,
+                        ct.subcategoria_id AS idsubcategoria,
                         cat.nome AS categoria_nome,
-                        NULL::text AS subcategoria_nome,
+                        sub.nome AS subcategoria_nome,
                         TO_CHAR(ct.data_compra, 'YYYY-MM-DD') AS data,
                         CASE WHEN ci.status = 'PAID' THEN 'pago' ELSE 'pendente' END AS status,
                         cc.usuario_id AS userid,
@@ -669,6 +669,8 @@ export const TransacaoRepository = {
                  JOIN card_invoices ci ON ci.id = ii.fatura_id
                  JOIN credit_cards cc ON cc.id = ci.cartao_id
                  JOIN card_transactions ct ON ct.id = ii.transacao_id
+                 LEFT JOIN subcategoria sub ON sub.id = ct.subcategoria_id AND sub.idcategoria = ct.categoria_id
+                   AND (sub.userid = cc.usuario_id OR sub.userid IS NULL)
                  LEFT JOIN categoria cat ON cat.id = ct.categoria_id AND (cat.userid = cc.usuario_id OR cat.userid IS NULL)
                  WHERE cc.usuario_id = $1
                    AND ($2::date IS NULL OR ci.data_vencimento >= $2::date)

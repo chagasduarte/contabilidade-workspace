@@ -45,6 +45,7 @@ export interface CardTransactionEntity {
   id: string;
   cartao_id: string;
   categoria_id?: number | null;
+  subcategoria_id?: number | null;
   descricao: string;
   valor_total: number;
   quantidade_parcelas: number;
@@ -65,7 +66,9 @@ export interface InvoiceItemEntity {
   data_compra?: Date;
   quantidade_parcelas?: number;
   categoria_id?: number | null;
+  subcategoria_id?: number | null;
   categoria_nome?: string | null;
+  subcategoria_nome?: string | null;
   categoria_cor?: string | null;
   categoria_icone?: string | null;
   criado_em?: Date;

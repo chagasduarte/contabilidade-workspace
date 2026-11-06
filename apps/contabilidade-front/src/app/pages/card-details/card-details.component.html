@@ -229,13 +229,21 @@
                         <span class="item-single-tag">À vista</span>
                       }
                       @if (obterNomeCategoria(item); as catNome) {
-                        <span class="item-category-name">• {{ catNome }}</span>
+                        <span class="item-category-name">• {{ catNome }}@if (item.subcategoria_nome) { · {{ item.subcategoria_nome }} }</span>
                       }
                     </div>
                   </div>
 
                   <div class="item-amount">
                     <span>{{ item.valor_parcela | currency:'BRL':'symbol':'1.2-2' }}</span>
+                    <div class="item-actions">
+                      <ion-button fill="clear" size="small" (click)="editarDespesa(item)" [disabled]="salvandoCompra() || !!removendoCompra()" [attr.aria-label]="'Editar despesa ' + item.descricao">
+                        <ion-icon slot="start" name="create-outline"></ion-icon>Editar
+                      </ion-button>
+                      <ion-button fill="clear" size="small" color="danger" (click)="removerDespesa(item)" [disabled]="salvandoCompra() || !!removendoCompra()" [attr.aria-label]="'Remover compra ' + item.descricao">
+                        <ion-icon slot="start" name="trash-outline"></ion-icon>Remover
+                      </ion-button>
+                    </div>
                   </div>
                 </div>
               </ion-card>
@@ -276,7 +284,7 @@
     <header class="modal-header">
       <div class="title-group">
         <ion-icon name="card-outline"></ion-icon>
-        <h2 id="modal-compra-title">Lançar Compra no Cartão</h2>
+        <h2 id="modal-compra-title">{{ itemEmEdicao() ? 'Editar despesa do cartão' : 'Lançar Compra no Cartão' }}</h2>
       </div>
       <button type="button" class="close-btn" (click)="fecharModalNovaCompra()">
         <ion-icon name="close-outline"></ion-icon>
@@ -297,7 +305,7 @@
 
       <div class="form-row">
         <div class="form-field">
-          <label for="compra-valor">Valor Total (R$)</label>
+          <label for="compra-valor">{{ itemEmEdicao() ? 'Valor desta parcela (R$)' : 'Valor Total (R$)' }}</label>
           <input
             id="compra-valor"
             type="number"
@@ -343,8 +351,26 @@
         </select>
       </div>
 
+      <div class="form-field">
+        <label for="compra-subcategoria">Subcategoria (opcional)</label>
+        <select id="compra-subcategoria" formControlName="subcategoria_id">
+          <option [ngValue]="null">Sem subcategoria</option>
+          @for (sub of subcategoriasCompra(); track sub.id) {
+            <option [ngValue]="sub.id">{{ sub.nome }}</option>
+          }
+        </select>
+        @if (erroSubcategorias(); as erro) {
+          <small role="alert">{{ erro }}</small>
+        }
+      </div>
+
       <p class="modal-hint">
-        As cotas serão alocadas automaticamente nas faturas seguintes respeitando o dia de fechamento do cartão.
+        @if (itemEmEdicao()) {
+          O valor altera somente esta parcela. Descrição, categoria e subcategoria alteram a compra inteira.
+          Valores de faturas com pagamento registrado não podem ser alterados.
+        } @else {
+          As cotas serão alocadas automaticamente nas faturas seguintes respeitando o dia de fechamento do cartão.
+        }
       </p>
 
       <footer class="modal-footer">
@@ -358,9 +384,9 @@
         <button
           type="submit"
           class="btn-primary"
-          [disabled]="compraForm.invalid"
+          [disabled]="compraForm.invalid || salvandoCompra() || carregandoSubcategorias() || !!erroSubcategorias()"
         >
-          Confirmar Compra
+          {{ salvandoCompra() ? 'Salvando...' : itemEmEdicao() ? 'Salvar alterações' : 'Confirmar Compra' }}
         </button>
       </footer>
     </form>

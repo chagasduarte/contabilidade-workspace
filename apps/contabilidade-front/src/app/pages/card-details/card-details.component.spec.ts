@@ -2,16 +2,17 @@
 
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
-import { of } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { ActivatedRoute, provideRouter } from '@angular/router';
 import { AlertController, LoadingController, ToastController } from '@ionic/angular';
 import { CardDetailsComponent } from './card-details.component';
+import { ParcelamentoService } from '../../core/services/parcelamento.service';
 import { CardService } from './card.service';
 import { CardDetailsResponseDto, CardInvoice, InvoiceDetailsResponseDto } from './card.model';
 import { CategoriaService } from '../../core/services/categoria.service';
 import { DashboardService } from '../../core/services/dashboard.service';
 import { HeaderStateService } from '@org/shared-ui-navigation';
-import { Categoria } from '@contabilidade/models';
+import { Categoria, Subcategoria } from '@contabilidade/models';
 
 describe('CardDetailsComponent', () => {
   let component: CardDetailsComponent;
@@ -94,11 +95,13 @@ describe('CardDetailsComponent', () => {
     obterDetalhesFatura: ReturnType<typeof vi.fn>;
     lancarTransacao: ReturnType<typeof vi.fn>;
     pagarFatura: ReturnType<typeof vi.fn>;
+    atualizarItem: ReturnType<typeof vi.fn>;
   };
 
   let categoriaServiceStub: {
     categorias: ReturnType<typeof signal<Categoria[]>>;
     listarCategorias: ReturnType<typeof vi.fn>;
+    listarSubcategorias: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(async () => {
@@ -108,6 +111,7 @@ describe('CardDetailsComponent', () => {
         { id: 2, nome: 'Salário', icone: 'cash-outline', cor: '#22c55e', tipo: 'receita' },
       ]),
       listarCategorias: vi.fn().mockReturnValue(of([])),
+      listarSubcategorias: vi.fn().mockReturnValue(of([])),
     };
 
     cardServiceStub = {
@@ -118,6 +122,7 @@ describe('CardDetailsComponent', () => {
       obterCartaoPorId: vi.fn().mockReturnValue(of(mockCartaoDetalhes)),
       obterDetalhesFatura: vi.fn().mockReturnValue(of(mockFaturaDetalhes)),
       lancarTransacao: vi.fn().mockReturnValue(of({ transacao: {}, itens: [], cartaoAtualizado: mockCartaoDetalhes })),
+      atualizarItem: vi.fn().mockReturnValue(of(undefined)),
       pagarFatura: vi.fn().mockReturnValue(of({ fatura: {}, cartaoAtualizado: mockCartaoDetalhes })),
     };
 
@@ -145,6 +150,7 @@ describe('CardDetailsComponent', () => {
       providers: [
         provideRouter([]),
         { provide: CardService, useValue: cardServiceStub },
+        { provide: ParcelamentoService, useValue: { excluir: vi.fn().mockReturnValue(of(undefined)) } },
         { provide: CategoriaService, useValue: categoriaServiceStub },
         { provide: DashboardService, useValue: { mes: signal(10), ano: signal(2026) } },
         {
@@ -268,5 +274,105 @@ describe('CardDetailsComponent', () => {
       })
     );
   });
+  it('carrega subcategorias da categoria e envia a selecionada na compra parcelada', async () => {
+    categoriaServiceStub.listarSubcategorias.mockReturnValue(of([
+      { id: 11, idcategoria: 1, nome: 'Mercado' },
+    ]));
+    component.abrirModalNovaCompra();
+    component.compraForm.patchValue({
+      descricao: 'Mercado', valor_total: 150, quantidade_parcelas: 3,
+      data_compra: '2026-10-15', categoria_id: 1,
+    });
+    component.compraForm.patchValue({ subcategoria_id: 11 });
+    fixture.detectChanges();
+    expect(categoriaServiceStub.listarSubcategorias).toHaveBeenCalledWith(1);
+    expect((fixture.nativeElement as HTMLElement).querySelector('#compra-subcategoria')?.textContent).toContain('Mercado');
+    await component.salvarNovaCompra();
+    expect(cardServiceStub.lancarTransacao).toHaveBeenCalledWith(expect.objectContaining({
+      categoria_id: 1, subcategoria_id: 11, quantidade_parcelas: 3,
+    }));
+  });
+
+  it('limpa subcategoria ao trocar categoria e descarta respostas antigas', () => {
+    const antiga = new Subject<Subcategoria[]>();
+    categoriaServiceStub.listarSubcategorias.mockReturnValueOnce(antiga).mockReturnValueOnce(of([
+      { id: 21, idcategoria: 3, nome: 'Táxi' },
+    ]));
+    component.compraForm.patchValue({ categoria_id: 1, subcategoria_id: 11 });
+    component.compraForm.patchValue({ categoria_id: 3 });
+    antiga.next([{ id: 11, idcategoria: 1, nome: 'Mercado' }]);
+    expect(component.compraForm.get('subcategoria_id')?.value).toBeNull();
+    expect(component.subcategoriasCompra().map(sub => sub.id)).toEqual([21]);
+    component.compraForm.patchValue({ categoria_id: null });
+    expect(component.subcategoriasCompra()).toEqual([]);
+    expect(component.compraForm.get('subcategoria_id')?.disabled).toBe(true);
+  });
+
+  it('informa falha no carregamento de subcategorias e permite tentar outra categoria', () => {
+    categoriaServiceStub.listarSubcategorias.mockReturnValueOnce(throwError(() => new Error('offline')));
+    component.compraForm.patchValue({ categoria_id: 1 });
+    expect(component.erroSubcategorias()).toContain('Não foi possível');
+    expect(component.compraForm.get('subcategoria_id')?.disabled).toBe(true);
+    component.compraForm.patchValue({ categoria_id: 3 });
+    expect(component.erroSubcategorias()).toBeNull();
+  });
+
+  it('edita a parcela sem criar nova compra, preservando categoria e subcategoria', async () => {
+    categoriaServiceStub.listarSubcategorias.mockReturnValue(of([{ id: 11, idcategoria: 1, nome: 'Mercado' }]));
+    component.editarDespesa({ ...mockFaturaDetalhes.itens[0], categoria_id: 1, subcategoria_id: 11 });
+    expect(component.compraForm.get('subcategoria_id')?.value).toBe(11);
+    expect(component.compraForm.get('quantidade_parcelas')?.disabled).toBe(true);
+    component.compraForm.patchValue({ descricao: 'Compra corrigida', valor_total: 550 });
+    await component.salvarNovaCompra();
+    expect(cardServiceStub.atualizarItem).toHaveBeenCalledWith('it-1', {
+      descricao: 'Compra corrigida', valor_parcela: 550, categoria_id: 1, subcategoria_id: 11,
+    });
+    expect(cardServiceStub.lancarTransacao).not.toHaveBeenCalled();
+    expect(component.modalNovaCompraAberto()).toBe(false);
+    expect(component.salvandoCompra()).toBe(false);
+  });
+
+  it('mantém o modal aberto se a edição falhar', async () => {
+    cardServiceStub.atualizarItem.mockReturnValue(throwError(() => new Error('Falha ao salvar')));
+    component.editarDespesa(mockFaturaDetalhes.itens[0]);
+    await component.salvarNovaCompra();
+    expect(component.modalNovaCompraAberto()).toBe(true);
+    expect(component.salvandoCompra()).toBe(false);
+  });
+
+  it('não exclui ao cancelar a confirmação', async () => {
+    vi.mocked(TestBed.inject(AlertController).create).mockResolvedValue({
+      present: vi.fn(), onDidDismiss: vi.fn().mockResolvedValue({ role: 'cancel' }),
+    } as never);
+    await component.removerDespesa(mockFaturaDetalhes.itens[0]);
+    expect(TestBed.inject(ParcelamentoService).excluir).not.toHaveBeenCalled();
+    expect(component.removendoCompra()).toBeNull();
+  });
+
+  it('confirma exclusão da compra inteira incluindo parcelas pagas e recarrega os dados', async () => {
+    vi.mocked(TestBed.inject(AlertController).create).mockResolvedValue({
+      present: vi.fn(), onDidDismiss: vi.fn().mockResolvedValue({ role: 'confirm' }),
+    } as never);
+    await component.removerDespesa(mockFaturaDetalhes.itens[0]);
+    expect(TestBed.inject(AlertController).create).toHaveBeenCalledWith(expect.objectContaining({
+      message: expect.stringContaining('inclusive as já pagas'),
+    }));
+    expect(TestBed.inject(ParcelamentoService).excluir).toHaveBeenCalledWith('cartao', 'tx-1');
+    expect(cardServiceStub.obterCartaoPorId).toHaveBeenCalledTimes(2);
+  });
+
+  it('impede envios duplicados enquanto a edição está em andamento', async () => {
+    const resposta = new Subject<void>();
+    cardServiceStub.atualizarItem.mockReturnValue(resposta);
+    component.editarDespesa(mockFaturaDetalhes.itens[0]);
+    const primeira = component.salvarNovaCompra();
+    await Promise.resolve();
+    await Promise.resolve();
+    await component.salvarNovaCompra();
+    resposta.next(); resposta.complete();
+    await primeira;
+    expect(cardServiceStub.atualizarItem).toHaveBeenCalledTimes(1);
+  });
+
 });
 

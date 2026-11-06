@@ -16,6 +16,16 @@ O que foi aprovado pelo usuário em 2026-10-26:
 > **Produção** só roda com autorização explícita do Maestro no momento da janela. Este documento descreve a ordem; ele não autoriza executar.
 > Todos os comandos rodam a partir da raiz do repositório.
 
+## Subcategoria em compras no cartão (migration 010)
+
+Antes de publicar a API com suporte a subcategoria no cartão, aplique
+`migrations/010_card_transactions_subcategoria.sql` pelo fluxo de migrations existente.
+Ela adiciona um vínculo opcional, preservando compras antigas sem subcategoria.
+O `init.sql` também contempla a coluna para instalações novas. O ensaio local deve
+verificar compra com e sem subcategoria, rejeição de subcategoria de outra categoria/usuário
+e leitura dos nomes na fatura e no extrato. A execução em produção continua sujeita
+à autorização da janela descrita acima.
+
 ## A. Atalhos
 
 ```sh

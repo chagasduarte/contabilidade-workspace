@@ -12,6 +12,7 @@ import {
   UpdateCardDto,
   CreateTransactionDto,
   PayInvoiceDto,
+  UpdateInvoiceItemDto,
   CardDetailsResponseDto,
   InvoiceDetailsResponseDto,
 } from '@contabilidade/models';
@@ -23,6 +24,12 @@ import { mensagemErroHttp } from '../utils/http-error';
   providedIn: 'root',
 })
 export class CardService {
+  atualizarItem(id: string, payload: UpdateInvoiceItemDto): Observable<void> {
+    return this.http.put<void>(`${this.baseUrl}/cards/itens/${encodeURIComponent(id)}`, payload).pipe(
+      catchError((err: unknown) => throwError(() => new Error(mensagemErroHttp(err, 'Erro ao atualizar despesa.'))))
+    );
+  }
+
   private readonly http = inject(HttpClient);
   private readonly baseUrl =
     inject(API_URL, { optional: true }) ?? environment.apiUrl;

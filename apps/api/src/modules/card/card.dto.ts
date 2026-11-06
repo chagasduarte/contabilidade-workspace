@@ -21,6 +21,7 @@ export interface CreateTransactionDto {
   quantidade_parcelas: number;
   data_compra: string | Date;
   categoria_id?: number | null;
+  subcategoria_id?: number | null;
 }
 
 export interface PayInvoiceDto {
@@ -45,3 +46,11 @@ export interface InvoiceDetailsResponseDto {
   valor_total: number;
 }
 
+
+/** Valor da parcela selecionada; descrição e classificação pertencem à compra inteira. */
+export interface UpdateInvoiceItemDto {
+  descricao: string;
+  valor_parcela: number;
+  categoria_id?: number | null;
+  subcategoria_id?: number | null;
+}

@@ -95,6 +95,7 @@ CREATE TABLE IF NOT EXISTS card_transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     cartao_id UUID NOT NULL REFERENCES credit_cards(id) ON DELETE CASCADE,
     categoria_id INTEGER NULL REFERENCES categoria(id) ON DELETE SET NULL,
+    subcategoria_id INTEGER NULL CONSTRAINT fk_card_transactions_subcategoria REFERENCES subcategoria(id) ON DELETE SET NULL,
     descricao VARCHAR(255) NOT NULL,
     valor_total NUMERIC(12, 2) NOT NULL,
     quantidade_parcelas INTEGER NOT NULL DEFAULT 1,

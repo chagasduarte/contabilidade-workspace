@@ -288,6 +288,7 @@ export const TransacaoBusiness = {
           quantidade_parcelas: 1,
           data_compra: dataCompra,
           categoria_id: categoriaId,
+          subcategoria_id: transacao.idsubcategoria == null ? null : Number(transacao.idsubcategoria),
         },
         userid
       );
@@ -299,6 +300,7 @@ export const TransacaoBusiness = {
         valor: resultado.transacao.valor_total,
         categoria: resultado.transacao.categoria_id,
         idcategoria: resultado.transacao.categoria_id,
+        idsubcategoria: resultado.transacao.subcategoria_id,
         data: resultado.transacao.data_compra,
         status: 'pendente',
         userid,
@@ -402,6 +404,7 @@ export const TransacaoBusiness = {
           quantidade_parcelas: qtdParcelas,
           data_compra: dataCompra,
           categoria_id: categoriaId,
+          subcategoria_id: payload.idsubcategoria == null ? null : Number(payload.idsubcategoria),
         },
         userId
       );
@@ -413,6 +416,7 @@ export const TransacaoBusiness = {
         valor: it.valor_parcela,
         categoria: payload.categoria,
         idcategoria: payload.idcategoria,
+        idsubcategoria: resultado.transacao.subcategoria_id,
         data: it.data_compra || payload.data,
         status: 'pendente',
         userid: userId,

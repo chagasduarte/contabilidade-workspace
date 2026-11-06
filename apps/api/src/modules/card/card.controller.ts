@@ -10,6 +10,23 @@ import {
 import { CreateCardDto, UpdateCardDto, CreateTransactionDto, PayInvoiceDto } from './card.dto';
 
 export const CardController = {
+  async atualizarItem(req: Request, res: Response): Promise<void> {
+    if (!req.usuarioId) { res.status(401).json({ erro: 'Usuário não autenticado.' }); return; }
+    try {
+      await CardBusiness.atualizarItem(String(req.params.itemId), req.usuarioId, {
+        descricao: req.body.descricao,
+        valor_parcela: Number(req.body.valor_parcela),
+        categoria_id: req.body.categoria_id == null || req.body.categoria_id === '' ? null : Number(req.body.categoria_id),
+        subcategoria_id: req.body.subcategoria_id == null || req.body.subcategoria_id === '' ? null : Number(req.body.subcategoria_id),
+      });
+      res.status(204).send();
+    } catch (error) {
+      const status = error instanceof CardValidationError ? 400 : error instanceof InvoiceNotFoundError ? 404 : 500;
+      const message = status === 500 ? 'Erro ao atualizar despesa.' : (error as Error).message;
+      res.status(status).json({ erro: message, error: message });
+    }
+  },
+
   /**
    * POST /cards
    * Cadastra um novo cartão de crédito para o usuário autenticado.
@@ -205,6 +222,8 @@ export const CardController = {
         quantidade_parcelas: Number(req.body.quantidade_parcelas || 1),
         data_compra: req.body.data_compra || new Date(),
         categoria_id: req.body.categoria_id ? Number(req.body.categoria_id) : undefined,
+        subcategoria_id: req.body.subcategoria_id == null || req.body.subcategoria_id === ''
+          ? null : Number(req.body.subcategoria_id),
       };
 
       const resultado = await CardBusiness.lancarTransacao(dto, usuarioId);

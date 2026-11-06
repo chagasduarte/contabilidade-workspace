@@ -45,6 +45,7 @@ export interface CardTransaction {
   id: string;
   cartao_id: string;
   categoria_id?: number | null;
+  subcategoria_id?: number | null;
   descricao: string;
   valor_total: number;
   quantidade_parcelas: number;
@@ -65,7 +66,9 @@ export interface InvoiceItem {
   data_compra?: Date | string;
   quantidade_parcelas?: number;
   categoria_id?: number | null;
+  subcategoria_id?: number | null;
   categoria_nome?: string | null;
+  subcategoria_nome?: string | null;
   categoria_cor?: string | null;
   categoria_icone?: string | null;
   criado_em?: Date | string;
@@ -94,6 +97,7 @@ export interface CreateTransactionDto {
   quantidade_parcelas: number;
   data_compra: string | Date;
   categoria_id?: number | null;
+  subcategoria_id?: number | null;
 }
 
 export interface PayInvoiceDto {
@@ -118,3 +122,11 @@ export interface InvoiceDetailsResponseDto {
   valor_total: number;
 }
 
+
+/** Valor da parcela selecionada; descrição e classificação pertencem à compra inteira. */
+export interface UpdateInvoiceItemDto {
+  descricao: string;
+  valor_parcela: number;
+  categoria_id?: number | null;
+  subcategoria_id?: number | null;
+}

@@ -55,6 +55,7 @@ export function mapTransactionEntity(row: Record<string, unknown>): CardTransact
   return {
     id: String(row['id']),
     cartao_id: String(row['cartao_id']),
+    subcategoria_id: row['subcategoria_id'] != null ? Number(row['subcategoria_id']) : null,
     categoria_id: row['categoria_id'] !== null && row['categoria_id'] !== undefined ? Number(row['categoria_id']) : null,
     descricao: String(row['descricao'] ?? ''),
     valor_total: Number(row['valor_total'] ?? 0),
@@ -77,7 +78,9 @@ export function mapInvoiceItemEntity(row: Record<string, unknown>): InvoiceItemE
     descricao: row['descricao'] ? String(row['descricao']) : undefined,
     data_compra: row['data_compra'] ? new Date(String(row['data_compra'])) : undefined,
     quantidade_parcelas: row['quantidade_parcelas'] !== undefined ? Number(row['quantidade_parcelas']) : undefined,
+    subcategoria_id: row['subcategoria_id'] != null ? Number(row['subcategoria_id']) : null,
     categoria_id: row['categoria_id'] !== undefined && row['categoria_id'] !== null ? Number(row['categoria_id']) : null,
+    subcategoria_nome: row['subcategoria_nome'] ? String(row['subcategoria_nome']) : null,
     categoria_nome: row['categoria_nome'] ? String(row['categoria_nome']) : undefined,
     categoria_cor: row['categoria_cor'] ? String(row['categoria_cor']) : undefined,
     categoria_icone: row['categoria_icone'] ? String(row['categoria_icone']) : undefined,
@@ -437,6 +440,7 @@ export const CardRepository = {
     dados: {
       cartao_id: string;
       categoria_id?: number | null;
+      subcategoria_id?: number | null;
       descricao: string;
       valor_total: number;
       quantidade_parcelas: number;
@@ -451,9 +455,10 @@ export const CardRepository = {
         descricao,
         valor_total,
         quantidade_parcelas,
-        data_compra
+        data_compra,
+        subcategoria_id
       )
-      VALUES ($1, $2, $3, $4, $5, $6)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *
     `;
     const result = await client.query(query, [
@@ -463,6 +468,7 @@ export const CardRepository = {
       dados.valor_total,
       dados.quantidade_parcelas,
       dados.data_compra,
+      dados.subcategoria_id ?? null,
     ]);
     return mapTransactionEntity(result.rows[0]);
   },
@@ -529,11 +535,16 @@ export const CardRepository = {
              ct.data_compra,
              ct.quantidade_parcelas,
              ct.categoria_id,
+             ct.subcategoria_id,
+             sub.nome AS subcategoria_nome,
              c.nome AS categoria_nome,
              c.cor AS categoria_cor,
              c.icone AS categoria_icone
       FROM invoice_items ii
       JOIN card_transactions ct ON ii.transacao_id = ct.id
+      JOIN credit_cards cc ON cc.id = ct.cartao_id
+      LEFT JOIN subcategoria sub ON sub.id = ct.subcategoria_id AND sub.idcategoria = ct.categoria_id
+        AND (sub.userid = cc.usuario_id OR sub.userid IS NULL)
       LEFT JOIN categoria c ON ct.categoria_id = c.id
       WHERE ii.fatura_id = $1
       ORDER BY ct.data_compra DESC, ii.numero_parcela ASC

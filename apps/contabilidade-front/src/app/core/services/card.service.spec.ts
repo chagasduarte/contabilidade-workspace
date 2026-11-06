@@ -265,5 +265,16 @@ describe('CardService', () => {
     expect(service.cartaoSelecionado()?.limite_disponivel).toBe(10000);
     expect(service.faturaSelecionada()?.fatura.status).toBe('PAID');
   });
+  it('envia edição da despesa para o item selecionado', () => {
+    const payload = { descricao: 'Mercado', valor_parcela: 150, categoria_id: 1, subcategoria_id: 11 };
+    let concluiu = false;
+    service.atualizarItem('item-1', payload).subscribe(() => { concluiu = true; });
+    const req = httpTesting.expectOne(`${mockApiUrl}/cards/itens/item-1`);
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual(payload);
+    req.flush(null, { status: 204, statusText: 'No Content' });
+    expect(concluiu).toBe(true);
+  });
+
 });
 

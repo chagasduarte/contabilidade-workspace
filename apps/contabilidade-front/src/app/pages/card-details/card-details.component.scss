@@ -588,3 +588,9 @@
   }
 }
 
+
+.item-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 600px) {
+  .invoice-item-card__inner { flex-wrap: wrap; }
+  .item-amount { margin-left: auto; }
+}

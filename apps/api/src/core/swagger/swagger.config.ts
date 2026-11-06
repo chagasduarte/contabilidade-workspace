@@ -394,6 +394,29 @@ Permite o controle integral de fluxo de caixa, cartões de crédito com faturas 
         },
       },
     },
+    '/cards/itens/{itemId}': {
+      put: {
+        tags: ['Cartões de Crédito'],
+        summary: 'Editar despesa da fatura',
+        description: 'Valor altera somente a parcela selecionada. Descrição e classificação alteram a compra inteira. Valor não pode ser alterado se a fatura tiver pagamento registrado.',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ in: 'path', name: 'itemId', required: true, schema: { type: 'string', format: 'uuid' } }],
+        requestBody: { required: true, content: { 'application/json': { schema: {
+          type: 'object', required: ['descricao', 'valor_parcela'], properties: {
+            descricao: { type: 'string', maxLength: 255 },
+            valor_parcela: { type: 'number', minimum: 0.01 },
+            categoria_id: { type: 'integer', nullable: true },
+            subcategoria_id: { type: 'integer', nullable: true },
+          },
+        } } } },
+        responses: {
+          204: { description: 'Despesa atualizada.' },
+          400: { description: 'Dados inválidos, pagamento registrado ou limite insuficiente.' },
+          401: { description: 'Usuário não autenticado.' },
+          404: { description: 'Despesa não encontrada ou de outro usuário.' },
+        },
+      },
+    },
     '/cards/transacoes': {
       post: {
         tags: ['Cartões de Crédito'],
@@ -1911,6 +1934,7 @@ Permite o controle integral de fluxo de caixa, cartões de crédito com faturas 
           id: { type: 'string', format: 'uuid' },
           cartao_id: { type: 'string', format: 'uuid' },
           categoria_id: { type: 'integer', nullable: true },
+          subcategoria_id: { type: 'integer', nullable: true },
           descricao: { type: 'string', example: 'Notebook Gamer' },
           valor_total: { type: 'number', example: 3000.0 },
           quantidade_parcelas: { type: 'integer', example: 10 },
@@ -1924,6 +1948,8 @@ Permite o controle integral de fluxo de caixa, cartões de crédito com faturas 
           id: { type: 'string', format: 'uuid' },
           fatura_id: { type: 'string', format: 'uuid' },
           transacao_id: { type: 'string', format: 'uuid' },
+          subcategoria_id: { type: 'integer', nullable: true },
+          subcategoria_nome: { type: 'string', nullable: true },
           numero_parcela: { type: 'integer', example: 1 },
           valor_parcela: { type: 'number', example: 300.0 },
           descricao: { type: 'string', example: 'Notebook Gamer' },
@@ -1941,6 +1967,7 @@ Permite o controle integral de fluxo de caixa, cartões de crédito com faturas 
           quantidade_parcelas: { type: 'integer', minimum: 1, example: 10 },
           data_compra: { type: 'string', format: 'date', example: '2026-10-15' },
           categoria_id: { type: 'integer', nullable: true, example: 3 },
+          subcategoria_id: { type: 'integer', nullable: true, example: 11, description: 'Subcategoria visível ao usuário e vinculada à categoria informada.' },
         },
       },
       PayInvoiceDto: {

@@ -18,6 +18,8 @@ router.get('/', CardController.listar);
 // POST /cards/transacoes - Lançar nova compra (à vista ou parcelada)
 router.post('/transacoes', CardController.lancarTransacao);
 
+router.put('/itens/:itemId', CardController.atualizarItem);
+
 // GET /cards/faturas/:faturaId - Detalhes de uma fatura com seus lançamentos (invoice_items)
 router.get('/faturas/:faturaId', CardController.obterFatura);
 

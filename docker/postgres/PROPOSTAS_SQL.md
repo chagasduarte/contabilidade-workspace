@@ -10,6 +10,7 @@ Testado em PGlite (Postgres 16 em WASM) com 200 mil transações para 200 usuár
 | `migrations/002_indices_performance.sql` | Índices para os filtros reais e para FKs sem índice | Pronta |
 | `migrations/003_integridade_constraints.sql` | FKs para `usuarios`, CHECKs `NOT VALID`, UNIQUEs criados só se não houver duplicados | Pronta |
 | `migrations/004_transacoes_parcelas.sql` | Colunas `parcela_grupo_id`, `parcela_numero` e `parcela_total`, todas NULLABLE | Pronta |
+| `migrations/010_card_transactions_subcategoria.sql` | `card_transactions.subcategoria_id` opcional + FK `ON DELETE SET NULL NOT VALID` + índice parcial | Pronta |
 | `migrations/009_objetivos_progresso.sql` | `objetivos.valor_acumulado` NOT NULL DEFAULT 0 (sem rewrite) + 3 CHECKs `NOT VALID` | Pronta |
 | `migrations/008_transacoes_idsubcategoria.sql` | `transacoes.idsubcategoria` + FK `ON DELETE SET NULL NOT VALID` + índice parcial (fase 1 do campo categoria) | Pronta |
 | `manual/backfill_idsubcategoria.sql` | Rascunho da fase 3: preenche `idsubcategoria` a partir da coluna legada `categoria`, só com par coerente; ignora settlement | Precisa de aprovação |

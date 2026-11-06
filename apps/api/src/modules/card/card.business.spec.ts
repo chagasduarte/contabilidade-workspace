@@ -11,12 +11,17 @@ import {
 } from './card.business';
 import { CardRepository } from './card.repository';
 import { pool } from '../../core/config/database';
+import { SubcategoriaBusiness } from '../subcategoria/subcategoria.business';
 import { CategoriaBusiness } from '../categoria/categoria.business';
 
 vi.mock('../categoria/categoria.business', () => ({
   CategoriaBusiness: {
     categoriaVisivel: vi.fn().mockResolvedValue(true),
   },
+}));
+
+vi.mock('../subcategoria/subcategoria.business', () => ({
+  SubcategoriaBusiness: { subcategoriaDaCategoria: vi.fn().mockResolvedValue(true) },
 }));
 
 vi.mock('./card.repository', async (importOriginal) => ({
@@ -257,6 +262,24 @@ describe('CardBusiness', () => {
       expect(pool.connect).not.toHaveBeenCalled();
     });
 
+    it('rejeita subcategoria de outra categoria ou usuário antes de abrir transação', async () => {
+      vi.mocked(SubcategoriaBusiness.subcategoriaDaCategoria).mockResolvedValueOnce(false);
+      await expect(CardBusiness.lancarTransacao({
+        cartao_id: 'card-1', descricao: 'Compra', valor_total: 300,
+        quantidade_parcelas: 1, data_compra: '2026-10-10', categoria_id: 1, subcategoria_id: 11,
+      }, 7)).rejects.toThrow('Subcategoria não pertence');
+      expect(SubcategoriaBusiness.subcategoriaDaCategoria).toHaveBeenCalledWith(11, 1, 7);
+      expect(pool.connect).not.toHaveBeenCalled();
+    });
+
+    it('rejeita subcategoria sem categoria', async () => {
+      await expect(CardBusiness.lancarTransacao({
+        cartao_id: 'card-1', descricao: 'Compra', valor_total: 300,
+        quantidade_parcelas: 1, data_compra: '2026-10-10', subcategoria_id: 11,
+      }, 7)).rejects.toThrow(CardValidationError);
+      expect(pool.connect).not.toHaveBeenCalled();
+    });
+
     it('deve lançar erro se o limite disponível for insuficiente', async () => {
       vi.mocked(CardRepository.buscarCartaoPorId).mockResolvedValue(mockCartao);
       vi.mocked(CardRepository.obterLimiteComprometido).mockResolvedValue(2500); // Disponível: 500
@@ -358,10 +381,14 @@ describe('CardBusiness', () => {
           valor_total: 300,
           quantidade_parcelas: 3,
           data_compra: '2026-10-10',
+          categoria_id: 1, subcategoria_id: 11,
         },
         1
       );
 
+      expect(CardRepository.criarTransacao).toHaveBeenCalledWith(
+        expect.objectContaining({ categoria_id: 1, subcategoria_id: 11 }), mockClient
+      );
       expect(mockClient.query).toHaveBeenCalledWith('BEGIN');
       expect(mockClient.query).toHaveBeenCalledWith('COMMIT');
       expect(CardRepository.criarTransacao).toHaveBeenCalledTimes(1);

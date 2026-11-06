@@ -1,3 +1,5 @@
+import { CardItemRepository } from './card-item.repository';
+import { SubcategoriaBusiness } from '../subcategoria/subcategoria.business';
 // card.business.ts
 
 import { PoolClient } from 'pg';
@@ -13,6 +15,7 @@ import {
   UpdateCardDto,
   CreateTransactionDto,
   PayInvoiceDto,
+  UpdateInvoiceItemDto,
   CardDetailsResponseDto,
   InvoiceDetailsResponseDto,
 } from './card.dto';
@@ -160,6 +163,25 @@ function validarDadosCartao(dto: CreateCardDto, usuarioId: number): CreateCardDt
 }
 
 export const CardBusiness = {
+  async atualizarItem(id: string, usuarioId: number, dto: UpdateInvoiceItemDto): Promise<void> {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))
+      throw new CardValidationError('ID da despesa inválido.');
+    if (typeof dto.descricao !== 'string' || !dto.descricao.trim() || dto.descricao.trim().length > 255)
+      throw new CardValidationError('Informe uma descrição com até 255 caracteres.');
+    if (!Number.isFinite(dto.valor_parcela) || dto.valor_parcela <= 0 ||
+        Math.abs(dto.valor_parcela * 100 - Math.round(dto.valor_parcela * 100)) > 0.00001)
+      throw new CardValidationError('Informe um valor positivo com até duas casas decimais.');
+    if (dto.categoria_id != null && !(await CategoriaBusiness.categoriaVisivel(dto.categoria_id, usuarioId)))
+      throw new CardValidationError('Categoria não encontrada.');
+    if (dto.subcategoria_id != null && (dto.categoria_id == null ||
+        !(await SubcategoriaBusiness.subcategoriaDaCategoria(dto.subcategoria_id, dto.categoria_id, usuarioId))))
+      throw new CardValidationError('Subcategoria não pertence à categoria selecionada ou não está disponível.');
+    const resultado = await CardItemRepository.atualizar(id, usuarioId, { ...dto, descricao: dto.descricao.trim() });
+    if (resultado === 'not-found') throw new InvoiceNotFoundError('Despesa não encontrada.');
+    if (resultado === 'paid') throw new CardValidationError('Não é possível alterar o valor de uma fatura com pagamento registrado.');
+    if (resultado === 'limit') throw new CardValidationError('Limite do cartão insuficiente para este valor.');
+  },
+
   /**
    * Cria um novo cartão de crédito validando os dados fornecidos.
    */
@@ -336,6 +358,13 @@ export const CardBusiness = {
       }
     }
 
+    if (dto.subcategoria_id != null) {
+      if (dto.categoria_id == null ||
+          !(await SubcategoriaBusiness.subcategoriaDaCategoria(dto.subcategoria_id, dto.categoria_id, usuarioId))) {
+        throw new CardValidationError('Subcategoria não pertence à categoria selecionada ou não está disponível.');
+      }
+    }
+
     const quantidadeParcelas = Number(dto.quantidade_parcelas || 1);
     if (isNaN(quantidadeParcelas) || quantidadeParcelas < 1 || !Number.isInteger(quantidadeParcelas)) {
       throw new CardValidationError('A quantidade de parcelas deve ser um número inteiro maior ou igual a 1.');
@@ -469,6 +498,7 @@ export const CardBusiness = {
         {
           cartao_id: cartao.id,
           categoria_id: dto.categoria_id,
+          subcategoria_id: dto.subcategoria_id,
           descricao: dto.descricao,
           valor_total: valorTotal,
           quantidade_parcelas: quantidadeParcelas,
