@@ -148,7 +148,7 @@
             <div class="invoice-amount-block">
               <span class="amount-label">Total da Fatura</span>
               <span class="amount-value">
-                {{ (detalhesFaturaAtiva()?.valor_total || fat.total_fatura || 0) | currency:'BRL':'symbol':'1.2-2' }}
+                {{ (detalhesFaturaAtiva()?.valor_total ?? fat.total_fatura ?? 0) | currency:'BRL':'symbol':'1.2-2' }}
               </span>
             </div>
 

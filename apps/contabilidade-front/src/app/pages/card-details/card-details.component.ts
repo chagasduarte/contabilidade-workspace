@@ -13,7 +13,7 @@ import {
   untracked,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { catchError, firstValueFrom, of, switchMap, tap } from 'rxjs';
+import { Subject, catchError, firstValueFrom, of, switchMap, tap } from 'rxjs';
 import { Subcategoria } from '@contabilidade/models';
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -168,6 +168,7 @@ export class CardDetailsComponent implements OnInit {
 
   // Faturas do cartão; o mês exibido é o mês global (o mesmo do seletor do cabeçalho)
   readonly faturas = signal<CardInvoice[]>([]);
+  private readonly consultarFatura$ = new Subject<string | null>();
   readonly mes = this.dashboardService.mes;
   readonly ano = this.dashboardService.ano;
 
@@ -190,20 +191,18 @@ export class CardDetailsComponent implements OnInit {
    */
   readonly faturaAtiva = computed<CardInvoice | null>(() => {
     const alvo = `${this.ano()}-${String(this.mes()).padStart(2, '0')}`;
-    return (
-      this.faturas().find((f) => String(f.data_vencimento).substring(0, 7) === alvo) ??
-      this.faturas().find(
-        (f) => Number(f.ano_referencia) === this.ano() && Number(f.mes_referencia) === this.mes()
-      ) ??
-      null
-    );
+    return this.faturas().find((f) => {
+      const vencimento = f.data_vencimento instanceof Date
+        ? f.data_vencimento.toISOString() : f.data_vencimento;
+      return f.cartao_id === this.cardId() && vencimento.substring(0, 7) === alvo;
+    }) ?? null;
   });
 
   /** Itens só da fatura ativa: evita mostrar os da fatura anterior enquanto a nova carrega. */
   readonly detalhesFaturaAtiva = computed(() => {
     const det = this.faturaDetalhes();
     const fat = this.faturaAtiva();
-    return det && fat && det.fatura.id === fat.id ? det : null;
+    return det && fat && det.fatura.id === fat.id && det.cartao.id === this.cardId() ? det : null;
   });
 
   // Computado: título do mês selecionado (ex: "Outubro 2026")
@@ -211,13 +210,11 @@ export class CardDetailsComponent implements OnInit {
     () => `${MESES_NOME[this.mes() - 1] ?? `Mês ${this.mes()}`} ${this.ano()}`
   );
 
-  // Computado: melhor dia de compra (dia seguinte ao fechamento)
+  // O dia do fechamento já inicia o próximo ciclo.
   readonly melhorDiaCompra = computed(() => {
     const c = this.cartaoDetalhes()?.cartao;
     if (!c) return 1;
-    let dia = c.dia_fechamento + 1;
-    if (dia > 31) dia = 1;
-    return dia;
+    return c.dia_fechamento;
   });
 
   constructor() {
@@ -244,6 +241,18 @@ export class CardDetailsComponent implements OnInit {
     });
 
     this.inicializarFormCompra();
+    this.consultarFatura$.pipe(
+      switchMap(id => id
+        ? this.cardService.obterDetalhesFatura(id).pipe(catchError(() => of(null)))
+        : of(null)),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(detalhes => {
+      const ativa = this.faturaAtiva();
+      this.cardService.faturaSelecionada.set(
+        detalhes && detalhes.fatura.id === ativa?.id && detalhes.cartao.id === this.cardId()
+          ? detalhes : null
+      );
+    });
 
     // Seletor de mês do cabeçalho
     effect(() => {
@@ -371,10 +380,8 @@ export class CardDetailsComponent implements OnInit {
   }
 
   private carregarDetalhesFaturaAtual(): void {
-    const fatura = this.faturaAtiva();
-    if (fatura) {
-      this.cardService.obterDetalhesFatura(fatura.id).subscribe({ error: () => undefined });
-    }
+    this.cardService.faturaSelecionada.set(null);
+    this.consultarFatura$.next(this.faturaAtiva()?.id ?? null);
   }
 
   // --- Ações de Nova Compra ---

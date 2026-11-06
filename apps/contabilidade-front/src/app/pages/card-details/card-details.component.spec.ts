@@ -236,9 +236,9 @@ describe('CardDetailsComponent', () => {
     expect(component.percentualLimite()).toBe(0.2);
   });
 
-  it('deve calcular o melhor dia de compra como o dia seguinte ao fechamento', () => {
-    // Fechamento 20 -> melhor dia 21
-    expect(component.melhorDiaCompra()).toBe(21);
+  it('considera o fechamento como início do próximo ciclo de compras', () => {
+    // Fechamento 20 -> compras do dia 20 já entram no próximo ciclo
+    expect(component.melhorDiaCompra()).toBe(20);
   });
 
   it('deve alternar a visibilidade do modal de nova compra', () => {
@@ -385,6 +385,58 @@ describe('CardDetailsComponent', () => {
     await component.salvarNovaCompra();
     expect(component.mes()).toBe(12);
     expect(component.ano()).toBe(2026);
+  });
+
+  it('não repete em novembro a fatura de referência novembro que só vence em dezembro', () => {
+    const dezembro = { ...mockFatura, id: 'dezembro', mes_referencia: 11,
+      data_vencimento: '2026-12-10', status: 'OPEN' as const };
+    component.faturas.set([dezembro]);
+    component.selecionarMes(11);
+    expect(component.faturaAtiva()).toBeNull();
+    expect(component.detalhesFaturaAtiva()).toBeNull();
+    component.selecionarMes(12);
+    expect(component.faturaAtiva()?.id).toBe('dezembro');
+    expect(component.faturaAtiva()?.status).toBe('OPEN');
+  });
+
+  it('Inter com fechamento 1 e vencimento 7 separa novembro pago de dezembro aberto', () => {
+    const novembro = { ...mockFatura, id: 'novembro', mes_referencia: 11, data_fechamento: '2026-11-01', data_vencimento: '2026-11-07', status: 'PAID' as const };
+    const dezembro = { ...mockFatura, id: 'dezembro', mes_referencia: 12, data_fechamento: '2026-12-01', data_vencimento: '2026-12-07', status: 'OPEN' as const };
+    const item = mockFaturaDetalhes.itens[0];
+    const detalhesNovembro = { ...mockFaturaDetalhes, cartao: { ...mockCartaoDetalhes.cartao, nome: 'Inter', dia_fechamento: 1, dia_vencimento: 7 }, fatura: novembro, itens: [
+      { ...item, id: 'parcela-novembro', fatura_id: 'novembro', transacao_id: 'parcelada', descricao: 'Compra antiga', numero_parcela: 1 },
+    ] };
+    const detalhesDezembro = { ...mockFaturaDetalhes, cartao: { ...mockCartaoDetalhes.cartao, nome: 'Inter', dia_fechamento: 1, dia_vencimento: 7 }, fatura: dezembro, itens: [
+      { ...item, id: 'parcela-dezembro', fatura_id: 'dezembro', transacao_id: 'parcelada', descricao: 'Compra antiga', numero_parcela: 2 },
+      { ...item, id: 'compra-novembro', fatura_id: 'dezembro', transacao_id: 'nova', descricao: 'Compra de 01/11', data_compra: '2026-11-01', numero_parcela: 1, quantidade_parcelas: 1 },
+    ] };
+    cardServiceStub.obterDetalhesFatura.mockImplementation((id: string) => of(id === 'novembro' ? detalhesNovembro : detalhesDezembro));
+    component.faturas.set([novembro, dezembro]);
+    component.selecionarMes(11);
+    expect(component.faturaAtiva()?.status).toBe('PAID');
+    expect(component.detalhesFaturaAtiva()?.itens.map(i => i.id)).toEqual(['parcela-novembro']);
+    component.selecionarMes(12);
+    fixture.detectChanges();
+    expect(component.faturaAtiva()?.status).toBe('OPEN');
+    expect(component.detalhesFaturaAtiva()?.itens.map(i => [i.id, i.numero_parcela])).toEqual([
+      ['parcela-dezembro', 2], ['compra-novembro', 1],
+    ]);
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Fatura Liquidada em');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Parcela 2 de 2');
+  });
+
+  it('descarta respostas atrasadas ao trocar de novembro para dezembro', () => {
+    const novembro = { ...mockFatura, id: 'novembro', data_vencimento: '2026-11-10' };
+    const dezembro = { ...mockFatura, id: 'dezembro', data_vencimento: '2026-12-10', status: 'OPEN' as const };
+    const antiga = new Subject<InvoiceDetailsResponseDto>();
+    const atual = { ...mockFaturaDetalhes, fatura: dezembro };
+    cardServiceStub.obterDetalhesFatura.mockImplementation((id: string) => id === 'novembro' ? antiga : of(atual));
+    component.faturas.set([novembro, dezembro]);
+    component.selecionarMes(11);
+    component.selecionarMes(12);
+    antiga.next({ ...mockFaturaDetalhes, fatura: novembro });
+    expect(component.detalhesFaturaAtiva()?.fatura.id).toBe('dezembro');
+    expect(cardServiceStub.faturaSelecionada()?.fatura.id).toBe('dezembro');
   });
 
 });

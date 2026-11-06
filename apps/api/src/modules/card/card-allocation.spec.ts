@@ -84,4 +84,22 @@ describe('Alocação de novas compras nas faturas', () => {
     expect((await comprar('2026-11-06', 1))[0].fatura_id).toBe('2026-12');
     expect(client.query).toHaveBeenLastCalledWith('COMMIT');
   });
+  it.each([
+    ['2026-10-31', ['2026-11', '2026-12']],
+    ['2026-11-01', ['2026-12', '2027-1']],
+    ['2026-11-30', ['2026-12', '2027-1']],
+    ['2026-12-01', ['2027-1', '2027-2']],
+  ])('com fechamento dia 1, aloca compra de %s e mantém a parcela mensal correta', async (data, faturasEsperadas) => {
+    vi.mocked(CardRepository.buscarCartaoPorId).mockResolvedValue({ ...cartao, dia_fechamento: 1, dia_vencimento: 7 });
+    const itens = await comprar(data, 2);
+    expect(itens.map(i => i.fatura_id)).toEqual(faturasEsperadas);
+    expect(itens.map(i => i.numero_parcela)).toEqual([1, 2]);
+    const vencimentos = vi.mocked(CardRepository.criarFatura).mock.calls.map(([f]) => f.data_vencimento.toISOString().substring(0, 10));
+    expect(vencimentos).toEqual(faturasEsperadas.map(chave => {
+      const [ano, mes] = chave.split('-');
+      return `${ano}-${mes.padStart(2, '0')}-07`;
+    }));
+    expect(itens.reduce((soma, i) => soma + i.valor_parcela, 0)).toBe(100);
+  });
+
 });
