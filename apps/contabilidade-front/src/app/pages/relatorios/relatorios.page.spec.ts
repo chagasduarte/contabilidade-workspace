@@ -70,7 +70,7 @@ describe('RelatoriosPage', () => {
   const dashboardServiceMock = { mes: signal(10), ano: signal(2026) };
 
   beforeEach(async () => {
-    transacaoServiceMock.carregarExtrato.mockClear();
+    transacaoServiceMock.carregarExtrato.mockReset().mockReturnValue(of(extrato));
 
     await TestBed.configureTestingModule({
       imports: [RelatoriosPage],
@@ -134,6 +134,28 @@ describe('RelatoriosPage', () => {
     component.selecionarPeriodo('ano');
     expect(transacaoServiceMock.carregarExtrato).toHaveBeenLastCalledWith(undefined, 2026, 0);
     expect(component.evolucao().labels.length).toBe(12);
+  });
+
+  it('inclui cartão moderno pelo vencimento em totais, categorias e evolução', () => {
+    transacaoServiceMock.carregarExtrato.mockReturnValue(of([
+      ...extrato,
+      { id: 'cartao:item', descricao: 'Compra parcelada', tipo: 'saida', valor: 2000,
+        idcategoria: 2, data: '2026-09-10', pagamento: '2026-10-20', status: 'pendente',
+        cartaoid: null, origem: 'CARTAO', source_type: 'CREDIT_CARD_ITEM' } as never,
+    ]));
+    component.carregarDados();
+    expect(component.totalGeral()).toBe(3150);
+    expect(component.totalPendente()).toBe(2500);
+    expect(component.totalCartao()).toBe(2000);
+    expect(component.dadosCategorias()[0].total).toBe(2500);
+    expect(component.evolucao().valores[19]).toBe(2000);
+    expect(component.evolucao().valores.reduce((a, b) => a + b, 0)).toBe(3150);
+    component.inicioRascunho.set('2026-10-20');
+    component.fimRascunho.set('2026-10-20');
+    component.aplicarIntervalo();
+    component.selecionarPeriodo('customizado');
+    expect(component.totalGeral()).toBe(2000);
+    expect(component.transacoes().map(t => t.id)).toEqual(['cartao:item']);
   });
 
   it('deve recusar período customizado com início após o fim', () => {

@@ -109,7 +109,7 @@
       </small>
     </article>
     <article class="transactions-summary__card transactions-summary__card--expense">
-      <span>Saídas no mês</span>
+      <span>Saídas no mês (inclui cartão)</span>
       <strong>{{ monthlyExpenses() | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}</strong>
       <small class="transactions-summary__sub" data-testid="summary-expense-breakdown">
         Pago: {{ saidasPagas() | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }} · A pagar:

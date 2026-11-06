@@ -135,8 +135,12 @@ function diasEntre(inicio: string, fim: string): number {
 }
 
 /** Mesma regra do agrupamento da API: compras no cartão contam pela data da fatura. */
+function ehCartao(t: Transacao): boolean {
+  return !!t.cartaoid || t.tipo === 'cartao' || t.origem === 'CARTAO' || t.source_type === 'CREDIT_CARD_ITEM';
+}
+
 function dataReferencia(t: Transacao): string {
-  return ((t.cartaoid ? t.pagamento || t.data : t.data) ?? '').substring(0, 10);
+  return ((ehCartao(t) ? t.pagamento || t.data : t.data) ?? '').substring(0, 10);
 }
 
 function valorDe(t: Transacao): number {
@@ -319,6 +323,14 @@ export class RelatoriosPage implements OnInit {
       .filter((t) => t.status !== 'pago')
       .reduce((acc, t) => acc + valorDe(t), 0)
   );
+
+  readonly totalCartao = computed(() =>
+    this.transacoes().filter(ehCartao).reduce((total, t) => total + valorDe(t), 0)
+  );
+
+  ehCartao(t: Transacao): boolean {
+    return ehCartao(t);
+  }
 
   readonly maiorCategoria = computed(() => this.dadosCategorias()[0] ?? null);
 

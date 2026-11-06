@@ -1,6 +1,6 @@
 import { pool } from '../../core/config/database';
 import { TransacaoEntity } from '../transacao/transacao.types';
-import { ProjecaoMensalDto, AgrupamentoCategoriaDto, DashboardDespesaItemDto } from './dashboard.types';
+import { ProjecaoMensalDto, AgrupamentoCategoriaDto } from './dashboard.types';
 import { normalizeUserIdToUuid } from '../loan/loan.repository';
 
 export interface PlannedItemRow {
@@ -44,13 +44,27 @@ export const DashboardRepository = {
     try {
       const query = `
         SELECT
-          COALESCE(SUM(
+          (COALESCE(SUM(
             CASE 
               WHEN LOWER(tipo) IN ('entrada', 'receita') THEN valor
               WHEN LOWER(tipo) IN ('saida', 'despesa', 'cartao') THEN -valor
               ELSE 0
             END
-          ), 0)::numeric AS saldo_atual
+          ), 0) - (
+            SELECT COALESCE(SUM(ci.valor_pago), 0)
+            FROM card_invoices ci
+            JOIN credit_cards cc ON cc.id = ci.cartao_id
+            WHERE cc.usuario_id = $3
+              AND ci.data_pagamento < (make_date($2::int, $1::int, 1) + interval '1 month')::date
+              AND NOT EXISTS (
+                SELECT 1 FROM transacoes pagamento_fatura
+                WHERE pagamento_fatura.userid = $3
+                  AND pagamento_fatura.source_type = 'CREDIT_CARD_INVOICE_PAYMENT'
+                  AND pagamento_fatura.source_id = ci.id::text
+                  AND LOWER(pagamento_fatura.status) IN ('pago', 'paid', 'settled')
+                  AND pagamento_fatura.data < (make_date($2::int, $1::int, 1) + interval '1 month')::date
+              )
+          ))::numeric AS saldo_atual
         FROM transacoes
         WHERE LOWER(status) IN ('pago', 'paid', 'settled')
           AND data < (make_date($2::int, $1::int, 1) + interval '1 month')::date
@@ -111,8 +125,8 @@ export const DashboardRepository = {
         FROM transacoes t
         LEFT JOIN categoria c ON c.id = t.idcategoria
         WHERE t.userid = $1
-          AND t.data >= make_date($3::int, $2::int, 1)
-          AND t.data < (make_date($3::int, $2::int, 1) + interval '1 month')::date
+          AND (CASE WHEN t.cartaoid IS NOT NULL THEN t.pagamento ELSE t.data END) >= make_date($3::int, $2::int, 1)
+          AND (CASE WHEN t.cartaoid IS NOT NULL THEN t.pagamento ELSE t.data END) < (make_date($3::int, $2::int, 1) + interval '1 month')::date
         ORDER BY t.data DESC, t.id DESC
       `;
       const { rows } = await pool.query<TransacaoEntity>(query, [userid, mes, ano]);
@@ -258,13 +272,14 @@ export const DashboardRepository = {
     const query = `
       WITH transacoes_agregadas AS (
         SELECT 
-          EXTRACT(MONTH FROM t.data)::integer AS mes,
+          EXTRACT(MONTH FROM (CASE WHEN t.cartaoid IS NOT NULL THEN t.pagamento ELSE t.data END))::integer AS mes,
           COALESCE(SUM(CASE WHEN LOWER(t.tipo) IN ('entrada', 'receita') THEN t.valor ELSE 0 END), 0)::numeric AS rec_trans,
           COALESCE(SUM(CASE WHEN LOWER(t.tipo) IN ('saida', 'despesa', 'cartao') THEN t.valor ELSE 0 END), 0)::numeric AS desp_trans
         FROM transacoes t
         WHERE t.userid = $1
-          AND t.data >= make_date($2::int, 1, 1) AND t.data < make_date($2::int + 1, 1, 1)
-        GROUP BY EXTRACT(MONTH FROM t.data)
+          AND (CASE WHEN t.cartaoid IS NOT NULL THEN t.pagamento ELSE t.data END) >= make_date($2::int, 1, 1)
+          AND (CASE WHEN t.cartaoid IS NOT NULL THEN t.pagamento ELSE t.data END) < make_date($2::int + 1, 1, 1)
+        GROUP BY EXTRACT(MONTH FROM (CASE WHEN t.cartaoid IS NOT NULL THEN t.pagamento ELSE t.data END))
       ),
       planned_agregadas AS (
         SELECT 

@@ -35,6 +35,18 @@ describe('DashboardBusiness.calcularResumoFinanceiro - faturas de cartão', () =
     vi.mocked(DashboardRepository.getLoanInstallmentsMes).mockResolvedValue([]);
   });
 
+  it('soma 6 mil de contas com 2 mil de cartão nas obrigações do mês', async () => {
+    vi.mocked(DashboardRepository.getTransacoesMes).mockResolvedValue([
+      { id: 1, tipo: 'saida', valor: 6000, status: 'pendente', data: '2026-11-10' } as never,
+    ]);
+    vi.mocked(DashboardRepository.getCardInvoicesMes).mockResolvedValue([fatura('novembro', 2000, 2000)]);
+    const res = await DashboardBusiness.calcularResumoFinanceiro(11, 2026, 1);
+    expect(res.gastos_mensal).toBe(8000);
+    expect(res.total_dividas_mes).toBe(8000);
+    expect(res.gastos_cartao).toBe(2000);
+    expect(res.saldo_projetado).toBe(-7000);
+  });
+
   it('fatura paga continua no gasto do mês como realizado e sai da lista a pagar', async () => {
     vi.mocked(DashboardRepository.getCardInvoicesMes).mockResolvedValue([
       fatura('paga', 500, 0),

@@ -149,6 +149,9 @@
             <article class="resumo__hero" [class.resumo__hero--entrada]="tipo() === 'entrada'">
               <span class="resumo__label">{{ textos().total }} · {{ rotuloPeriodo() }}</span>
               <strong class="resumo__valor">{{ formatarMoeda(totalGeral()) }}</strong>
+              @if (tipo() === 'saida') {
+                <span class="resumo__hint">Inclui {{ formatarMoeda(totalCartao()) }} de cartão, pelo vencimento da fatura.</span>
+              }
               <span class="resumo__hint">
                 {{ transacoes().length }} lançamento{{ transacoes().length === 1 ? '' : 's' }}
                 @if (totalPendente() > 0) {
@@ -311,13 +314,13 @@
                         [class.transacao__icone--entrada]="!ehSaida(t)"
                         aria-hidden="true"
                       >
-                        <ion-icon [name]="!ehSaida(t) ? 'trending-up-outline' : t.cartaoid ? 'card-outline' : 'trending-down-outline'"></ion-icon>
+                        <ion-icon [name]="!ehSaida(t) ? 'trending-up-outline' : ehCartao(t) ? 'card-outline' : 'trending-down-outline'"></ion-icon>
                       </span>
                       <span class="transacao__info">
                         <span class="transacao__desc">{{ t.descricao }}</span>
                         <span class="transacao__meta">
                           {{ formatarData(t) }} · {{ t.subcategoria_nome || t.categoria_nome || 'Sem categoria' }}
-                          @if (t.cartaoid) {
+                          @if (ehCartao(t)) {
                             · Cartão
                           }
                         </span>
