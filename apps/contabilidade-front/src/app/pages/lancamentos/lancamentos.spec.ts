@@ -284,6 +284,24 @@ describe('Lancamentos', () => {
     expect(component.monthlyIncome()).toBe(10);
   });
 
+  it('exibe o total do cartão do mês inteiro mesmo com páginas ainda não carregadas', () => {
+    transacaoServiceStub.nextCursor.set('2026-10-01_9');
+    transacaoServiceStub.totaisExtrato.set({
+      entradas: 10000, saidas: 8000, pendentes: 5,
+      cartao: 2000, cartao_pago: 500, cartao_pendente: 1500,
+    });
+    fixture.detectChanges();
+    expect(component.totalCartao()).toBe(2000);
+    expect(component.cartaoPago()).toBe(500);
+    expect(component.cartaoPendente()).toBe(1500);
+    expect(component.monthlyExpenses()).toBe(8000);
+    const card = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="summary-card-expenses"]');
+    expect(card?.textContent).toContain('2.000,00');
+    expect(card?.textContent).toContain('500,00');
+    expect(card?.textContent).toContain('1.500,00');
+    expect(card?.textContent).toContain('Já incluído nas saídas do mês');
+  });
+
   it('não deve pedir nova página sem cursor', () => {
     const chamadas = transacaoServiceStub.carregarExtratoPaginado.mock.calls.length;
     const complete = vi.fn();

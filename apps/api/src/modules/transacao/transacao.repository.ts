@@ -525,13 +525,14 @@ export const TransacaoRepository = {
     const result = await pool.query<Record<keyof ExtratoTotais, string>>(
       `WITH itens AS (
          SELECT CASE WHEN t.tipo = 'entrada' THEN 'entrada' ELSE 'saida' END AS tipo,
-                t.valor, t.status = 'pendente' AS pendente
+                t.valor, t.status = 'pendente' AS pendente,
+                (t.cartaoid IS NOT NULL OR t.tipo = 'cartao') AS cartao
          FROM transacoes t
          WHERE t.userid = $1
            AND ($2::date IS NULL OR (CASE WHEN t.cartaoid IS NOT NULL THEN t.pagamento ELSE t.data END) >= $2::date)
            AND ($3::date IS NULL OR (CASE WHEN t.cartaoid IS NOT NULL THEN t.pagamento ELSE t.data END) <  $3::date)
          UNION ALL
-         SELECT 'saida', ii.valor_parcela, ci.status <> 'PAID'
+         SELECT 'saida', ii.valor_parcela, ci.status <> 'PAID', true
          FROM invoice_items ii
          JOIN card_invoices ci ON ci.id = ii.fatura_id
          JOIN credit_cards cc ON cc.id = ci.cartao_id
@@ -539,14 +540,14 @@ export const TransacaoRepository = {
            AND ($2::date IS NULL OR ci.data_vencimento >= $2::date)
            AND ($3::date IS NULL OR ci.data_vencimento <  $3::date)
          UNION ALL
-         SELECT CASE WHEN pt.tipo = 'RECEITA' THEN 'entrada' ELSE 'saida' END, pt.valor, true
+         SELECT CASE WHEN pt.tipo = 'RECEITA' THEN 'entrada' ELSE 'saida' END, pt.valor, true, false
          FROM planned_transactions pt
          WHERE pt.userid = $1
            AND pt.status = 'PENDING'
            AND ($2::date IS NULL OR pt.data_prevista >= $2::date)
            AND ($3::date IS NULL OR pt.data_prevista <  $3::date)
          UNION ALL
-         SELECT 'saida', li.original_amount, true
+         SELECT 'saida', li.original_amount, true, false
          FROM loan_installments li
          JOIN loans l ON l.id = li.loan_id
          WHERE l.user_id IN ($4, $5)
@@ -560,13 +561,19 @@ export const TransacaoRepository = {
               COALESCE(SUM(valor) FILTER (WHERE tipo = 'entrada' AND NOT pendente), 0) AS entradas_pagas,
               COALESCE(SUM(valor) FILTER (WHERE tipo = 'entrada' AND pendente), 0) AS entradas_pendentes,
               COALESCE(SUM(valor) FILTER (WHERE tipo = 'saida' AND NOT pendente), 0) AS saidas_pagas,
-              COALESCE(SUM(valor) FILTER (WHERE tipo = 'saida' AND pendente), 0) AS saidas_pendentes
+              COALESCE(SUM(valor) FILTER (WHERE tipo = 'saida' AND pendente), 0) AS saidas_pendentes,
+              COALESCE(SUM(valor) FILTER (WHERE tipo = 'saida' AND cartao), 0) AS cartao,
+              COALESCE(SUM(valor) FILTER (WHERE tipo = 'saida' AND cartao AND NOT pendente), 0) AS cartao_pago,
+              COALESCE(SUM(valor) FILTER (WHERE tipo = 'saida' AND cartao AND pendente), 0) AS cartao_pendente
        FROM itens`,
       [userid, inicio, fimExclusivo, normalizeUserIdToUuid(userid), String(userid)]
     );
     const row = result.rows[0];
     const num = (v: string | undefined) => Number(v ?? 0);
     return {
+      cartao: num(row?.cartao),
+      cartao_pago: num(row?.cartao_pago),
+      cartao_pendente: num(row?.cartao_pendente),
       entradas: num(row?.entradas),
       saidas: num(row?.saidas),
       pendentes: num(row?.pendentes),

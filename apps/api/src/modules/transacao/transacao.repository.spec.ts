@@ -54,6 +54,19 @@ describe('TransacaoRepository', () => {
     });
   });
 
+  it('retorna os totais de cartão do período completo separados por pagamento', async () => {
+    vi.mocked(pool.query).mockResolvedValueOnce({ rows: [{
+      entradas: '10000', saidas: '8000', pendentes: '5',
+      cartao: '2000', cartao_pago: '500', cartao_pendente: '1500',
+    }] } as never);
+    const totais = await TransacaoRepository.extratoTotais(7, '2026-11-01', '2026-12-01');
+    expect(totais).toMatchObject({ saidas: 8000, cartao: 2000, cartao_pago: 500, cartao_pendente: 1500 });
+    const [sql, params] = vi.mocked(pool.query).mock.calls[0];
+    expect(sql).toContain("t.cartaoid IS NOT NULL OR t.tipo = 'cartao'");
+    expect(sql).toContain("ci.status <> 'PAID', true");
+    expect(params?.slice(0, 3)).toEqual([7, '2026-11-01', '2026-12-01']);
+  });
+
   describe('listarMes (isolamento por usuário)', () => {
     it('filtra pelo userid', async () => {
       await TransacaoRepository.listarMes(7, [{ cartaoid: null, inicio: '2026-02-01', fim: '2026-02-28' }]);

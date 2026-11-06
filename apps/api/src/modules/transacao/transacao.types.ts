@@ -128,6 +128,9 @@ export interface TransacaoLoteItem extends CreateTransacaoDto {
 export interface ExtratoTotais {
   /** Entradas pagas + pendentes. */
   entradas: number;
+  cartao?: number;
+  cartao_pago?: number;
+  cartao_pendente?: number;
   /** Saídas pagas + pendentes (tipos 'saida', 'cartao'...). */
   saidas: number;
   /** QUANTIDADE de itens pendentes (não é soma de valores). */

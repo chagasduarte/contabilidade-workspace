@@ -89,6 +89,9 @@ export interface ExtratoFiltros {
 
 export interface ExtratoTotais {
   entradas: number;
+  cartao?: number;
+  cartao_pago?: number;
+  cartao_pendente?: number;
   saidas: number;
   pendentes: number;
   entradas_pagas?: number;

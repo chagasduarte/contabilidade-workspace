@@ -116,6 +116,15 @@
         {{ saidasPendentes() | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}
       </small>
     </article>
+    <article class="transactions-summary__card transactions-summary__card--expense" data-testid="summary-card-expenses">
+      <span>Cartão no mês</span>
+      <strong>{{ totalCartao() | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}</strong>
+      <small class="transactions-summary__sub">
+        Pago: {{ cartaoPago() | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }} · A pagar:
+        {{ cartaoPendente() | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}
+      </small>
+      <small class="transactions-summary__sub">Já incluído nas saídas do mês</small>
+    </article>
     <article class="transactions-summary__card transactions-summary__card--pending">
       <span>Lançamentos pendentes</span>
       <strong>{{ pendingCount() }}</strong>

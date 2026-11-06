@@ -163,6 +163,7 @@ export class Lancamentos implements OnInit {
       const isPending = item.status === 'pendente';
 
       const isCard =
+        !!item.cartaoid ||
         item.origem === 'CARTAO' ||
         item.source_type === 'CREDIT_CARD_ITEM' ||
         item.tipo === 'cartao';
@@ -310,6 +311,22 @@ export class Lancamentos implements OnInit {
     () =>
       this.transacaoService.totaisExtrato()?.saidas ??
       this.saidasPagas() + this.saidasPendentes()
+  );
+
+  readonly cartaoPago = computed(() =>
+    this.transacaoService.totaisExtrato()?.cartao_pago ??
+    this.todasTransacoes().filter(t => t.isCard && t.type === 'Saída' && t.status !== 'Pendente')
+      .reduce((total, t) => total + t.amount, 0)
+  );
+
+  readonly cartaoPendente = computed(() =>
+    this.transacaoService.totaisExtrato()?.cartao_pendente ??
+    this.todasTransacoes().filter(t => t.isCard && t.type === 'Saída' && t.status === 'Pendente')
+      .reduce((total, t) => total + t.amount, 0)
+  );
+
+  readonly totalCartao = computed(() =>
+    this.transacaoService.totaisExtrato()?.cartao ?? this.cartaoPago() + this.cartaoPendente()
   );
 
   readonly pendingCount = computed<number>(
